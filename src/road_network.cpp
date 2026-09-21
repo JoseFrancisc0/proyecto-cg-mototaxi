@@ -146,5 +146,6 @@ void RoadNetwork::generate_roads(Ref<TerrainNoise> terrain, int grid_size, doubl
             r.h[i] = acc / cnt;
         }
         _roads.push_back(r);
+        
     }
 }

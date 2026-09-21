@@ -2,17 +2,20 @@
 
 Este nombre no es el final, porque viene con copyright. Más adelante se le va a poner un mejor nombre.
 
-Integrantes:
+*Integrantes*:
 - Rodrigo Félix Meza Gavilán
 - Josep Ratzinger Castro Ferrer
 - Jose Francisco Wong Orrillo
 - Jose Joaquín Osnayo Matos
 
-Curso: CS4016 - Computación Gráfica
-Ciclo: 2026 - 2
-Universidad: UTEC
+*Curso*: CS4016 - Computación Gráfica
+
+*Ciclo*: 2026 - 2
+
+*Universidad*: UTEC
 
 *In memoriam Daniel Casquino*
+
 ---
 
 El presente repositorio contiene todos los archivos utilizados para el desarrollo del proyecto final del curso. Este fue creado a partir de un template de Godot para que pueda funcionar con C++. Nativamente, Godot trabaja con archivos `.gd` para la construcción de scripts. 
@@ -60,7 +63,19 @@ No lo tocan, eso es de la magia del template. Yo no lo he tocado y me ha funcion
 1. Instalan los requisitos.
 2. Asumiendo que su compu es 64 bits, abren **x64 Native Tools Command Prompt for VS**
 3. Se dirigen a la ubicación del repo del proyecto
-4. En el root (no en las subcarpetas `project`, ni `src`, ni `godot-cpp`, ninguna de esas), hacen esto: `scons api_version=4.7 -j8` . Eso debería compilar los archivos C++ que necesita el proyectol.
+4. En el root (no en las subcarpetas `project`, ni `src`, ni `godot-cpp`, ninguna de esas), hacen esto: 
+
+```
+git submodule update --init --recursive
+```
+
+y luego esto
+
+```
+scons api_version=4.7 -j8
+```
+Eso debería compilar los archivos C++ que necesita el proyecto. LA PRIMERA VEZ que hagan esto va a demorar. Las siguientes veces va a ser mas rápido.
+
 5. Abren Godot Engine, y hacen click en "Import Project" o "Importar Proyecto"
 6. Van a la ubicación del repo, entran a `project`, y hacen click en `project.godot`
 7. Aceptan el mensajito, les va a abrir el repo
