@@ -16,9 +16,16 @@ void RoadNetwork::_bind_methods() {
     ClassDB::bind_method(D_METHOD("find_path", "terrain", "start", "goal", "area_half"), &RoadNetwork::find_path);
     ClassDB::bind_method(D_METHOD("generate_roads", "terrain", "grid_size", "cell_size", "road_cfg"), &RoadNetwork::generate_roads);
     ClassDB::bind_method(D_METHOD("get_road_count"), &RoadNetwork::get_road_count);
+    ClassDB::bind_method(D_METHOD("get_poi_points"), &RoadNetwork::get_poi_points);
 }
 
 RoadNetwork::RoadNetwork() {}
+
+PackedVector2Array RoadNetwork::get_poi_points() const {
+    PackedVector2Array out;
+    for (const Vector2 &p : _pois) out.push_back(p);
+    return out;
+}
 
 PackedVector3Array RoadNetwork::find_path(Ref<TerrainNoise> terrain, Vector2 start, Vector2 goal, double area_half) const {
     PackedVector3Array path;
@@ -84,6 +91,7 @@ PackedVector3Array RoadNetwork::find_path(Ref<TerrainNoise> terrain, Vector2 sta
 
 void RoadNetwork::generate_roads(Ref<TerrainNoise> terrain, int grid_size, double cell_size, Dictionary road_cfg) {
     _roads.clear();
+    _pois.clear();
     if (terrain.is_null()) return;
 
     auto cfg_d = [&](const char *k, double def) { Variant v = road_cfg.get(k, def); return (double)v; };
@@ -115,6 +123,7 @@ void RoadNetwork::generate_roads(Ref<TerrainNoise> terrain, int grid_size, doubl
         }
         if (ok) pts.push_back(Vector2(x, z));
     }
+    _pois = pts;
 
     std::set<std::pair<int,int>> seen;
     std::vector<std::pair<int,int>> edges;
