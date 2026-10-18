@@ -1,11 +1,25 @@
 @tool
 extends MeshInstance3D
+## Controlador del terreno de terrain_demo.tscn.
+##
+## Flujo de trabajo (botones al final del Inspector):
+##   1. "Generar terreno nuevo (T0)": crea el terreno desde el ruido con la configuracion
+##      actual del Inspector (regiones, rios y caminos segun sus opciones). Sin erosion.
+##   2. "Aplicar erosion al terreno actual": erosiona el terreno que se esta viendo, no uno
+##      nuevo. Cada clic se acumula. Los rios y caminos se recalculan encima del suelo erosionado.
+##   3. "Volver a la version guardada": restaura la malla guardada en la escena y su configuracion.
+##
+## Al guardar la escena (Ctrl+S) se guardan juntos la malla, la configuracion con la que se
+## genero (terrain_snapshot) y el suelo (ground_bytes = T0 + erosiones, sin rios ni caminos).
+## Al abrir la escena, el Inspector muestra la configuracion del terreno guardado.
 
 @export_range(1, 4096, 1) var grid_size: int = 128
 @export_range(0.01, 100.0, 0.01) var cell_size: float = 1.0
 @export var noise_seed: int = 1337
 
 @export_group("Red de caminos")
+## Activa o desactiva todos los caminos.
+@export var preview_roads := true
 @export var num_points := 6
 @export var min_point_dist := 25.0
 @export var k_neighbors := 2
@@ -18,8 +32,6 @@ extends MeshInstance3D
 @export var road_width := 4.0
 @export var road_fade := 3.0
 @export var road_smooth := 3
-## Caminos sobre T0, sin necesidad de ejecutar la erosion.
-@export var preview_roads := true
 
 @export_group("Rios y drenaje")
 @export var hydrology_enabled := true
@@ -31,7 +43,7 @@ extends MeshInstance3D
 @export_range(2, 100, 1) var breach_radius := 24.0
 
 @export_group("Erosion (paper)")
-@export var erosion_enabled := false
+## Pasos de la primera resolucion. Se aplican con el boton "2. Aplicar erosion".
 @export var erosion_fluvial := 3000
 @export var erosion_thermal := 600
 @export var erosion_deposition := 2000
@@ -59,21 +71,182 @@ extends MeshInstance3D
 @export var coast_talus := 0.25
 @export var mountain_talus := 1.15
 @export var jungle_talus := 0.60
-## Publishes rho/s0 to the existing CG-A erosion when regenerating with erosion.
+## Usa rho/s0 de cada region cuando se aplica la erosion.
 @export var use_regional_erosion_maps := true
+@export_group("")
 
-@export_tool_button("Vista previa: regiones, rios y caminos") var generar_t0 = generate_base
-@export_tool_button("Regenerar con erosion CG-A") var regenerar = generate
-@export_tool_button("Volver a la malla guardada") var restaurar = restore_saved_mesh
+@export_tool_button("1. Generar terreno nuevo (T0)") var boton_generar = generate_base
+@export_tool_button("2. Aplicar erosion al terreno actual") var boton_erosion = apply_erosion
+@export_tool_button("Volver a la version guardada") var boton_restaurar = restore_saved_mesh
+
+## Configuracion con la que se genero la malla visible, mas la lista de erosiones aplicadas.
+@export_storage var terrain_snapshot: Dictionary = {}
+## Suelo de la malla visible (T0 + erosiones), sin rios ni caminos, en float32.
+@export_storage var ground_bytes: PackedByteArray = PackedByteArray()
+
+## Parametros que definen el terreno. Se guardan con la malla y se restauran con ella.
+const BASE_PARAMS := [
+	"grid_size", "cell_size", "noise_seed",
+	"preview_roads", "num_points", "min_point_dist", "k_neighbors", "hierarchical_roads", "town_count",
+	"block_size", "highway_width", "avenue_width", "street_width", "road_width", "road_fade", "road_smooth",
+	"hydrology_enabled", "river_catchment", "breach_radius",
+	"three_regions", "region_patches", "transition_width", "border_warp",
+	"coast_base", "coast_amplitude", "coast_frequency",
+	"mountain_base", "mountain_amplitude", "mountain_frequency",
+	"jungle_base", "jungle_amplitude", "jungle_frequency",
+	"coast_hardness", "mountain_hardness", "jungle_hardness",
+	"coast_talus", "mountain_talus", "jungle_talus", "use_regional_erosion_maps",
+]
+## Parametros de cada aplicacion de erosion (se registran en el historial).
+const EROSION_PARAMS := ["erosion_fluvial", "erosion_thermal", "erosion_deposition", "erosion_levels"]
+
 const TerrainStub = preload("res://scripts/terrain_world_stub.gd")
 var terrain_world
-var _saved_mesh: Mesh
-var _saved_material: Material
 var last_road_count := 0
 var last_surface: TerrainMesh
 var last_roads: RoadNetwork
-var _generated_details: Array[MeshInstance3D] = []
+var _saved_mesh: Mesh
+var _saved_material: Material
+var _saved_snapshot: Dictionary = {}
+var _saved_ground: PackedByteArray = PackedByteArray()
 var _saved_details: Array[Dictionary] = []
+var _generated_details: Array[MeshInstance3D] = []
+
+
+func _ready() -> void:
+	# Abrir la escena nunca reemplaza el terreno guardado.
+	_saved_mesh = mesh
+	_saved_material = material_override
+	_saved_snapshot = terrain_snapshot.duplicate(true)
+	_saved_ground = ground_bytes.duplicate()
+	for detail_name: String in ["AguaGenerada", "PuentesGenerados"]:
+		var detail := get_node_or_null(detail_name) as MeshInstance3D
+		if detail != null:
+			_saved_details.append({"name": detail_name, "mesh": detail.mesh, "material": detail.material_override})
+			_generated_details.append(detail)
+	# El Inspector muestra la configuracion con la que se genero el terreno guardado.
+	if not terrain_snapshot.is_empty():
+		_apply_params(terrain_snapshot.get("params", {}))
+	_configure_stub()
+	if mesh == null:
+		generate_base()
+
+
+# ---------------------------------------------------------------------------
+# Botones
+# ---------------------------------------------------------------------------
+
+## 1. Terreno nuevo desde el ruido, sin erosion.
+func generate_base() -> void:
+	if not _valid_grid():
+		return
+	var terrain := _configure_stub()
+	var cfg := _build_cfg()
+	var roads := _make_roads(terrain, cfg)
+	var builder := TerrainMesh.new()
+	var t0 := Time.get_ticks_msec()
+	var generated := builder.generate_mesh(terrain, roads, grid_size, cell_size, cfg)
+	if generated == null:
+		push_error("No se pudo generar el terreno.")
+		return
+	terrain_snapshot = {"params": _current_params(), "erosions": []}
+	_show(builder, roads, generated, "Terreno T0 generado", t0)
+
+
+## 2. Erosiona el terreno actual. Se acumula con cada clic.
+func apply_erosion() -> void:
+	if terrain_snapshot.is_empty() or ground_bytes.is_empty():
+		push_warning("Este terreno no tiene un suelo guardado para erosionar. Usa primero '1. Generar terreno nuevo (T0)'.")
+		return
+	var params: Dictionary = terrain_snapshot.get("params", {})
+	var changed := _changed_params(params)
+	if not changed.is_empty():
+		push_warning("La erosion se aplica al terreno actual con su configuracion. Se ignoran los cambios en: %s. Para usarlos, genera un terreno nuevo." % ", ".join(changed))
+	_apply_params(params)
+	if not _valid_grid():
+		return
+	var terrain := _configure_stub()
+	var cfg := _build_cfg()
+	var roads := _make_roads(terrain, cfg)
+	var builder := TerrainMesh.new()
+	if not builder.set_ground_heights(ground_bytes.to_float32_array(), grid_size, cell_size):
+		push_error("El suelo guardado no coincide con Grid Size y Cell Size.")
+		return
+	var t0 := Time.get_ticks_msec()
+	var generated := builder.erode_ground(terrain, roads, grid_size, cell_size, cfg)
+	if generated == null:
+		push_error("No se pudo erosionar el terreno.")
+		return
+	var applied := {"regional_maps": cfg["regional_erosion_maps"]}
+	for param: String in EROSION_PARAMS:
+		applied[param] = get(param)
+	var erosions: Array = terrain_snapshot.get("erosions", [])
+	erosions.append(applied)
+	terrain_snapshot["erosions"] = erosions
+	_show(builder, roads, generated, "Erosion aplicada", t0)
+
+
+## 3. Vuelve a la malla guardada en la escena, con su configuracion y su suelo.
+func restore_saved_mesh() -> void:
+	_clear_details()
+	last_surface = null
+	last_roads = null
+	terrain_snapshot = _saved_snapshot.duplicate(true)
+	ground_bytes = _saved_ground.duplicate()
+	if not terrain_snapshot.is_empty():
+		_apply_params(terrain_snapshot.get("params", {}))
+	_configure_stub()
+	if _saved_mesh != null:
+		mesh = _saved_mesh
+		material_override = _saved_material
+		for detail: Dictionary in _saved_details:
+			_add_detail(detail.name, detail.mesh, Color.WHITE)
+			_generated_details[-1].material_override = detail.material
+
+
+## Compatibilidad: T0 y una erosion en un solo paso.
+func generate() -> void:
+	generate_base()
+	apply_erosion()
+
+
+# ---------------------------------------------------------------------------
+# Configuracion
+# ---------------------------------------------------------------------------
+
+func _valid_grid() -> bool:
+	if grid_size < 1 or grid_size > 4096 or not is_finite(cell_size) or cell_size <= 0.0:
+		push_error("El terreno requiere entre 1 y 4096 celdas y un tamano de celda positivo y finito.")
+		return false
+	return true
+
+
+func _current_params() -> Dictionary:
+	var params := {}
+	for param: String in BASE_PARAMS:
+		params[param] = get(param)
+	return params
+
+
+func _apply_params(params: Dictionary) -> void:
+	for param: String in params:
+		if param in BASE_PARAMS:
+			set(param, params[param])
+
+
+## Nombres de los parametros del Inspector que difieren de 'params'.
+func _changed_params(params: Dictionary) -> PackedStringArray:
+	var changed := PackedStringArray()
+	for param: String in params:
+		if not param in BASE_PARAMS:
+			continue
+		var current = get(param)
+		var saved = params[param]
+		var same: bool = is_equal_approx(current, saved) if typeof(current) == TYPE_FLOAT else current == saved
+		if not same:
+			changed.append(param)
+	return changed
+
 
 func _region_config() -> Dictionary:
 	return {
@@ -86,35 +259,6 @@ func _region_config() -> Dictionary:
 		"coast_talus": coast_talus, "mountain_talus": mountain_talus, "jungle_talus": jungle_talus,
 	}
 
-func generate_base() -> void:
-	_generate(false)
-
-
-func _ready() -> void:
-	# Never replace the saved terrain merely by opening or running the scene.
-	# S11 CG-B is reviewed explicitly using the T0 button in the inspector.
-	_saved_mesh = mesh
-	_saved_material = material_override
-	for detail_name: String in ["AguaGenerada", "PuentesGenerados"]:
-		var detail := get_node_or_null(detail_name) as MeshInstance3D
-		if detail != null:
-			_saved_details.append({"name": detail_name, "mesh": detail.mesh, "material": detail.material_override})
-			_generated_details.append(detail)
-	_configure_stub()
-	if mesh == null:
-		generate_base()
-
-func restore_saved_mesh() -> void:
-	_clear_details()
-	last_surface = null
-	last_roads = null
-	if terrain_world != null: terrain_world.clear_surface()
-	if _saved_mesh != null:
-		mesh = _saved_mesh
-		material_override = _saved_material
-		for detail: Dictionary in _saved_details:
-			_add_detail(detail.name, detail.mesh, Color.WHITE)
-			_generated_details[-1].material_override = detail.material
 
 func _configure_stub() -> TerrainNoise:
 	var terrain := TerrainNoise.new()
@@ -127,19 +271,10 @@ func _configure_stub() -> TerrainNoise:
 	terrain_world.configure(terrain, grid_size * cell_size)
 	return terrain
 
-func generate() -> void:
-	_generate(erosion_enabled)
 
-func _generate(apply_erosion: bool) -> void:
-	if grid_size < 1 or grid_size > 4096 or not is_finite(cell_size) or cell_size <= 0.0:
-		push_error("El terreno requiere entre 1 y 4096 celdas y un tamano de celda positivo y finito.")
-		return
-	# 1. Configurar ruido y biomas
-	var terrain := _configure_stub()
-
-	# 2. Generar caminos sobre el terreno
-	var cfg := {
-		"num_points": num_points if apply_erosion or preview_roads else 0,
+func _build_cfg() -> Dictionary:
+	return {
+		"num_points": num_points if preview_roads else 0,
 		"min_point_dist": min_point_dist,
 		"k_neighbors": k_neighbors,
 		"hierarchical_roads": hierarchical_roads,
@@ -148,7 +283,7 @@ func _generate(apply_erosion: bool) -> void:
 		"road_width": road_width,
 		"road_fade": road_fade,
 		"road_smooth": road_smooth,
-		"erosion_enabled": apply_erosion,
+		"erosion_enabled": false,
 		"hydrology_enabled": hydrology_enabled, "river_catchment": river_catchment,
 		"breach_radius": breach_radius,
 		"regional_erosion_maps": three_regions and use_regional_erosion_maps,
@@ -157,31 +292,35 @@ func _generate(apply_erosion: bool) -> void:
 		"erosion_deposition": erosion_deposition,
 		"erosion_levels": erosion_levels,
 	}
+
+
+func _make_roads(terrain: TerrainNoise, cfg: Dictionary) -> RoadNetwork:
 	var roads := RoadNetwork.new()
+	# La red jerarquica se construye en C++ sobre el suelo final; la simple, aqui sobre T0.
 	if not hierarchical_roads:
 		roads.generate_roads(terrain, grid_size, cell_size, cfg)
+	return roads
 
 
-	# 3. Ensamblar la geometría final
-	var mesh_builder := TerrainMesh.new()
-	var t0 := Time.get_ticks_msec()
-	var generated := mesh_builder.generate_mesh(terrain, roads, grid_size, cell_size, cfg)
-	if generated == null:
-		push_error("No se pudo generar el terreno.")
-		return
+# ---------------------------------------------------------------------------
+# Mostrar el resultado
+# ---------------------------------------------------------------------------
+
+func _show(builder: TerrainMesh, roads: RoadNetwork, generated: ArrayMesh, label: String, t0: int) -> void:
 	mesh = generated
-	last_surface = mesh_builder
+	ground_bytes = builder.get_ground_heights().to_byte_array()
+	last_surface = builder
 	last_roads = roads
 	last_road_count = roads.get_road_count()
-	terrain_world.set_surface(mesh_builder, roads)
+	terrain_world.set_surface(builder, roads)
 	_clear_details()
-	_add_detail("AguaGenerada", mesh_builder.get_water_mesh(), Color(0.08, 0.36, 0.53))
-	_add_detail("PuentesGenerados", mesh_builder.get_bridge_mesh(), Color(0.20, 0.22, 0.24))
-	print("Terreno generado en %.1f s (erosion: %s, niveles: %d)" % [(Time.get_ticks_msec() - t0) / 1000.0, apply_erosion, erosion_levels])
-
+	_add_detail("AguaGenerada", builder.get_water_mesh(), Color(0.08, 0.36, 0.53))
+	_add_detail("PuentesGenerados", builder.get_bridge_mesh(), Color(0.20, 0.22, 0.24))
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	material_override = mat
+	print("%s en %.1f s (erosiones acumuladas: %d)" % [label, (Time.get_ticks_msec() - t0) / 1000.0, terrain_snapshot.get("erosions", []).size()])
+
 
 func _clear_details() -> void:
 	for detail in _generated_details:
@@ -189,6 +328,7 @@ func _clear_details() -> void:
 			remove_child(detail)
 			detail.queue_free()
 	_generated_details.clear()
+
 
 func _add_detail(detail_name: String, detail_mesh: ArrayMesh, color: Color) -> void:
 	if detail_mesh == null or detail_mesh.get_surface_count() == 0:

@@ -26,9 +26,11 @@ El flujo autorizado ahora es: relieve regional, CG-A cuando este activo, drenaje
 
 1. Reiniciar Godot despues de compilar para cargar la DLL nueva.
 2. Abrir `project/project.godot`, la escena **terrain_demo.tscn** y seleccionar **Terrain**.
-3. Pulsar **Vista previa: regiones, rios y caminos** para revisar sin ejecutar CG-A. La opcion **Hydrology Enabled** agrega drenaje, lagos e incision localizada. Desactivarla junto con **Preview Roads** permite revisar solo T0.
-4. Para revisar CG-A, activar **Erosion Enabled** y pulsar **Regenerar con erosion CG-A**. El preset completo puede tardar.
-5. **Volver a la malla guardada** devuelve la vista cargada al iniciar y retira los detalles nuevos.
+3. **1. Generar terreno nuevo (T0)** crea el terreno desde el ruido con la configuracion del Inspector (regiones, rios con **Hydrology Enabled**, caminos con **Preview Roads**). No aplica erosion.
+4. **2. Aplicar erosion al terreno actual** erosiona el terreno visible con los pasos del grupo *Erosion (paper)*. No genera uno nuevo: cada clic se acumula y los rios y caminos se recalculan encima del suelo erosionado. Si se cambiaron parametros del terreno en el Inspector, se ignoran (aviso en Salida) hasta generar un T0 nuevo.
+5. **Volver a la version guardada** restaura la malla guardada en la escena junto con su configuracion.
+
+Al guardar la escena (Ctrl+S) se guardan juntos la malla, la configuracion con que se genero (`terrain_snapshot`, incluido el historial de erosiones) y el suelo (`ground_bytes`: T0 + erosiones, sin rios ni caminos). Al abrir la escena, el Inspector muestra esa configuracion. Prueba: `tests/workflow_test.gd`.
 
 Guardar despues de generar conserva la nueva vista, incluyendo agua y puentes. La copia mas reciente de la escena del usuario, semilla 123, esta en `output/backups/terrain_before_hydrology_seed123.tscn`. No restaurar copias antiguas sobre cambios recientes del usuario.
 

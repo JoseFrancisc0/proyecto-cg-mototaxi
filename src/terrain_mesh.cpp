@@ -34,6 +34,10 @@ void TerrainMesh::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_drainage", "x", "z"), &TerrainMesh::get_drainage);
 	ClassDB::bind_method(D_METHOD("get_hydrology_data"), &TerrainMesh::get_hydrology_data);
 	ClassDB::bind_method(D_METHOD("generate_mesh", "terrain", "roads", "grid_size", "cell_size", "road_cfg"), &TerrainMesh::generate_mesh);
+	ClassDB::bind_method(D_METHOD("erode_ground", "terrain", "roads", "grid_size", "cell_size", "road_cfg"), &TerrainMesh::erode_ground);
+	ClassDB::bind_method(D_METHOD("rebuild_surface", "terrain", "roads", "grid_size", "cell_size", "road_cfg"), &TerrainMesh::rebuild_surface);
+	ClassDB::bind_method(D_METHOD("get_ground_heights"), &TerrainMesh::get_ground_heights);
+	ClassDB::bind_method(D_METHOD("set_ground_heights", "heights", "grid_size", "cell_size"), &TerrainMesh::set_ground_heights);
 }
 
 TerrainMesh::TerrainMesh() {}
@@ -115,37 +119,79 @@ Dictionary TerrainMesh::get_hydrology_data() const {
 	return result;
 }
 
+static bool valid_grid(int grid_size, double cell_size) {
+	return grid_size >= 1 && grid_size <= 4096 && std::isfinite(cell_size) && cell_size > 0.0;
+}
+
 Ref<ArrayMesh> TerrainMesh::generate_mesh(Ref<TerrainNoise> terrain, Ref<RoadNetwork> roads, int grid_size, double cell_size, Dictionary road_cfg) {
-	if (terrain.is_null() || grid_size < 1 || grid_size > 4096 ||
-			!std::isfinite(cell_size) || cell_size <= 0.0)
+	if (terrain.is_null() || !valid_grid(grid_size, cell_size))
 		return Ref<ArrayMesh>();
 
-	auto cfg_d = [&](const char *k, double def) { Variant v = road_cfg.get(k, def); return (double)v; };
-	double road_width = std::max(0.0, cfg_d("road_width", 4.0));
-	double road_fade = std::max(0.01, cfg_d("road_fade", 3.0));
-
-	const double area_half = grid_size * cell_size * 0.5;
+	// 1. Suelo T0 desde el ruido.
 	const int n = grid_size + 1;
-	const double offset = area_half;
-	std::vector<double> H((size_t)n * n);
-	std::vector<Color> Cv((size_t)n * n);
+	const double offset = grid_size * cell_size * 0.5;
+	ground_height.assign((size_t)n * n, 0.0);
+	ground_n = n;
+	ground_cell = cell_size;
+	for (int iz = 0; iz < n; iz++)
+		for (int ix = 0; ix < n; ix++)
+			ground_height[(size_t)iz * n + ix] = terrain->get_height(ix * cell_size - offset, iz * cell_size - offset);
 
-	const std::vector<RoadSegment> *roads_ptr = roads.is_valid() ? &roads->get_roads_internal() : nullptr;
+	// 2. Erosion opcional en el mismo paso (compatibilidad con pruebas y scripts anteriores).
+	if ((bool)road_cfg.get("erosion_enabled", false))
+		erode_heights(ground_height, terrain, n, cell_size, road_cfg);
 
-	for (int iz = 0; iz < n; iz++) {
-		for (int ix = 0; ix < n; ix++) {
-			double x = ix * cell_size - offset;
-			double z = iz * cell_size - offset;
-			double base_h = terrain->get_height(x, z);
-			Color col = terrain->get_biome_color(x, z, base_h);
+	// 3. Rios, caminos y malla sobre el suelo.
+	return build_surface(terrain, roads, grid_size, cell_size, road_cfg);
+}
 
-			H[(size_t)iz * n + ix] = base_h;
-			Cv[(size_t)iz * n + ix] = col;
-		}
+Ref<ArrayMesh> TerrainMesh::erode_ground(Ref<TerrainNoise> terrain, Ref<RoadNetwork> roads, int grid_size, double cell_size, Dictionary road_cfg) {
+	if (terrain.is_null() || !valid_grid(grid_size, cell_size) || ground_n != grid_size + 1 ||
+			ground_height.size() != (size_t)ground_n * ground_n)
+		return Ref<ArrayMesh>();
+	erode_heights(ground_height, terrain, ground_n, cell_size, road_cfg);
+	Dictionary cfg = road_cfg.duplicate();
+	cfg["erosion_enabled"] = true; // los caminos deben seguir el suelo erosionado
+	return build_surface(terrain, roads, grid_size, cell_size, cfg);
+}
+
+Ref<ArrayMesh> TerrainMesh::rebuild_surface(Ref<TerrainNoise> terrain, Ref<RoadNetwork> roads, int grid_size, double cell_size, Dictionary road_cfg) {
+	if (terrain.is_null() || !valid_grid(grid_size, cell_size) || ground_n != grid_size + 1 ||
+			ground_height.size() != (size_t)ground_n * ground_n)
+		return Ref<ArrayMesh>();
+	return build_surface(terrain, roads, grid_size, cell_size, road_cfg);
+}
+
+PackedFloat32Array TerrainMesh::get_ground_heights() const {
+	PackedFloat32Array out;
+	out.resize((int64_t)ground_height.size());
+	for (size_t i = 0; i < ground_height.size(); i++)
+		out.set((int64_t)i, (float)ground_height[i]);
+	return out;
+}
+
+bool TerrainMesh::set_ground_heights(const PackedFloat32Array &heights, int grid_size, double cell_size) {
+	if (!valid_grid(grid_size, cell_size))
+		return false;
+	const int n = grid_size + 1;
+	if (heights.size() != (int64_t)n * n)
+		return false;
+	ground_height.resize((size_t)n * n);
+	for (int64_t i = 0; i < heights.size(); i++) {
+		double h = heights[i];
+		if (!std::isfinite(h))
+			return false;
+		ground_height[(size_t)i] = h;
 	}
+	ground_n = n;
+	ground_cell = cell_size;
+	return true;
+}
 
-	// Erosion del paper (Schott et al. 2024): H entra y sale erosionada.
-	if ((bool)road_cfg.get("erosion_enabled", false)) {
+void TerrainMesh::erode_heights(std::vector<double> &H, Ref<TerrainNoise> terrain, int n, double cell_size, const Dictionary &road_cfg) {
+	auto cfg_d = [&](const char *k, double def) { Variant v = road_cfg.get(k, def); return (double)v; };
+	const double offset = (n - 1) * cell_size * 0.5;
+	{
 		ErosionSteps steps;
 		steps.fluvial = (int)cfg_d("erosion_fluvial", 3000.0);
 		steps.thermal = (int)cfg_d("erosion_thermal", 600.0);
@@ -165,6 +211,21 @@ Ref<ArrayMesh> TerrainMesh::generate_mesh(Ref<TerrainNoise> terrain, Ref<RoadNet
 		}
 		erode_terrain(H, n, cell_size, steps);
 	}
+}
+
+Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNetwork> roads, int grid_size, double cell_size, Dictionary road_cfg) {
+	auto cfg_d = [&](const char *k, double def) { Variant v = road_cfg.get(k, def); return (double)v; };
+	double road_width = std::max(0.0, cfg_d("road_width", 4.0));
+	double road_fade = std::max(0.01, cfg_d("road_fade", 3.0));
+
+	const double area_half = grid_size * cell_size * 0.5;
+	const int n = grid_size + 1;
+	const double offset = area_half;
+	// Se trabaja sobre una copia: el suelo guardado no lleva rios ni caminos.
+	std::vector<double> H = ground_height;
+	std::vector<Color> Cv((size_t)n * n);
+
+	const std::vector<RoadSegment> *roads_ptr = roads.is_valid() ? &roads->get_roads_internal() : nullptr;
 
 	// Compute drainage only when explicitly requested. T0 still has no CG-A erosion.
 	// Paper 5.2: breach the actual terrain, then recompute the paper 4.1 flow.
