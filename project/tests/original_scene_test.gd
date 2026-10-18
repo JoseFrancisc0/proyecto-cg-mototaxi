@@ -21,7 +21,7 @@ func _run() -> void:
 	root.add_child(original)
 	await process_frame
 	var failures := 0
-	if terrain.mesh != saved_mesh or terrain.material_override != saved_material:
+	if terrain.mesh != saved_mesh or not _same_material(saved_material, terrain.material_override):
 		push_error("Abrir la escena debe conservar la malla y el material guardados")
 		failures += 1
 	if terrain.has_node("TerrainWorld/Chunks") or terrain.has_node("Landmarks"):
@@ -73,10 +73,15 @@ func _run() -> void:
 		elif detail != null:
 			push_error("Restaurar debe retirar los detalles nuevos")
 			failures += 1
-	if terrain.mesh != saved_mesh or terrain.material_override != saved_material:
+	if terrain.mesh != saved_mesh or not _same_material(saved_material, terrain.material_override):
 		push_error("Restaurar debe devolver la malla y material originales")
 		failures += 1
 	print("Escena original S11 CG-B: %d errores" % failures)
 	original.queue_free()
 	await process_frame
 	quit(0 if failures == 0 else 1)
+
+
+# Desde S10 el material con texturas no se guarda en la escena: se arma al abrirla.
+func _same_material(saved: Material, current: Material) -> bool:
+	return current == saved or (saved == null and current is ShaderMaterial)

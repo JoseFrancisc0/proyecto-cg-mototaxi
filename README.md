@@ -32,6 +32,28 @@ El flujo autorizado ahora es: relieve regional, CG-A cuando este activo, drenaje
 
 Al guardar la escena (Ctrl+S) se guardan juntos la malla, la configuracion con que se genero (`terrain_snapshot`, incluido el historial de erosiones) y el suelo (`ground_bytes`: T0 + erosiones, sin rios ni caminos). Al abrir la escena, el Inspector muestra esa configuracion. Prueba: `tests/workflow_test.gd`.
 
+### Texturas (S10)
+
+El terreno se pinta con 7 texturas de ambientCG segun region, pendiente y altura (`shaders/terrain_splat.gdshader`):
+
+| Capa | ID ambientCG | Uso |
+|---|---|---|
+| 0 | Ground054 | Costa, plano (arena) |
+| 1 | Rocks021 | Costa, ladera (piedras sobre arena) |
+| 2 | Rocks007 | Sierra, plano (roca con pasto) |
+| 3 | Rocks011 | Sierra, ladera (lajas, triplanar) |
+| 4 | Snow015 | Sierra, cumbre (20% mas alto del mapa) |
+| 5 | Ground037 | Selva, plano (musgo) |
+| 6 | Rock059 | Selva, ladera (roca verde, triplanar) |
+
+- Descomprimir cada `.zip` 2K-JPG dentro de `project/textures/` (queda `textures/Ground054_2K-JPG/Ground054_2K-JPG_Color.jpg`, etc.). Se usan `_Color`, `_NormalGL` y `_Roughness`. Si falta un archivo se usa un color plano y se avisa en Salida.
+- Son texturas CC0 de ambientCG. Si no se suben a git por su peso, cada integrante las descarga con los mismos IDs. El cache `textures/_cache/` se genera solo y no se sube.
+- C++ agrega a cada vertice la UV `(x, z)` en metros (parametrizacion planar) y `CUSTOM0 = (peso costa, peso sierra, peso selva, humedad)`. El alfa del color de vertice es la mascara de caminos.
+- Una malla guardada antes de S10 no trae esos datos: se ve con colores por vertice hasta generar un T0 nuevo.
+- Ajustes finos en **Terrain > Material Override**: `tile_size`, pendientes, `normal_strength`, `debug_view` (1 = color por material, 2 = regiones, 3 = ajedrez de UV). **Use Textures** apaga las texturas; **Recargar texturas** relee la carpeta e imprime que archivo usa cada capa.
+- El material con texturas no se guarda dentro del `.tscn`: se arma al abrir la escena.
+- Prueba: `tests/textures_test.gd`.
+
 Guardar despues de generar conserva la nueva vista, incluyendo agua y puentes. La copia mas reciente de la escena del usuario, semilla 123, esta en `output/backups/terrain_before_hydrology_seed123.tscn`. No restaurar copias antiguas sobre cambios recientes del usuario.
 
 El agua es estatica. Los puentes son superficies visuales: faltan colisiones de vehiculo, barandas y validacion de pendientes de conduccion. No se da por completado S12/S13. La API de TerrainWorld consulta alturas y drenaje finales despues de generar; landmarks permanece pendiente y su ruta sugerida no es navegacion de trafico por calles.

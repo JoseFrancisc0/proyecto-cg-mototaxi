@@ -15,7 +15,7 @@ try {
             & "$taskRoot/tmp/breach_native_test.exe"
             if ($LASTEXITCODE -ne 0) { throw 'Fallo la prueba de depresion cerrada.' }
         }
-        foreach ($test in @('smoke_test', 'regions_test', 'regional_relief_test', 'region_layout_test', 'roads_test', 'hierarchy_test', 'drainage_test', 'water_density_test', 'original_scene_test', 'workflow_test')) {
+        foreach ($test in @('smoke_test', 'regions_test', 'regional_relief_test', 'region_layout_test', 'roads_test', 'hierarchy_test', 'drainage_test', 'water_density_test', 'original_scene_test', 'workflow_test', 'textures_test')) {
             $testArguments = @('--headless', '--path', 'project', '--script', "res://tests/$test.gd", '--log-file', ('"{0}/tmp/{1}.log"' -f $taskRoot, $test))
             $testProcess = Start-Process -FilePath $godotPath -ArgumentList $testArguments -PassThru -Wait -WindowStyle Hidden
             Get-Content -LiteralPath "$taskRoot/tmp/$test.log" -Tail 2

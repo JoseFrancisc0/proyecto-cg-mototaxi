@@ -54,3 +54,4 @@ output/
 # Cmake
 cmake-build*
 CMakeUserPresets.json
+project/textures/_cache/

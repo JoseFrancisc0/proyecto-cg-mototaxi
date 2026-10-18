@@ -8,6 +8,7 @@
 #include <godot_cpp/variant/packed_color_array.hpp>
 #include <godot_cpp/variant/packed_float64_array.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/packed_vector2_array.hpp>
 #include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <limits>
 #include <map>
@@ -234,11 +235,13 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	bridge_mesh.unref();
 	bool hydrology = bool(road_cfg.get("hydrology_enabled", false));
 	RibbonMesh water_geometry, bridge_geometry;
+	double river_threshold = 0.0; // se reutiliza abajo para la humedad por vertice
 	if (hydrology) {
 		// Main-river display needs meaningful catchments, not tiny tributaries on every slope.
  double threshold = std::max({cell_size * cell_size * 8,grid_size*cell_size*grid_size*cell_size*.01,cfg_d("river_catchment",60000.0)});
 		drainage.breach_multiscale(H, n, cell_size, cfg_d("breach_radius", 24.0));
 		drainage.compute(H, n, cell_size, threshold);
+		river_threshold = threshold;
 
 		// Display the corrected ground drainage; no automatic filling of depressions.
 		for (int i = 0; i < n * n; i++)
@@ -428,6 +431,9 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 				col = col.lerp(kinds[i] == 0 ? Color(0.40, 0.28, 0.16) : (kinds[i] == 3 ? Color(0.27, 0.28, 0.29) : Color(0.13, 0.14, 0.16)), w);
 			}
 
+			// Alfa del color = mascara de camino (0 = suelo, 1 = camino). El shader
+			// de texturas la usa para pintar el camino encima de las texturas.
+			col.a = (float)w;
 			H[(size_t)iz * n + ix] = base_h;
 			Cv[(size_t)iz * n + ix] = col;
 		}
@@ -439,6 +445,15 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	PackedVector3Array verts;
 	PackedColorArray cols;
 	PackedVector3Array norms;
+	// Texture mapping (clase S10): cada vertice recibe coordenadas 2D (u, v).
+	// Un heightfield se parametriza sin cortes ni distorsion en planta:
+	// (u, v) = (x, z) en metros. La GPU interpola (u, v) dentro de cada
+	// triangulo con coordenadas baricentricas.
+	PackedVector2Array uvs;
+	// Funciones sobre la malla: valores por vertice que la GPU tambien
+	// interpola. CUSTOM0 = (peso costa, peso sierra, peso selva, humedad).
+	PackedFloat32Array regions;
+	regions.resize((int64_t)n * n * 4);
 	auto Hv = [&](int ix, int iz) {
 		if (ix < 0)
 			ix = 0;
@@ -456,6 +471,16 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 			double z = iz * cell_size - offset;
 			verts.push_back(Vector3(x, H[(size_t)iz * n + ix], z));
 			cols.push_back(Cv[(size_t)iz * n + ix]);
+			uvs.push_back(Vector2(x, z));
+			Vector3 bw = terrain->get_biome_weights(x, z);
+			size_t vi = (size_t)iz * n + ix;
+			double wet = 0.0;
+			if (river_threshold > 0.0 && drainage.accumulation.size() == (size_t)n * n)
+				wet = smoothstep_d(0.15 * river_threshold, river_threshold, drainage.accumulation[vi]);
+			regions.set((int64_t)vi * 4 + 0, (float)bw.x);
+			regions.set((int64_t)vi * 4 + 1, (float)bw.y);
+			regions.set((int64_t)vi * 4 + 2, (float)bw.z);
+			regions.set((int64_t)vi * 4 + 3, (float)wet);
 			double dhdx = (Hv(ix + 1, iz) - Hv(ix - 1, iz)) / ((ix == 0 || ix == n - 1 ? 1.0 : 2.0) * cell_size);
 			double dhdz = (Hv(ix, iz + 1) - Hv(ix, iz - 1)) / ((iz == 0 || iz == n - 1 ? 1.0 : 2.0) * cell_size);
 			norms.push_back(Vector3(-dhdx, 1.0, -dhdz).normalized());
@@ -481,10 +506,14 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	arrays[Mesh::ARRAY_VERTEX] = verts;
 	arrays[Mesh::ARRAY_NORMAL] = norms;
 	arrays[Mesh::ARRAY_COLOR] = cols;
+	arrays[Mesh::ARRAY_TEX_UV] = uvs;
+	arrays[Mesh::ARRAY_CUSTOM0] = regions;
 	arrays[Mesh::ARRAY_INDEX] = idx;
 
 	Ref<ArrayMesh> am;
 	am.instantiate();
-	am->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays);
+	// CUSTOM0 viaja como 4 floats por vertice.
+	int64_t custom_format = int64_t(Mesh::ARRAY_CUSTOM_RGBA_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT;
+	am->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(), (BitField<Mesh::ArrayFormat>)custom_format);
 	return am;
 }

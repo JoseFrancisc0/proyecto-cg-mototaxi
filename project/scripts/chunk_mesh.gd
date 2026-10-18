@@ -73,11 +73,26 @@ extends MeshInstance3D
 @export var jungle_talus := 0.60
 ## Usa rho/s0 de cada region cuando se aplica la erosion.
 @export var use_regional_erosion_maps := true
+@export_group("Texturas (S10)")
+## Texturas de ambientCG por region, pendiente y altura (terrain_splat.gdshader).
+## Desactivado = colores por vertice. Los ajustes finos estan en Material Override.
+@export var use_textures := true:
+	set(value):
+		use_textures = value
+		if is_inside_tree():
+			_apply_material()
+## Fraccion del mapa que queda por debajo de la nieve. 0.97 = solo el 3% mas alto lleva nieve.
+@export_range(0.5, 1.0, 0.005) var snow_percentile := 0.97:
+	set(value):
+		snow_percentile = value
+		if is_inside_tree() and material_override is ShaderMaterial:
+			_update_snow_line(material_override)
 @export_group("")
 
 @export_tool_button("1. Generar terreno nuevo (T0)") var boton_generar = generate_base
 @export_tool_button("2. Aplicar erosion al terreno actual") var boton_erosion = apply_erosion
 @export_tool_button("Volver a la version guardada") var boton_restaurar = restore_saved_mesh
+@export_tool_button("Recargar texturas") var boton_texturas = reload_textures
 
 ## Configuracion con la que se genero la malla visible, mas la lista de erosiones aplicadas.
 @export_storage var terrain_snapshot: Dictionary = {}
@@ -107,6 +122,7 @@ var last_surface: TerrainMesh
 var last_roads: RoadNetwork
 var _saved_mesh: Mesh
 var _saved_material: Material
+var _strip_material_on_save := false
 var _saved_snapshot: Dictionary = {}
 var _saved_ground: PackedByteArray = PackedByteArray()
 var _saved_details: Array[Dictionary] = []
@@ -130,6 +146,19 @@ func _ready() -> void:
 	_configure_stub()
 	if mesh == null:
 		generate_base()
+	else:
+		_apply_material()
+
+
+# El material con texturas se arma al abrir la escena y no se guarda en el .tscn:
+# asi la escena no depende del cache de texturas (que no se sube a git).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EDITOR_PRE_SAVE and material_override is ShaderMaterial:
+		material_override = null
+		_strip_material_on_save = true
+	elif what == NOTIFICATION_EDITOR_POST_SAVE and _strip_material_on_save:
+		_strip_material_on_save = false
+		_apply_material()
 
 
 # ---------------------------------------------------------------------------
@@ -198,10 +227,17 @@ func restore_saved_mesh() -> void:
 	_configure_stub()
 	if _saved_mesh != null:
 		mesh = _saved_mesh
-		material_override = _saved_material
+		_apply_material()
 		for detail: Dictionary in _saved_details:
 			_add_detail(detail.name, detail.mesh, Color.WHITE)
 			_generated_details[-1].material_override = detail.material
+
+
+## Vuelve a leer las texturas de res://textures/ (por ejemplo, despues de agregar o cambiar una).
+func reload_textures() -> void:
+	TerrainTextures.get_material(true)
+	print(TerrainTextures.report())
+	_apply_material()
 
 
 ## Compatibilidad: T0 y una erosion en un solo paso.
@@ -316,10 +352,48 @@ func _show(builder: TerrainMesh, roads: RoadNetwork, generated: ArrayMesh, label
 	_clear_details()
 	_add_detail("AguaGenerada", builder.get_water_mesh(), Color(0.08, 0.36, 0.53))
 	_add_detail("PuentesGenerados", builder.get_bridge_mesh(), Color(0.20, 0.22, 0.24))
-	var mat := StandardMaterial3D.new()
-	mat.vertex_color_use_as_albedo = true
-	material_override = mat
+	_apply_material()
 	print("%s en %.1f s (erosiones acumuladas: %d)" % [label, (Time.get_ticks_msec() - t0) / 1000.0, terrain_snapshot.get("erosions", []).size()])
+
+
+## Texturas si la malla trae UV y pesos de region; si no, colores por vertice.
+func _apply_material() -> void:
+	if mesh == null:
+		return
+	var array_mesh := mesh as ArrayMesh
+	var has_data := array_mesh != null and array_mesh.get_surface_count() > 0 \
+			and (array_mesh.surface_get_format(0) & Mesh.ARRAY_FORMAT_CUSTOM0) != 0
+	if use_textures and has_data:
+		var textured := TerrainTextures.get_material()
+		_update_snow_line(textured)
+		material_override = textured
+		return
+	if use_textures:
+		print("Esta malla es anterior a las texturas (no trae UV ni pesos de region). Usa '1. Generar terreno nuevo (T0)' para verla con texturas.")
+	# Colores por vertice: se reutiliza el material guardado en la escena si lo hay.
+	if _saved_material != null and not (_saved_material is ShaderMaterial):
+		material_override = _saved_material
+		return
+	var plain := StandardMaterial3D.new()
+	plain.vertex_color_use_as_albedo = true
+	material_override = plain
+
+
+## Nieve solo en los picos: por percentil, no por rango. Con una sierra en meseta,
+## "80% de la altura maxima" cubria casi toda la sierra; el percentil no depende de eso.
+func _update_snow_line(material: ShaderMaterial) -> void:
+	var heights := ground_bytes.to_float32_array()
+	if heights.is_empty():
+		return
+	var sample := PackedFloat32Array()
+	for i in range(0, heights.size(), 7):
+		sample.append(heights[i])
+	sample.sort()
+	var start := sample[int((sample.size() - 1) * snow_percentile)]
+	var top := sample[sample.size() - 1]
+	material.set_shader_parameter("snow_start", start)
+	material.set_shader_parameter("snow_end", start + 0.35 * maxf(top - start, 1.0))
+	print("Nieve: desde %.1f m hasta %.1f m (suelo entre %.1f y %.1f m, percentil %.3f)" % [start, start + 0.35 * maxf(top - start, 1.0), sample[0], top, snow_percentile])
 
 
 func _clear_details() -> void:
