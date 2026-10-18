@@ -1,0 +1,29 @@
+{
+	"grid_cells": 1024,
+	"iteration_scale": 1.0,
+	"seed": 68,
+	"timings_seconds": {
+		"base": 0.0972478,
+		"cells_1024": {
+			"deposition": 12.9857887,
+			"fluvial": 17.3022028,
+			"thermal": 159.8233475
+		},
+		"cells_256": {
+			"deposition": 11.1131365,
+			"fluvial": 11.1064173,
+			"thermal": 3.9486611
+		},
+		"cells_512": {
+			"deposition": 4.4539331,
+			"fluvial": 26.9799856,
+			"thermal": 8.9040323
+		},
+		"drainage_before_retarget": 0.3577591,
+		"drainage_landmarks": 0.2163978,
+		"erosion": 256.6338697,
+		"retarget": 0.6619912,
+		"roads": 0.2003707,
+		"total": 258.1676375
+	}
+}
