@@ -1,10 +1,12 @@
 extends Node3D
-## Escena principal: genera el terreno, coloca la mototaxi sobre un camino y la sigue con la cámara.
+## Escena principal: genera el terreno, coloca la mototaxi sobre un camino,
+## la sigue con la cámara y arranca el ciclo de carrera (recoger y entregar pasajeros).
 
 @onready var world: TerrainWorld = $TerrainWorld
 @onready var moto: Mototaxi = $Mototaxi
 @onready var cam: ChaseCamera = $ChaseCamera
-@onready var info: Label = $HUD/Info
+@onready var race: RaceManager = $RaceManager
+@onready var hud: RaceHUD = $HUD
 
 
 func _ready() -> void:
@@ -13,6 +15,11 @@ func _ready() -> void:
 	cam.target = moto
 	moto.was_reset.connect(cam.snap)
 	spawn()
+
+	race.world = world
+	race.moto = moto
+	hud.bind(race, moto)
+	race.start()
 
 
 ## Aparece en el primer landmark, orientada a lo largo del camino hacia el segundo.
@@ -28,8 +35,3 @@ func spawn() -> void:
 			yaw = atan2(dir.x, dir.z)
 	moto.place_at(pos, yaw)
 	cam.snap()
-
-
-func _process(_delta: float) -> void:
-	info.text = "%d km/h\nW/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   R: enderezar" \
-		% roundi(moto.get_speed_kmh())
