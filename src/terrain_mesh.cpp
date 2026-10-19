@@ -2,6 +2,8 @@
 #include "erosion.h"
 #include <algorithm>
 #include <cmath>
+#include <map>
+#include <set>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/array.hpp>
@@ -177,6 +179,165 @@ Dictionary TerrainMesh::get_hydrology_data() const {
 	return result;
 }
 
+// Juego: limita la pendiente longitudinal de una via a max_grade (tan del angulo)
+// para que el vehiculo pueda recorrerla, sin mover sus extremos (cruces).
+// U = perfil "cortado" (baja lomas) y L = perfil "rellenado" (sube hoyos): ambos
+// tienen pendiente <= max_grade y su promedio tambien. Luego se recorta a la banda
+// alcanzable desde los dos extremos, que tambien respeta la pendiente y los fija.
+static void limit_road_grade(const std::vector<Vector3> &pts, std::vector<double> &h, double max_grade) {
+	const size_t count = h.size();
+	if (count < 3 || max_grade <= 0.0 || pts.size() != count)
+		return;
+	std::vector<double> s(count, 0.0);
+	for (size_t i = 1; i < count; i++)
+		s[i] = s[i - 1] + std::hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z);
+	std::vector<double> U = h, L = h;
+	for (size_t i = 1; i < count; i++) {
+		double d = max_grade * (s[i] - s[i - 1]);
+		U[i] = std::min(U[i], U[i - 1] + d);
+		L[i] = std::max(L[i], L[i - 1] - d);
+	}
+	for (size_t i = count - 1; i-- > 0;) {
+		double d = max_grade * (s[i + 1] - s[i]);
+		U[i] = std::min(U[i], U[i + 1] + d);
+		L[i] = std::max(L[i], L[i + 1] - d);
+	}
+	const double total = s[count - 1], e0 = h[0], e1 = h[count - 1];
+	for (size_t i = 0; i < count; i++) {
+		double lo = std::max(e0 - max_grade * s[i], e1 - max_grade * (total - s[i]));
+		double hi = std::min(e0 + max_grade * s[i], e1 + max_grade * (total - s[i]));
+		double mid = 0.5 * (U[i] + L[i]);
+		// Banda vacia = extremos incompatibles: se reparte el desnivel en linea recta.
+		h[i] = lo <= hi ? std::clamp(mid, lo, hi) : lerp_d(e0, e1, total > 0.0 ? s[i] / total : 0.0);
+	}
+}
+
+// Juego: ajusta la altura de los cruces para que cada tramo entre cruces pueda cumplir
+// la pendiente maxima, y luego limita cada tramo con sus extremos fijos.
+// Cruce = extremo de una via o punto compartido por varias vias (tambien en medio de
+// una via, como una calle que llega a una avenida). Si dos cruces consecutivos estan
+// demasiado desnivelados para la distancia que los une, ambos se acercan a la mitad
+// del exceso, iterando sobre toda la red. Puntos de vias distintas que se superponen
+// (mas cerca que la suma de sus semianchos) tambien quedan unidos: si no, al
+// rasterizar gana una de las dos y queda un escalon.
+static void limit_network_grade(std::vector<RoadSegment> &network, double max_grade, double default_half_width) {
+	if (max_grade <= 0.0)
+		return;
+	using Junction = std::pair<long long, long long>;
+	auto key = [](const Vector3 &p) { return Junction(std::llround(p.x * 100), std::llround(p.z * 100)); };
+	std::map<Junction, int> uses;
+	for (const RoadSegment &road : network)
+		if (road.pts.size() >= 2 && road.h.size() == road.pts.size())
+			for (const Vector3 &p : road.pts)
+				uses[key(p)]++;
+	struct Edge { Junction a, b; double length; };
+	std::vector<Edge> edges;
+	// Superposiciones entre vias distintas, con una grilla espacial para no comparar todo.
+	std::set<std::pair<size_t, size_t>> forced;
+	{
+		const double bucket = 16.0;
+		std::map<std::pair<long long, long long>, std::vector<std::pair<size_t, size_t>>> grid;
+		auto half_of = [&](const RoadSegment &r) { return r.half_width > 0 ? r.half_width : default_half_width; };
+		for (size_t r = 0; r < network.size(); r++)
+			if (network[r].pts.size() >= 2 && network[r].h.size() == network[r].pts.size())
+				for (size_t i = 0; i < network[r].pts.size(); i++)
+					grid[{ (long long)std::floor(network[r].pts[i].x / bucket), (long long)std::floor(network[r].pts[i].z / bucket) }].push_back({ r, i });
+		for (const auto &cell : grid)
+			for (const auto &pa : cell.second) {
+				const Vector3 &a = network[pa.first].pts[pa.second];
+				for (long long dz = -1; dz <= 1; dz++)
+					for (long long dx = -1; dx <= 1; dx++) {
+						auto other = grid.find({ cell.first.first + dx, cell.first.second + dz });
+						if (other == grid.end())
+							continue;
+						for (const auto &pb : other->second) {
+							if (pb.first <= pa.first)
+								continue;
+							const Vector3 &b = network[pb.first].pts[pb.second];
+							double d = std::hypot(a.x - b.x, a.z - b.z);
+							if (d >= half_of(network[pa.first]) + half_of(network[pb.first]) || key(a) == key(b))
+								continue;
+							forced.insert(pa);
+							forced.insert(pb);
+							edges.push_back({ key(a), key(b), d });
+						}
+					}
+			}
+	}
+	auto is_node = [&](const RoadSegment &road, size_t i) {
+		return i == 0 || i + 1 == road.pts.size() || uses[key(road.pts[i])] > 1
+				|| forced.count({ size_t(&road - network.data()), i }) > 0;
+	};
+	std::map<Junction, double> height;
+	std::map<Junction, int> count;
+	for (const RoadSegment &road : network) {
+		if (road.pts.size() < 2 || road.h.size() != road.pts.size())
+			continue;
+		size_t last = 0;
+		double length = 0.0;
+		for (size_t i = 0; i < road.pts.size(); i++) {
+			if (i > 0)
+				length += std::hypot(road.pts[i].x - road.pts[i - 1].x, road.pts[i].z - road.pts[i - 1].z);
+			if (!is_node(road, i))
+				continue;
+			Junction k = key(road.pts[i]);
+			height[k] += road.h[i];
+			count[k]++;
+			if (i > 0) {
+				edges.push_back({ key(road.pts[last]), k, length });
+				length = 0.0;
+			}
+			last = i;
+		}
+	}
+	// Relajacion sobre indices (sin busquedas en mapas) hasta cumplir en toda la red.
+	std::map<Junction, int> index;
+	std::vector<double> H;
+	for (auto &entry : height) {
+		index[entry.first] = int(H.size());
+		H.push_back(entry.second / count[entry.first]);
+	}
+	struct IndexedEdge { int a, b; double limit; };
+	std::vector<IndexedEdge> constraints;
+	constraints.reserve(edges.size());
+	for (const Edge &e : edges)
+		constraints.push_back({ index[e.a], index[e.b], max_grade * e.length * 0.98 });
+	for (int iteration = 0; iteration < 20000; iteration++) {
+		double worst = 0.0;
+		for (const IndexedEdge &e : constraints) {
+			double diff = H[e.a] - H[e.b];
+			double excess = std::fabs(diff) - e.limit;
+			if (excess > 1e-4) {
+				double shift = 0.5 * excess * (diff > 0 ? 1.0 : -1.0);
+				H[e.a] -= shift;
+				H[e.b] += shift;
+				worst = std::max(worst, excess);
+			}
+		}
+		if (worst < 1e-3)
+			break;
+	}
+	for (auto &entry : height)
+		entry.second = H[index[entry.first]];
+	for (RoadSegment &road : network) {
+		if (road.pts.size() < 2 || road.h.size() != road.pts.size())
+			continue;
+		size_t last = 0;
+		for (size_t i = 0; i < road.pts.size(); i++) {
+			if (!is_node(road, i))
+				continue;
+			road.h[i] = height[key(road.pts[i])];
+			if (i > last + 1) {
+				std::vector<Vector3> pts(road.pts.begin() + last, road.pts.begin() + i + 1);
+				std::vector<double> h(road.h.begin() + last, road.h.begin() + i + 1);
+				limit_road_grade(pts, h, max_grade);
+				std::copy(h.begin(), h.end(), road.h.begin() + last);
+			}
+			last = i;
+		}
+	}
+}
+
 static bool valid_grid(int grid_size, double cell_size) {
 	return grid_size >= 1 && grid_size <= 4096 && std::isfinite(cell_size) && cell_size > 0.0;
 }
@@ -299,6 +460,8 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	water_mesh.unref();
 	bridge_mesh.unref();
 	bool hydrology = bool(road_cfg.get("hydrology_enabled", false));
+	// Pendiente maxima de las vias para el juego (0 = sin limite, como antes).
+	double road_max_grade = std::max(0.0, cfg_d("road_max_grade", 0.0));
 	RibbonMesh water_geometry, bridge_geometry;
 	double river_threshold = 0.0; // se reutiliza abajo para la humedad por vertice
 	if (hydrology) {
@@ -339,12 +502,17 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	// The old road generator is kept for compatibility; final profiles still follow CG-A.
 	if (roads.is_valid() && (hydrology || bool(road_cfg.get("erosion_enabled", false)))) {
 		auto &network = roads->get_roads_mutable();
+		// Perfil sobre el suelo final; con road_max_grade se limita antes de puentes
+		// y rampas (el tablero se eleva despues con std::max).
+		for (auto &road : network)
+			for (size_t k = 0; k < road.pts.size(); k++)
+				road.h[k] = grid_sample(H, n, cell_size, road.pts[k].x, road.pts[k].z);
+		limit_network_grade(network, road_max_grade, road_width);
 		for (auto &road : network) {
 			int count = int(road.pts.size());
 			std::vector<unsigned char> wet(count, 0), deck(count, 0);
 			for (int k = 0; k < count; k++) {
 				auto p = road.pts[k];
-				road.h[k] = grid_sample(H, n, cell_size, p.x, p.z);
 				if (hydrology) {
 					int x = std::clamp(int(std::round((p.x + offset) / cell_size)), 0, n - 1), z = std::clamp(int(std::round((p.z + offset) / cell_size)), 0, n - 1);
 					wet[k] = drainage.protected_water[z * n + x];
@@ -444,6 +612,8 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 					bridge_geometry.ribbon(a, b, road.half_width > 0 ? road.half_width : road_width);
 				}
 		bridge_mesh = bridge_geometry.mesh();
+	} else if (roads.is_valid()) {
+		limit_network_grade(roads->get_roads_mutable(), road_max_grade, road_width);
 	}
 
 	// Rasterizar solo la vecindad de cada segmento. Conserva el perfil original
@@ -563,12 +733,14 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 		for (int ix = 0; ix < grid_size; ix++) {
 			int i00 = iz * n + ix, i10 = iz * n + ix + 1;
 			int i01 = (iz + 1) * n + ix, i11 = (iz + 1) * n + ix + 1;
-			idx.push_back(i00);
-			idx.push_back(i11);
-			idx.push_back(i01);
+			// Diagonal (10)-(01), la misma que usa HeightMapShape3D: asi la malla que se
+			// ve coincide con la colision del juego (antes diferian en celdas empinadas).
 			idx.push_back(i00);
 			idx.push_back(i10);
+			idx.push_back(i01);
+			idx.push_back(i10);
 			idx.push_back(i11);
+			idx.push_back(i01);
 		}
 	}
 

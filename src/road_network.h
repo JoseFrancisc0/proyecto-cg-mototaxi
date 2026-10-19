@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_float32_array.hpp>
 #include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
@@ -34,6 +35,7 @@ private:
 	double sample_height(Ref<TerrainNoise> terrain, double x, double z) const;
 	double sample_water(double x, double z) const;
 	void _generate_hierarchy(Ref<TerrainNoise> terrain, double area_half, Dictionary config);
+	PackedVector3Array _find_path(Ref<TerrainNoise> terrain, Vector2 start, Vector2 goal, double area_half, double max_slope, const std::vector<double> *field, int field_n, double field_cell) const;
 
 protected:
 	static void _bind_methods();
@@ -44,6 +46,7 @@ public:
 	void clear_surface();
 
 	PackedVector3Array find_path(Ref<TerrainNoise> terrain, Vector2 start, Vector2 goal, double area_half) const;
+	PackedVector3Array find_drivable_path(PackedFloat32Array heights, int samples, double cell_size, Vector2 start, Vector2 goal, double max_slope) const;
 	void generate_roads(Ref<TerrainNoise> terrain, int grid_size, double cell_size, Dictionary road_cfg);
 
 	std::vector<RoadSegment> &get_roads_mutable() { return _roads; }

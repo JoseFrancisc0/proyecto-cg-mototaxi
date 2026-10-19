@@ -1,6 +1,6 @@
 extends Node3D
 
-var world: TerrainWorld
+var world: TerrainFieldWorld
 var camera: Camera3D
 var target := Vector3.ZERO
 var yaw := 0.65
@@ -22,7 +22,7 @@ var _generation_started := 0
 var _wall_seconds := 0.0
 
 func _ready() -> void:
-	world = TerrainWorld.new()
+	world = TerrainFieldWorld.new()
 	world.name = "TerrainWorld"
 	add_child(world)
 	world.generation_progress.connect(_on_progress)

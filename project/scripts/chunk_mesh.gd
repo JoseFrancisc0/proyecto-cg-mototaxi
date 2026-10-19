@@ -32,6 +32,9 @@ extends MeshInstance3D
 @export var road_width := 4.0
 @export var road_fade := 3.0
 @export var road_smooth := 3
+## Pendiente maxima de las vias (tan del angulo; 0.25 = 14 grados) para que el vehiculo
+## pueda recorrerlas: corta lomas y rellena hoyos del perfil. 0 = sin limite.
+@export_range(0.0, 1.0, 0.01) var road_max_grade := 0.0
 
 @export_group("Rios y drenaje")
 @export var hydrology_enabled := true
@@ -114,7 +117,7 @@ extends MeshInstance3D
 const BASE_PARAMS := [
 	"grid_size", "cell_size", "noise_seed",
 	"preview_roads", "num_points", "min_point_dist", "k_neighbors", "hierarchical_roads", "town_count",
-	"block_size", "highway_width", "avenue_width", "street_width", "road_width", "road_fade", "road_smooth",
+	"block_size", "highway_width", "avenue_width", "street_width", "road_width", "road_fade", "road_smooth", "road_max_grade",
 	"hydrology_enabled", "river_catchment", "breach_radius",
 	"three_regions", "region_patches", "transition_width", "border_warp",
 	"coast_base", "coast_amplitude", "coast_frequency",
@@ -330,6 +333,7 @@ func _build_cfg() -> Dictionary:
 		"road_width": road_width,
 		"road_fade": road_fade,
 		"road_smooth": road_smooth,
+		"road_max_grade": road_max_grade,
 		"erosion_enabled": false,
 		"hydrology_enabled": hydrology_enabled, "river_catchment": river_catchment,
 		"breach_radius": breach_radius,

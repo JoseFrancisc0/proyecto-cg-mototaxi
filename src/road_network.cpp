@@ -16,6 +16,7 @@ void RoadNetwork::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_road_metadata"), &RoadNetwork::get_road_metadata);
 	ClassDB::bind_method(D_METHOD("get_town_centers"), &RoadNetwork::get_town_centers);
 	ClassDB::bind_method(D_METHOD("find_path", "terrain", "start", "goal", "area_half"), &RoadNetwork::find_path);
+	ClassDB::bind_method(D_METHOD("find_drivable_path", "heights", "samples", "cell_size", "start", "goal", "max_slope"), &RoadNetwork::find_drivable_path);
 	ClassDB::bind_method(D_METHOD("generate_roads", "terrain", "grid_size", "cell_size", "road_cfg"), &RoadNetwork::generate_roads);
 	ClassDB::bind_method(D_METHOD("get_road_count"), &RoadNetwork::get_road_count);
 	ClassDB::bind_method(D_METHOD("get_road_paths"), &RoadNetwork::get_road_paths);
@@ -78,11 +79,39 @@ Array RoadNetwork::get_road_paths() const {
 }
 
 PackedVector3Array RoadNetwork::find_path(Ref<TerrainNoise> terrain, Vector2 start, Vector2 goal, double area_half) const {
-	PackedVector3Array path;
-	if (terrain.is_null())
-		return path;
+	return _find_path(terrain, start, goal, area_half, 0.0, nullptr, 0, 1.0);
+}
 
-	const double spacing = std::max(PATH_SPACING, 2.0 * area_half / 512.0);
+// Juego: ruta recomendada para el vehiculo sobre las alturas FINALES que usa el juego
+// (con vias recortadas y puentes), (samples x samples) muestras centradas en el origen.
+// Igual que find_path, pero los pasos con pendiente mayor que max_slope cuestan
+// muchisimo (no se prohiben: siempre hay ruta). Sin penalizacion de agua: un cauce sin
+// puente ya aparece como pendiente fuerte en esas alturas.
+PackedVector3Array RoadNetwork::find_drivable_path(PackedFloat32Array heights, int samples, double cell_size, Vector2 start, Vector2 goal, double max_slope) const {
+	if (samples < 2 || heights.size() != (int64_t)samples * samples || cell_size <= 0.0)
+		return PackedVector3Array();
+	std::vector<double> field(heights.size());
+	for (int64_t i = 0; i < heights.size(); i++)
+		field[i] = heights[i];
+	return _find_path(Ref<TerrainNoise>(), start, goal, (samples - 1) * cell_size * 0.5, max_slope, &field, samples, cell_size);
+}
+
+PackedVector3Array RoadNetwork::_find_path(Ref<TerrainNoise> terrain, Vector2 start, Vector2 goal, double area_half, double max_slope, const std::vector<double> *field, int field_n, double field_cell) const {
+	PackedVector3Array path;
+	if (terrain.is_null() && field == nullptr)
+		return path;
+	auto field_height = [&](double x, double z) {
+		double gx = std::clamp(x / field_cell + (field_n - 1) * .5, 0.0, double(field_n - 1));
+		double gz = std::clamp(z / field_cell + (field_n - 1) * .5, 0.0, double(field_n - 1));
+		int ix = std::min(int(gx), field_n - 2), iz = std::min(int(gz), field_n - 2);
+		double tx = gx - ix, tz = gz - iz;
+		const std::vector<double> &f = *field;
+		return (f[iz * field_n + ix] * (1 - tx) + f[iz * field_n + ix + 1] * tx) * (1 - tz) + (f[(iz + 1) * field_n + ix] * (1 - tx) + f[(iz + 1) * field_n + ix + 1] * tx) * tz;
+	};
+
+	// Con alturas del juego se recorre su misma grilla: con un paso mas grueso, una
+	// cresta angosta puede quedar entre dos muestras y la ruta pasaria por encima.
+	const double spacing = field != nullptr ? field_cell : std::max(PATH_SPACING, 2.0 * area_half / 512.0);
 	const int W = (int)std::round((2.0 * area_half) / spacing) + 1;
 	const int count = W * W;
 	auto nx = [&](int ix) { return -area_half + ix * spacing; };
@@ -98,8 +127,13 @@ PackedVector3Array RoadNetwork::find_path(Ref<TerrainNoise> terrain, Vector2 sta
 	std::vector<double> height(count), wet(count);
 	for (int iz = 0; iz < W; iz++)
 		for (int ix = 0; ix < W; ix++) {
-			height[iz * W + ix] = sample_height(terrain, nx(ix), nz(iz));
-			wet[iz * W + ix] = sample_water(nx(ix), nz(iz));
+			if (field != nullptr) {
+				height[iz * W + ix] = field_height(nx(ix), nz(iz));
+				wet[iz * W + ix] = 0.0;
+			} else {
+				height[iz * W + ix] = sample_height(terrain, nx(ix), nz(iz));
+				wet[iz * W + ix] = sample_water(nx(ix), nz(iz));
+			}
 		}
 
 	std::vector<double> g(count, std::numeric_limits<double>::infinity());
@@ -136,6 +170,8 @@ PackedVector3Array RoadNetwork::find_path(Ref<TerrainNoise> terrain, Vector2 sta
 			double dh = std::fabs(height[ni] - height[cur]);
 			double slope = dh / horiz;
 			double tent = g[cur] + horiz * (1.0 + 8 * slope * slope + 18 * std::max(wet[cur], wet[ni])) + SLOPE_WEIGHT * dh;
+			if (max_slope > 0.0 && slope > max_slope)
+				tent += horiz * 1000.0;
 			if (tent < g[ni]) {
 				g[ni] = tent;
 				came[ni] = cur;

@@ -51,7 +51,7 @@ func _run() -> void:
 				constraints += 1
 				check(absf(retargeted.get_height(x - 32, z - 32) - original[z * 65 + x]) < 0.0001, "Retargeting conserva sus restricciones")
 	check(constraints > 0, "La prueba debe incluir crestas restringidas")
-	var world := TerrainWorld.new()
+	var world := TerrainFieldWorld.new()
 	world.grid_cells = 64
 	world.chunk_cells = 32
 	world.cell_size = 0.75
