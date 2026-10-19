@@ -87,6 +87,17 @@ extends MeshInstance3D
 		snow_percentile = value
 		if is_inside_tree() and material_override is ShaderMaterial:
 			_update_snow_line(material_override)
+@export_group("Iluminacion (S12)")
+## Direccion del sol. Mueve tambien el nodo "Lighting" de la escena (agua y puentes).
+@export_range(0.0, 360.0, 1.0) var sun_azimuth := 135.0:
+	set(value):
+		sun_azimuth = value
+		_update_sun()
+## 90 = mediodia (sin sombras largas), 5 = atardecer (sombras muy largas).
+@export_range(1.0, 90.0, 0.5) var sun_elevation := 28.0:
+	set(value):
+		sun_elevation = value
+		_update_sun()
 @export_group("")
 
 @export_tool_button("1. Generar terreno nuevo (T0)") var boton_generar = generate_base
@@ -352,24 +363,79 @@ func _show(builder: TerrainMesh, roads: RoadNetwork, generated: ArrayMesh, label
 	_clear_details()
 	_add_detail("AguaGenerada", builder.get_water_mesh(), Color(0.08, 0.36, 0.53))
 	_add_detail("PuentesGenerados", builder.get_bridge_mesh(), Color(0.20, 0.22, 0.24))
-	_apply_material()
+	_apply_material(builder.get_surface_heights())
 	print("%s en %.1f s (erosiones acumuladas: %d)" % [label, (Time.get_ticks_msec() - t0) / 1000.0, terrain_snapshot.get("erosions", []).size()])
 
 
+## Direccion HACIA el sol a partir de azimut y elevacion (coordenadas esfericas).
+func sun_direction() -> Vector3:
+	var az := deg_to_rad(sun_azimuth)
+	var el := deg_to_rad(sun_elevation)
+	return Vector3(cos(el) * sin(az), sin(el), cos(el) * cos(az)).normalized()
+
+
+func _update_sun() -> void:
+	if not is_inside_tree():
+		return
+	var to_sun := sun_direction()
+	var light := get_parent().get_node_or_null("Lighting") as DirectionalLight3D if get_parent() else null
+	if light != null:
+		# Una DirectionalLight3D ilumina hacia su -Z: se orienta mirando en contra del sol.
+		light.global_basis = Basis.looking_at(-to_sun, Vector3.UP if absf(to_sun.y) < 0.999 else Vector3.FORWARD)
+	if material_override is ShaderMaterial:
+		# El shader trabaja en el espacio del terreno: se quita la rotacion del nodo.
+		material_override.set_shader_parameter("sun_direction", (global_basis.inverse() * to_sun).normalized())
+
+
+## Mapa de alturas de la malla final para el ray tracing de sombras del shader.
+func _update_height_map(material: ShaderMaterial, heights: PackedFloat32Array) -> void:
+	var n := grid_size + 1
+	if heights.size() != n * n:
+		heights = _heights_from_mesh(n)
+	if heights.size() != n * n:
+		material.set_shader_parameter("map_cells", 2.0)
+		return
+	var image := Image.create_from_data(n, n, false, Image.FORMAT_RF, heights.to_byte_array())
+	material.set_shader_parameter("height_map", ImageTexture.create_from_image(image))
+	material.set_shader_parameter("map_cells", float(n))
+	material.set_shader_parameter("map_cell_size", cell_size)
+	var top := -INF
+	for i in range(0, heights.size(), 3):
+		top = maxf(top, heights[i])
+	material.set_shader_parameter("map_max_height", top + 5.0)
+
+
+## Al abrir una escena guardada no hay TerrainMesh: las alturas salen de los vertices.
+func _heights_from_mesh(n: int) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	if mesh == null or mesh.get_surface_count() == 0:
+		return out
+	var vertices: PackedVector3Array = mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	if vertices.size() != n * n:
+		return out
+	out.resize(n * n)
+	for i in vertices.size():
+		out[i] = vertices[i].y
+	return out
+
+
 ## Texturas si la malla trae UV y pesos de region; si no, colores por vertice.
-func _apply_material() -> void:
+func _apply_material(heights := PackedFloat32Array()) -> void:
 	if mesh == null:
 		return
 	var array_mesh := mesh as ArrayMesh
+	var custom := Mesh.ARRAY_FORMAT_CUSTOM0 | Mesh.ARRAY_FORMAT_CUSTOM1
 	var has_data := array_mesh != null and array_mesh.get_surface_count() > 0 \
-			and (array_mesh.surface_get_format(0) & Mesh.ARRAY_FORMAT_CUSTOM0) != 0
+			and (array_mesh.surface_get_format(0) & custom) == custom
 	if use_textures and has_data:
 		var textured := TerrainTextures.get_material()
 		_update_snow_line(textured)
+		_update_height_map(textured, heights)
 		material_override = textured
+		_update_sun()
 		return
 	if use_textures:
-		print("Esta malla es anterior a las texturas (no trae UV ni pesos de region). Usa '1. Generar terreno nuevo (T0)' para verla con texturas.")
+		print("Esta malla es anterior a las texturas e iluminacion (no trae UV ni pesos de region). Usa '1. Generar terreno nuevo (T0)' para verla con texturas.")
 	# Colores por vertice: se reutiliza el material guardado en la escena si lo hay.
 	if _saved_material != null and not (_saved_material is ShaderMaterial):
 		material_override = _saved_material

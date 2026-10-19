@@ -12,6 +12,7 @@
 #include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <limits>
 #include <map>
+#include <thread>
 #include <vector>
 
 using namespace godot;
@@ -38,11 +39,67 @@ void TerrainMesh::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("erode_ground", "terrain", "roads", "grid_size", "cell_size", "road_cfg"), &TerrainMesh::erode_ground);
 	ClassDB::bind_method(D_METHOD("rebuild_surface", "terrain", "roads", "grid_size", "cell_size", "road_cfg"), &TerrainMesh::rebuild_surface);
 	ClassDB::bind_method(D_METHOD("get_ground_heights"), &TerrainMesh::get_ground_heights);
+	ClassDB::bind_method(D_METHOD("get_surface_heights"), &TerrainMesh::get_surface_heights);
 	ClassDB::bind_method(D_METHOD("set_ground_heights", "heights", "grid_size", "cell_size"), &TerrainMesh::set_ground_heights);
 }
 
 TerrainMesh::TerrainMesh() {}
 namespace {
+// Iluminacion global (S12): visibilidad del cielo por vertice, tambien llamada
+// oclusion ambiental. Es un ray tracing sobre el heightfield: desde cada vertice
+// se lanzan `dirs` rayos horizontales y se busca el angulo de horizonte mas alto
+// que tapa el cielo en esa direccion. Con un cielo uniforme, la radiancia que
+// llega a un punto (ponderada por el coseno) en una direccion con horizonte de
+// elevacion a es proporcional a cos^2(a) = 1 / (1 + tan^2(a)).
+// Resultado: 1 = ve todo el cielo (cresta), 0 = cielo tapado (fondo de quebrada).
+std::vector<float> sky_visibility(const std::vector<double> &H, int n, double cell, double radius, int dirs) {
+	std::vector<float> out((size_t)n * n, 1.0f);
+	if (n < 2 || radius <= cell || dirs < 1)
+		return out;
+	auto sample = [&](double fx, double fz) {
+		int x0 = (int)fx, z0 = (int)fz;
+		double tx = fx - x0, tz = fz - z0;
+		const double *r0 = &H[(size_t)z0 * n + x0], *r1 = r0 + n;
+		return (r0[0] * (1 - tx) + r0[1] * tx) * (1 - tz) + (r1[0] * (1 - tx) + r1[1] * tx) * tz;
+	};
+	std::vector<double> cx(dirs), cz(dirs);
+	for (int d = 0; d < dirs; d++) {
+		double a = 2.0 * 3.14159265358979 * (d + 0.5) / dirs;
+		cx[d] = std::cos(a);
+		cz[d] = std::sin(a);
+	}
+	auto rows = [&](int z_begin, int z_end) {
+		for (int z = z_begin; z < z_end; z++)
+			for (int x = 0; x < n; x++) {
+				double h0 = H[(size_t)z * n + x];
+				double sum = 0.0;
+				for (int d = 0; d < dirs; d++) {
+					double max_tan = 0.0;
+					// Pasos que crecen 25%: mucho detalle cerca, poco costo lejos.
+					for (double t = cell; t <= radius; t *= 1.25) {
+						double fx = x + cx[d] * t / cell, fz = z + cz[d] * t / cell;
+						if (fx < 0 || fz < 0 || fx >= n - 1 || fz >= n - 1)
+							break;
+						max_tan = std::max(max_tan, (sample(fx, fz) - h0) / t);
+					}
+					sum += 1.0 / (1.0 + max_tan * max_tan);
+				}
+				out[(size_t)z * n + x] = (float)(sum / dirs);
+			}
+	};
+	int threads = std::max(1, (int)std::thread::hardware_concurrency());
+	std::vector<std::thread> pool;
+	int chunk = (n + threads - 1) / threads;
+	for (int t = 0; t < threads; t++) {
+		int a = t * chunk, b = std::min(n, a + chunk);
+		if (a < b)
+			pool.emplace_back(rows, a, b);
+	}
+	for (auto &th : pool)
+		th.join();
+	return out;
+}
+
 // Separate water and bridge surfaces leave the drainage bed intact.
 struct RibbonMesh {
 	PackedVector3Array points, normals;
@@ -168,6 +225,14 @@ PackedFloat32Array TerrainMesh::get_ground_heights() const {
 	out.resize((int64_t)ground_height.size());
 	for (size_t i = 0; i < ground_height.size(); i++)
 		out.set((int64_t)i, (float)ground_height[i]);
+	return out;
+}
+
+PackedFloat32Array TerrainMesh::get_surface_heights() const {
+	PackedFloat32Array out;
+	out.resize((int64_t)final_height.size());
+	for (size_t i = 0; i < final_height.size(); i++)
+		out.set((int64_t)i, (float)final_height[i]);
 	return out;
 }
 
@@ -454,6 +519,12 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	// interpola. CUSTOM0 = (peso costa, peso sierra, peso selva, humedad).
 	PackedFloat32Array regions;
 	regions.resize((int64_t)n * n * 4);
+	// CUSTOM1 = visibilidad del cielo (oclusion ambiental) por vertice.
+	std::vector<float> sky = sky_visibility(H, n, cell_size, cfg_d("ao_radius", 300.0), (int)cfg_d("ao_directions", 16.0));
+	PackedFloat32Array ao;
+	ao.resize((int64_t)n * n);
+	for (int64_t i = 0; i < (int64_t)n * n; i++)
+		ao.set(i, sky[(size_t)i]);
 	auto Hv = [&](int ix, int iz) {
 		if (ix < 0)
 			ix = 0;
@@ -508,12 +579,14 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	arrays[Mesh::ARRAY_COLOR] = cols;
 	arrays[Mesh::ARRAY_TEX_UV] = uvs;
 	arrays[Mesh::ARRAY_CUSTOM0] = regions;
+	arrays[Mesh::ARRAY_CUSTOM1] = ao;
 	arrays[Mesh::ARRAY_INDEX] = idx;
 
 	Ref<ArrayMesh> am;
 	am.instantiate();
-	// CUSTOM0 viaja como 4 floats por vertice.
-	int64_t custom_format = int64_t(Mesh::ARRAY_CUSTOM_RGBA_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT;
+	// CUSTOM0 viaja como 4 floats por vertice; CUSTOM1 como 1 float.
+	int64_t custom_format = (int64_t(Mesh::ARRAY_CUSTOM_RGBA_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT) |
+			(int64_t(Mesh::ARRAY_CUSTOM_R_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM1_SHIFT);
 	am->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(), (BitField<Mesh::ArrayFormat>)custom_format);
 	return am;
 }

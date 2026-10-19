@@ -44,6 +44,8 @@ public:
 	// Reconstruye rios, caminos y malla sobre el suelo actual, sin erosionar.
 	Ref<ArrayMesh> rebuild_surface(Ref<TerrainNoise> terrain, Ref<RoadNetwork> roads, int grid_size, double cell_size, Dictionary road_cfg);
 	PackedFloat32Array get_ground_heights() const;
+	// Alturas de la malla final (con rios y caminos). El shader las usa para el ray tracing de sombras.
+	PackedFloat32Array get_surface_heights() const;
 	bool set_ground_heights(const PackedFloat32Array &heights, int grid_size, double cell_size);
 
 private:

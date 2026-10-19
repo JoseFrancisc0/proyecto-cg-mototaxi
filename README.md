@@ -54,6 +54,20 @@ El terreno se pinta con 7 texturas de ambientCG segun region, pendiente y altura
 - El material con texturas no se guarda dentro del `.tscn`: se arma al abrir la escena.
 - Prueba: `tests/textures_test.gd`.
 
+### Iluminacion (S12)
+
+El shader calcula su propia luz (`render_mode unshaded`), con tecnicas del silabo 6.3.3:
+
+1. **Blinn-Phong**: difusa `N.L`, especular `(N.H)^s` y ambiente hemisferico (cielo arriba, suelo abajo).
+2. **Sombras por ray tracing en GPU**: desde cada pixel se lanza un rayo hacia el sol sobre el mapa de alturas de la malla (`height_map`). Si pasa por debajo del terreno, hay sombra; la distancia minima al terreno da la penumbra.
+3. **Iluminacion global (AO)**: en C++ (`sky_visibility` en `terrain_mesh.cpp`) cada vertice lanza 16 rayos sobre el heightfield y guarda que fraccion del cielo ve (`CUSTOM1`). Oscurece quebradas y valles.
+4. **POM**: ray marching dentro del mapa `_Displacement` de cada textura, solo cerca de la camara.
+5. **Niebla por distancia** y **tone mapping ACES**.
+
+- El sol se mueve con **Sun Azimuth** y **Sun Elevation** (grupo *Iluminacion (S12)* del Inspector). Tambien orienta el nodo `Lighting`, que ilumina agua y puentes.
+- Ajustes en Material Override: grupos *Iluminacion*, *Sombras*, *Relieve_POM* y *Atmosfera*. `debug_view`: 4 = solo sombras, 5 = solo AO, 6 = texturas sin luz.
+- Una malla generada antes de S12 no trae `CUSTOM1`: generar un T0 nuevo.
+
 Guardar despues de generar conserva la nueva vista, incluyendo agua y puentes. La copia mas reciente de la escena del usuario, semilla 123, esta en `output/backups/terrain_before_hydrology_seed123.tscn`. No restaurar copias antiguas sobre cambios recientes del usuario.
 
 El agua es estatica. Los puentes son superficies visuales: faltan colisiones de vehiculo, barandas y validacion de pendientes de conduccion. No se da por completado S12/S13. La API de TerrainWorld consulta alturas y drenaje finales despues de generar; landmarks permanece pendiente y su ruta sugerida no es navegacion de trafico por calles.

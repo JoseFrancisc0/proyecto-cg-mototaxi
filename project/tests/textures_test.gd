@@ -37,14 +37,27 @@ func _run() -> void:
 	var uv: Vector2 = arrays[Mesh.ARRAY_TEX_UV][n - 1]
 	var v: Vector3 = arrays[Mesh.ARRAY_VERTEX][n - 1]
 	check(uv.is_equal_approx(Vector2(v.x, v.z)), "UV = (x, z) en metros")
+	var sky: PackedFloat32Array = arrays[Mesh.ARRAY_CUSTOM1]
+	check(sky.size() == n, "CUSTOM1 (visibilidad del cielo) debe traer 1 valor por vertice")
+	var lo := 1.0
+	var hi := 0.0
+	for i in range(0, sky.size(), 31):
+		lo = minf(lo, sky[i])
+		hi = maxf(hi, sky[i])
+	check(lo >= 0.0 and hi <= 1.0 and hi - lo > 0.05, "La visibilidad del cielo debe estar en [0, 1] y variar (%f..%f)" % [lo, hi])
 
 	var mat := terrain.material_override as ShaderMaterial
 	check(mat != null, "Con use_textures el material debe ser el shader de texturas")
 	if mat != null:
-		for map_name in ["albedo", "normal", "roughness"]:
+		for map_name in ["albedo", "normal", "roughness", "height"]:
 			var arr := mat.get_shader_parameter(map_name + "_maps") as Texture2DArray
 			check(arr != null and arr.get_layers() == 7, "%s_maps debe tener 7 capas" % map_name)
 		check(float(mat.get_shader_parameter("snow_end")) > float(mat.get_shader_parameter("snow_start")), "Linea de nieve calculada")
+		check(mat.get_shader_parameter("height_map") is ImageTexture, "El mapa de alturas para las sombras debe estar cargado")
+		check(int(mat.get_shader_parameter("map_cells")) == terrain.grid_size + 1, "map_cells = vertices por lado")
+		terrain.sun_elevation = 45.0
+		var sun: Vector3 = mat.get_shader_parameter("sun_direction")
+		check(absf(sun.y - sin(deg_to_rad(45.0))) < 1e-3, "La elevacion del sol debe llegar al shader")
 	print(TerrainTextures.report())
 
 	# Guardar: el material de texturas no debe quedar incrustado en el .tscn

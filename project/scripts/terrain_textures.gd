@@ -34,6 +34,7 @@ const MAPS := {
 	"albedo": "_Color",
 	"normal": "_NormalGL",
 	"roughness": "_Roughness",
+	"height": "_Displacement", # relieve para POM (S12)
 }
 
 static var _material: ShaderMaterial
@@ -140,6 +141,8 @@ static func _flat_layer(map_name: String, color: Color) -> Image:
 		fill = Color(0.5, 0.5, 1.0)
 	elif map_name == "roughness":
 		fill = Color(0.9, 0.9, 0.9)
+	elif map_name == "height":
+		fill = Color(1.0, 1.0, 1.0) # sin relieve
 	var image := Image.create(LAYER_SIZE, LAYER_SIZE, false, Image.FORMAT_RGBA8)
 	image.fill(fill)
 	image.generate_mipmaps()
