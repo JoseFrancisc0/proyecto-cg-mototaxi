@@ -8,6 +8,7 @@
 #include "terrain_noise.h"
 #include "road_network.h"
 #include "terrain_mesh.h"
+#include "terrain_field.h"
 
 using namespace godot;
 
@@ -19,6 +20,7 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 	GDREGISTER_CLASS(TerrainNoise);
 	GDREGISTER_CLASS(RoadNetwork);
 	GDREGISTER_CLASS(TerrainMesh);
+	GDREGISTER_CLASS(TerrainField);
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {

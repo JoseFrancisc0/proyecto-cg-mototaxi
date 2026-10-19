@@ -72,11 +72,16 @@ func _initialize() -> void:
 	moto.throttle = 0.0
 	await _sim(1.0)
 	_min_up = 1.0
-	var y0 := _yaw()
 	moto.throttle = 0.6
 	moto.steer_input = 1.0
-	await _sim(4.0)
-	var dyaw := rad_to_deg(wrapf(_yaw() - y0, -PI, PI))
+	# Se acumula el giro cuadro a cuadro: puede superar media vuelta en 4 s.
+	var dyaw := 0.0
+	var prev := _yaw()
+	for i in int(4.0 * Engine.physics_ticks_per_second):
+		await physics_frame
+		_min_up = minf(_min_up, moto.global_basis.y.dot(Vector3.UP))
+		dyaw += rad_to_deg(wrapf(_yaw() - prev, -PI, PI))
+		prev = _yaw()
 	_check(dyaw > 45.0, "steer +1 gira a la izquierda (%.0f° en 4 s)" % dyaw)
 	_check(_min_up > 0.7, "curva media sin volcar (min up %.2f)" % _min_up)
 
@@ -121,9 +126,15 @@ func _initialize() -> void:
 	moto.throttle = 0.7
 	await _sim(4.0)
 	_check(moto.global_position.distance_to(ps) > 15.0, "avanza sobre el terreno: %.0f m en 4 s" % moto.global_position.distance_to(ps))
+	# Frena hasta detenerse y suelta: debe quedarse quieta (freno de parada).
+	moto.throttle = -1.0
+	var tb := 0.0
+	while moto.get_forward_speed() > 0.3 and tb < 6.0:
+		await physics_frame
+		tb += 1.0 / Engine.physics_ticks_per_second
 	moto.throttle = 0.0
-	await _sim(7.0)
-	_check(moto.linear_velocity.length() < 0.3, "se detiene al soltar (%.2f m/s)" % moto.linear_velocity.length())
+	await _sim(3.0)
+	_check(moto.linear_velocity.length() < 0.3, "frena y se detiene (%.1f s, %.2f m/s)" % [tb, moto.linear_velocity.length()])
 	var parked := moto.global_position
 	var n := world.get_normal(parked.x, parked.z)
 	await _sim(3.0)

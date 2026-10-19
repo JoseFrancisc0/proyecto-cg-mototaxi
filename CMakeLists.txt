@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.17)
 if(CMAKE_C_COMPILER)
 endif()
 
-set(LIBNAME "EXTENSION-NAME") # "The name of the library"
+set(LIBNAME "CrazyTerrain")
 set(GODOT_PROJECT_DIR "project" CACHE STRING "The directory of a Godot project folder")
 
 # Make sure all the dependencies are satisfied
@@ -55,8 +55,18 @@ target_sources(${LIBNAME}
     PRIVATE
     src/register_types.cpp
     src/register_types.h
-    src/example_class.cpp
-    src/example_class.h
+    src/terrain_noise.cpp
+    src/terrain_noise.h
+    src/terrain_mesh.cpp
+    src/terrain_mesh.h
+    src/road_network.cpp
+    src/road_network.h
+    src/drainage.cpp
+    src/drainage.h
+    src/erosion.cpp
+    src/erosion.h
+    src/terrain_field.cpp
+    src/terrain_field.h
 )
 
 # Fetch a list of the xml files to use for documentation and add to our target
@@ -86,5 +96,6 @@ set_target_properties(${LIBNAME}
 set(GODOT_PROJECT_BINARY_DIR "${PROJECT_SOURCE_DIR}/${GODOT_PROJECT_DIR}/bin/${GODOTCPP_PLATFORM}")
 
 add_custom_command(TARGET ${LIBNAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${GODOT_PROJECT_BINARY_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${LIBNAME}>" "${GODOT_PROJECT_BINARY_DIR}/$<TARGET_FILE_NAME:${LIBNAME}>"
 )

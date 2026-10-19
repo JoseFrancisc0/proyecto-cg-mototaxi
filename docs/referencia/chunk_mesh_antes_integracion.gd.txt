@@ -1,0 +1,65 @@
+@tool
+extends MeshInstance3D
+
+@export_range(1, 4096, 1) var grid_size: int = 128
+@export_range(0.01, 100.0, 0.01) var cell_size: float = 1.0
+@export var noise_seed: int = 1337
+
+@export_group("Red de caminos")
+@export var num_points := 6
+@export var min_point_dist := 25.0
+@export var k_neighbors := 2
+@export var road_width := 4.0
+@export var road_fade := 3.0
+@export var road_smooth := 3
+
+@export_group("Erosion (paper)")
+@export var erosion_enabled := false
+@export var erosion_fluvial := 3000
+@export var erosion_thermal := 600
+@export var erosion_deposition := 2000
+## Rondas de upsampling x2 (0 = una sola resolucion). La base es grid_size / 2^levels.
+@export_range(0, 3) var erosion_levels := 0
+
+@export_tool_button("Regenerar terreno") var regenerar = generate
+
+func _ready() -> void:
+	# La escena puede contener una malla guardada: evitar erosionar de nuevo al abrirla.
+	if Engine.is_editor_hint() and mesh != null:
+		return
+	generate()
+
+func generate() -> void:
+	if grid_size < 1 or grid_size > 4096 or not is_finite(cell_size) or cell_size <= 0.0:
+		push_error("El terreno requiere entre 1 y 4096 celdas y un tamano de celda positivo y finito.")
+		return
+	# 1. Configurar ruido y biomas
+	var terrain := TerrainNoise.new()
+	terrain.set_seed(noise_seed)
+
+	# 2. Generar caminos sobre el terreno
+	var cfg := {
+		"num_points": num_points,
+		"min_point_dist": min_point_dist,
+		"k_neighbors": k_neighbors,
+		"road_width": road_width,
+		"road_fade": road_fade,
+		"road_smooth": road_smooth,
+		"erosion_enabled": erosion_enabled,
+		"erosion_fluvial": erosion_fluvial,
+		"erosion_thermal": erosion_thermal,
+		"erosion_deposition": erosion_deposition,
+		"erosion_levels": erosion_levels,
+	}
+	var roads := RoadNetwork.new()
+	roads.generate_roads(terrain, grid_size, cell_size, cfg)
+
+	# 3. Ensamblar la geometría final
+	var mesh_builder := TerrainMesh.new()
+	var t0 := Time.get_ticks_msec()
+	mesh = mesh_builder.generate_mesh(terrain, roads, grid_size, cell_size, cfg)
+	print("Terreno generado en %.1f s (erosion: %s, niveles: %d)" % [(Time.get_ticks_msec() - t0) / 1000.0, erosion_enabled, erosion_levels])
+
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	material_override = mat

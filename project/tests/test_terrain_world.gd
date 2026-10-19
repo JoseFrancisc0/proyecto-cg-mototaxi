@@ -14,8 +14,10 @@ func _check(cond: bool, msg: String) -> void:
 func _initialize() -> void:
 	var world: TerrainWorld = load("res://scripts/terrain_world.gd").new()
 	world.grid_size = 256
+	world.cell_size = 1.0
 	world.generate_on_ready = false
 	root.add_child(world)
+	await process_frame
 	var t0 := Time.get_ticks_msec()
 	world.generate(67)
 	print("generate(67) a 256: %d ms" % (Time.get_ticks_msec() - t0))
@@ -23,10 +25,27 @@ func _initialize() -> void:
 	_check(world.get_world_size() == 256.0, "tamaño del mundo 256 m")
 	var lm := world.get_landmarks()
 	_check(lm.size() > 1, "landmarks: %d" % lm.size())
+	var reach0: int = lm[0]["reach"] if lm.size() > 0 else -1
+	var same := lm.filter(func(l): return l["reach"] == reach0).size()
+	_check(reach0 >= 0 and same == lm.size(), "todos los landmarks en una misma zona transitable (%d/%d)" % [same, lm.size()])
+
+	# Las vías no superan la pendiente máxima (margen por muestreo y cruces).
+	var worst := 0.0
+	var roads := world.get_roads()
+	for r in roads:
+		var path: PackedVector3Array = r["path"]
+		for i in range(1, path.size()):
+			var a := path[i - 1]
+			var b := path[i]
+			var d := Vector2(b.x - a.x, b.z - a.z).length()
+			if d > 0.5:
+				worst = maxf(worst, absf(world.get_height(b.x, b.z) - world.get_height(a.x, a.z)) / d)
+	_check(roads.size() > 0, "vías generadas: %d" % roads.size())
+	_check(worst <= world.road_max_grade + 0.1, "pendiente máxima en vías %.2f (límite %.2f)" % [worst, world.road_max_grade])
 
 	var h := world.get_height(0, 0)
 	_check(is_finite(h), "get_height(0,0) = %.2f" % h)
-	_check(absf(world.get_height(-1000, 0) - world.get_height(-128, 0)) < 0.001, "get_height se recorta en el borde")
+	_check(absf(world.get_height(-10000, 0) - world.get_height(-128, 0)) < 0.001, "get_height se recorta en el borde")
 	var nrm := world.get_normal(10, 10)
 	_check(absf(nrm.length() - 1.0) < 0.001 and nrm.y > 0.0, "get_normal unitaria y hacia arriba")
 	var bio := world.get_biome(0, 0)

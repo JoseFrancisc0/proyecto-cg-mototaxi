@@ -5,7 +5,8 @@ Actualizar este archivo cada vez que se cierre una tarea.
 
 **Ramas**
 - `main`: terreno y realismo (erosión multiescala del paper *Terrain Amplification using Multi-scale Erosion*).
-- `juego`: jugabilidad (vehículo, carreras, HUD) sobre el terreno provisional (stub de `TerrainWorld`).
+- `juego`: jugabilidad (vehículo, carreras, HUD). Desde el 2026-10-19 incluye `origin/main` (merge) y el juego
+  corre sobre el terreno de CG (regiones, erosión, drenaje/ríos, red vial, texturas e iluminación).
 
 Leyenda: ✅ hecho · 🟡 en curso / parcial · ⬜ pendiente
 
@@ -17,7 +18,7 @@ Leyenda: ✅ hecho · 🟡 en curso / parcial · ⬜ pendiente
 
 | Rol | Tarea | Estado | Dónde |
 |---|---|---|---|
-| CG-B | API `TerrainWorld` publicada con stub (`generate`, `get_height`, `get_normal`, `get_biome`, `get_drainage`, `get_landmarks`, `find_route`) | ✅ (stub: sin costa, `get_drainage` = 0) | `project/scripts/terrain_world.gd` |
+| CG-B | API `TerrainWorld` (`generate`, `get_height`, `get_normal`, `get_biome`, `get_drainage`, `get_landmarks`, `find_route`) | ✅ sobre el generador real de CG (`chunk_mesh.gd`) | `project/scripts/terrain_world.gd` |
 | J-A | Mototaxi con `VehicleBody3D` (3 ruedas), controles teclado/mando | ✅ | `project/scenes/mototaxi.tscn`, `project/scripts/mototaxi.gd` |
 | J-A | Cámara de persecución que no atraviesa el terreno | ✅ | `project/scripts/chase_camera.gd` |
 | J-A | Probada en el terreno actual (enderezado automático y con R) | ✅ | `project/tests/test_mototaxi.gd` |
@@ -67,6 +68,50 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 
 ---
 
+## Integración terreno de CG + juego (2026-10-19)
+
+**Hecho**
+- Merge de `origin/main` en `juego` (sin commit aún: queda preparado en staging). Conflictos resueltos:
+  C++ y DLL tomados de `main`; `project.godot` con el nombre de `main` y `run/main_scene = main.tscn`;
+  el `TerrainWorld` de `main` (basado en `TerrainField`, visor auxiliar `world_demo.tscn`) se renombró a
+  `TerrainFieldWorld` (`scripts/terrain_field_world.gd`); `TerrainWorld` es el del juego.
+- `TerrainWorld` usa `chunk_mesh.gd` de CG como generador (T0 + erosión al 10% de los pasos por defecto,
+  `erosion_scale`), y añade: colisión `HeightMapShape3D` + colisión de puentes, tableros de puente en las
+  alturas del juego, landmarks sobre vías/pueblos, mapa de transitabilidad (`get_reach_id`, `is_reachable`)
+  y `find_route` que evita pendientes > `max_drive_slope`. Mapa por defecto: 512 celdas × 1.5 m = 768 m.
+- C++ (cambios propios para el juego; con valores por defecto CG queda igual salvo la diagonal):
+  - `terrain_mesh.cpp`: `road_max_grade` limita la pendiente de las vías (corte/relleno, cruces y vías
+    superpuestas unidas a la misma altura). El juego usa 0.25; `chunk_mesh.gd` tiene 0 (sin límite).
+  - `terrain_mesh.cpp`: la malla usa la diagonal (10)-(01), igual que `HeightMapShape3D` (antes la malla
+    visual y la colisión diferían hasta ~3 m en celdas empinadas).
+  - `road_network.cpp`: nuevo `find_drivable_path(heights, samples, cell, a, b, max_slope)`.
+- Mototaxi: "marcha corta" (`low_speed_boost` 1.8 hasta 30 km/h) y al rodar hacia atrás con W ya no corta
+  el motor. Sube 0.45 (24°) desde parada y ~0.65 (33°) lanzada; antes se quedaba en 0.35 (19°).
+- `RaceManager` solo elige pasajeros/destinos alcanzables manejando; la mototaxi aparece en la zona
+  transitable más grande. El sol de `main.tscn` se alinea con el del shader de CG.
+
+**Mediciones** (`tests/diag_terrain.gd`, `tests/diag_climb.gd`, `tests/test_drive_routes.gd`)
+
+| | Terreno anterior (`juego`) | Terreno CG (erosión 10%, vías limitadas) |
+|---|---|---|
+| Pendiente del mapa p99 | 6.33 (~81°) | 2.68 (1.89 con erosión completa) |
+| Rutas A* con tramos > 0.35 | 6.4% (máx. 4.34) | 0.1% → ahora ≤ ~0.43 con `find_drivable_path` |
+| Vías con pendiente > 0.35 | — | 0% (máx. ~0.27) |
+| Landmarks en una zona transitable | — | 100% |
+| Viajes con piloto automático | — | semilla 67: 8/8; semilla 2026: 5/6 |
+
+**Pendiente de esta tarea**
+- Semilla 2026, cerca de (104, −208): cresta angosta al borde de una carretera (pendiente local ~0.7)
+  donde el piloto automático se atasca/vuelca a veces. Ideas: suavizar el borde de la vía (`road_fade`
+  más ancho o limitar la pendiente lateral del corte en `terrain_mesh.cpp`), o que la ruta prefiera vías.
+- La ruta recomendada va campo traviesa; para S12 conviene que siga las vías (red vial ya disponible en
+  `get_roads()`).
+- Carga ~16–22 s (erosión al 10% + texturas). La caché de texturas de CG (`textures/_cache`) no se
+  puede leer (también en `main`) y se reconstruye cada vez (~8 s): avisar a CG.
+- `textures_test` de CG falla también en `main` puro ("La elevación del sol debe llegar al shader").
+- La DLL se compiló con MSVC (`scons platform=windows target=template_debug arch=x86_64 api_version=4.7`);
+  CG usa `tools/build.ps1` (LLVM-MinGW). Cualquiera sirve, pero recompilar tras cambiar `src/`.
+
 ## Computación Gráfica (rama `main`)
 
 Estado según el PDF de la semana 10; revisar la rama `main` para el detalle actualizado.
@@ -93,6 +138,14 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/t
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_race.gd
 ```
 
+Diagnósticos y prueba de manejo (más lentos):
+
+```
+... -s res://tests/diag_climb.gd                     # pendiente que sube la mototaxi
+... -s res://tests/diag_terrain.gd -- game|full|demo|noerosion|nograde
+... -s res://tests/test_drive_routes.gd -- 6 2026    # piloto automático: viajes y semilla
+```
+
 Si se agregó un script con `class_name` nuevo, correr antes una vez `--headless --path project --import`
 para que Godot registre la clase.
 
@@ -100,3 +153,5 @@ para que Godot registre la clase.
 
 - **2026-10-18** — Ciclo de carrera S11 (J-B) completo: `RaceManager`, `GlowZone`, `RaceHUD` y `tests/test_race.gd`.
   Se devolvió `TerrainWorld` al origen en `main.tscn` (estaba desplazado a y≈96 y rotado, lo que rompía `get_height`).
+- **2026-10-19** — Merge de `origin/main` en `juego` y juego sobre el terreno de CG; vías con pendiente
+  limitada, transitabilidad, mototaxi con más fuerza en subidas (ver "Integración terreno de CG + juego").

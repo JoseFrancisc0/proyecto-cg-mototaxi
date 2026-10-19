@@ -1,4 +1,4 @@
-﻿class_name Mototaxi
+class_name Mototaxi
 extends VehicleBody3D
 ## Mototaxi de 3 ruedas sobre la física de vehículos de Godot.
 ##
@@ -22,6 +22,10 @@ signal was_reset
 @export var coast_brake := 1.0             ## Freno motor al soltar el acelerador.
 @export var hold_brake := 15.0             ## Freno al estar casi detenida.
 @export var park_damp := 20.0              ## Amortiguación al estar estacionada, para no rodar en pendientes.
+## "Marcha corta": multiplica la fuerza al arrancar para poder subir cuestas;
+## baja hasta 1 al llegar a boost_fade_kmh, así la aceleración en llano no cambia tanto.
+@export var low_speed_boost := 1.8
+@export var boost_fade_kmh := 30.0
 
 @export_group("Dirección")
 @export var max_steer := 0.5               ## Radianes.
@@ -70,16 +74,17 @@ func _physics_process(delta: float) -> void:
 	var force := 0.0
 	var brk := 0.0
 	if throttle > 0.01:
+		# Fuerza completa hasta el 85 % de la velocidad máxima; luego baja a 0 en el tope.
+		force = max_engine_force * _gear(speed) * throttle * clampf((max_speed - speed) / (0.15 * max_speed), 0.0, 1.0)
+		# Si va hacia atrás (reversa, o rodando cuesta abajo) además frena, pero sin
+		# cortar el motor: así puede retomar una subida en la que se quedó sin impulso.
 		if speed < -0.5:
 			brk = brake_force * throttle
-		else:
-			# Fuerza completa hasta el 85 % de la velocidad máxima; luego baja a 0 en el tope.
-			force = max_engine_force * throttle * clampf((max_speed - speed) / (0.15 * max_speed), 0.0, 1.0)
 	elif throttle < -0.01:
 		if speed > 0.5:
 			brk = brake_force * -throttle
 		else:
-			force = -reverse_force * -throttle * clampf((max_rev + speed) / (0.3 * max_rev), 0.0, 1.0)
+			force = -reverse_force * _gear(speed) * -throttle * clampf((max_rev + speed) / (0.3 * max_rev), 0.0, 1.0)
 	else:
 		brk = hold_brake if absf(speed) < 1.5 else coast_brake
 	engine_force = force
@@ -107,6 +112,11 @@ func _physics_process(delta: float) -> void:
 	var manual_reset := use_input and Input.is_action_just_pressed("moto_reset")
 	if _flip_timer > flip_reset_time or manual_reset:
 		reset_upright()
+
+
+## Multiplicador de fuerza según la velocidad (marcha corta al arrancar).
+func _gear(speed: float) -> float:
+	return lerpf(low_speed_boost, 1.0, clampf(absf(speed) / (boost_fade_kmh / 3.6), 0.0, 1.0))
 
 
 ## Velocidad con signo a lo largo del frente (m/s): negativa en reversa.

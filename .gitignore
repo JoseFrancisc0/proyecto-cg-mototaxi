@@ -1,6 +1,7 @@
 # Godot auto generated files
 *.gen.*
 .godot/
+project/bin/windows/~*.dll
 
 # Ignore library files but not the gdextension file
 /bin/**
@@ -43,6 +44,9 @@ compile_commands.json
 .vscode/*
 !.vscode/extensions.json
 .DS_Store
+.tools/
+tmp/
+output/
 
 # Jetbrains
 .idea/
@@ -50,3 +54,4 @@ compile_commands.json
 # Cmake
 cmake-build*
 CMakeUserPresets.json
+project/textures/_cache/

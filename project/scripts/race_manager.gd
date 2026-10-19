@@ -166,8 +166,9 @@ func _set_state(s: State) -> void:
 
 # --- Selección de puntos ------------------------------------------------------
 
-## Landmark al azar a una distancia en [min_d, max_d] de origin. Si ninguno cumple,
-## el más lejano que supere min_d; si tampoco, el más lejano de todos.
+## Landmark al azar a una distancia en [min_d, max_d] de origin, al que se pueda llegar
+## manejando desde origin (TerrainWorld.is_reachable). Si ninguno cumple la distancia,
+## el más lejano alcanzable.
 func _pick_landmark(origin: Vector3, min_d: float, max_d: float, exclude: int) -> int:
 	var lms := world.get_landmarks()
 	var candidates: Array[int] = []
@@ -178,6 +179,8 @@ func _pick_landmark(origin: Vector3, min_d: float, max_d: float, exclude: int) -
 		if id == exclude:
 			continue
 		var p: Vector3 = lm["position"]
+		if not world.is_reachable(origin, p):
+			continue
 		var d := Vector2(p.x - origin.x, p.z - origin.z).length()
 		if d >= min_d and d <= max_d:
 			candidates.append(id)
