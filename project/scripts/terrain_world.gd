@@ -21,6 +21,15 @@ const Generator = preload("res://scripts/chunk_mesh.gd")
 @export var generate_on_ready := true
 @export var build_collision := true
 
+@export_group("Escenario del editor")
+## Usa el terreno guardado en editor_scene (el que se arma y erosiona en el editor con los
+## botones de chunk_mesh.gd) en lugar de generar uno con los valores de este nodo.
+## Se copian todos sus parámetros (regiones costa/sierra/selva, semilla, tamaño, ríos,
+## nieve, sol) y su suelo ya erosionado; solo se rehacen las vías con road_max_grade.
+## Si la escena no tiene terreno guardado, se genera uno como antes.
+@export var use_editor_scene := false
+@export_file("*.tscn") var editor_scene := "res://terrain_demo.tscn"
+
 @export_group("Erosión (paper)")
 @export var erosion_enabled := true
 ## Fracción de los pasos de CG que se aplican (1.0 = receta completa, ~60-90 s a 512
@@ -74,6 +83,14 @@ func generate(new_seed: int = -1) -> void:
 		generator.free()
 	generator = Generator.new()
 	generator.name = "Terrain"
+	if use_editor_scene:
+		if _load_editor_scene():
+			return
+		if generator.is_inside_tree():  # Falló a medias: se empieza con un generador limpio.
+			remove_child(generator)
+			generator.free()
+			generator = Generator.new()
+			generator.name = "Terrain"
 	generator.grid_size = grid_size
 	generator.cell_size = cell_size
 	generator.noise_seed = world_seed
@@ -90,6 +107,11 @@ func generate(new_seed: int = -1) -> void:
 	if erosion_enabled:
 		generator.apply_erosion()
 
+	_finish_generate()
+
+
+## Pasos comunes tras crear la superficie: alturas, colisión, landmarks y transitabilidad.
+func _finish_generate() -> void:
 	_surface = generator.last_surface
 	_heights = _surface.get_surface_heights() if _surface else PackedFloat32Array()
 	if _heights.size() != _n * _n:
@@ -101,6 +123,48 @@ func generate(new_seed: int = -1) -> void:
 	_build_reachability()
 	_build_landmarks()
 	generated.emit()
+
+
+## Copia el nodo Terrain de editor_scene (sus propiedades, sin la malla) y rehace la
+## superficie sobre su suelo guardado. Devuelve false si no hay terreno que usar.
+func _load_editor_scene() -> bool:
+	var t0 := Time.get_ticks_msec()
+	var scene := load(editor_scene) as PackedScene
+	if scene == null:
+		push_warning("TerrainWorld: no se pudo cargar %s; se genera un terreno nuevo." % editor_scene)
+		return false
+	var state := scene.get_state()
+	var props := {}
+	for i in state.get_node_count():
+		if state.get_node_name(i) != "Terrain":
+			continue
+		for p in state.get_node_property_count(i):
+			props[state.get_node_property_name(i, p)] = state.get_node_property_value(i, p)
+		break
+	var ground: PackedByteArray = props.get("ground_bytes", PackedByteArray())
+	if ground.is_empty() or props.get("terrain_snapshot", {}).is_empty():
+		push_warning("TerrainWorld: %s no tiene terreno guardado; se genera uno nuevo." % editor_scene)
+		return false
+	for key in props:
+		if key not in ["script", "mesh", "material_override", "transform"]:
+			generator.set(key, props[key])
+	generator.auto_generate = false
+	add_child(generator)  # _ready aplica los parámetros guardados en terrain_snapshot.
+	# Opciones del juego encima de las del editor.
+	generator.road_max_grade = road_max_grade
+	for key in generator_overrides:
+		generator.set(key, generator_overrides[key])
+	grid_size = generator.grid_size
+	cell_size = generator.cell_size
+	world_seed = generator.noise_seed
+	_n = grid_size + 1
+	_half = grid_size * cell_size * 0.5
+	if not generator.rebuild_saved_ground():
+		return false
+	print("TerrainWorld: escenario de %s (%d celdas x %.1f m = %.0f m, semilla %d) en %.1f s" % [
+		editor_scene, grid_size, cell_size, get_world_size(), world_seed, (Time.get_ticks_msec() - t0) / 1000.0])
+	_finish_generate()
+	return true
 
 
 # --- API del contrato ---------------------------------------------------------

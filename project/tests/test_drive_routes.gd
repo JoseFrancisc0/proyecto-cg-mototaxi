@@ -13,13 +13,16 @@ var world: TerrainWorld
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var rides := int(args[0]) if args.size() > 0 else 6
-	var world_seed := int(args[1]) if args.size() > 1 else 67
+	# Semilla "editor" = el terreno guardado en terrain_demo.tscn (como main.tscn).
+	var use_editor := args.size() > 1 and args[1] == "editor"
+	var world_seed := int(args[1]) if args.size() > 1 and not use_editor else 67
 
 	world = load("res://scripts/terrain_world.gd").new()
 	world.generate_on_ready = false
+	world.use_editor_scene = use_editor
 	root.add_child(world)
 	await process_frame
-	world.generate(world_seed)
+	world.generate(-1 if use_editor else world_seed)
 
 	moto = load("res://scenes/mototaxi.tscn").instantiate()
 	moto.use_input = false

@@ -112,6 +112,33 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 - La DLL se compiló con MSVC (`scons platform=windows target=template_debug arch=x86_64 api_version=4.7`);
   CG usa `tools/build.ps1` (LLVM-MinGW). Cualquiera sirve, pero recompilar tras cambiar `src/`.
 
+## El juego usa el escenario del editor (2026-10-21)
+
+Antes `main.tscn` generaba su propio mapa con los valores por defecto de `chunk_mesh.gd` (semilla 67,
+512 × 1.5 m = 768 m, sierra 130 + 85 m, 16 parches) e ignoraba lo calibrado en `terrain_demo.tscn`.
+Ahora `TerrainWorld.use_editor_scene = true` (en `main.tscn`) copia el nodo `Terrain` de
+`editor_scene` (`res://terrain_demo.tscn`): todos sus parámetros, el sol, la nieve y el suelo ya
+erosionado (`ground_bytes`). Solo rehace ríos y vías encima (`chunk_mesh.rebuild_saved_ground()`),
+con el `road_max_grade` del juego.
+
+**Cómo cambiar el escenario del juego (costa, sierra, selva)**
+1. Abrir `terrain_demo.tscn`, seleccionar `Terrain` y ajustar el Inspector
+   (grupo "S11 CG-B - regiones del T0": `region_patches`, `transition_width`, `coast_*`, `mountain_*`,
+   `jungle_*`; `noise_seed` cambia el reparto de regiones).
+2. Botón "1. Generar terreno nuevo (T0)" y luego "2. Aplicar erosión al terreno actual".
+3. Guardar con Ctrl+S. El juego toma ese terreno en la siguiente ejecución, sin más pasos.
+   Los parámetros de terreno del nodo `TerrainWorld` del juego (grid, semilla, erosión) ya no se usan
+   mientras `use_editor_scene` esté activo; `generator_overrides` sí se aplica encima.
+
+**Mediciones con el terreno guardado hoy** (semilla 2, 1024 × 3 m = 3072 m, `tests/test_editor_scene.gd`)
+- Mapa: costa 23%, sierra 21%, selva 55%. Landmarks: 41 costa, 6 sierra, 69 selva; los 116 en una zona transitable.
+- Vías: 4 de 2186 tramos sobre 0.35 (máx. 0.49, en (166, 1423) y (1055, −723)).
+- Piloto automático (`test_drive_routes.gd -- 8 editor`): 7/8; se atascó en (−324, 819) con suelo a 0.68.
+- `terrain_demo.tscn` ya no guarda la malla, el agua ni los puentes (pesaba 113 MB): solo la
+  configuración (`terrain_snapshot`) y el suelo (`ground_bytes`), ~6 MB. Al abrir la escena o
+  arrancar el juego se rehacen en ~2 s. El juego carga en ~2 s (antes ~10 s).
+- Se quitó el transform del nodo `Terrain` (estaba rotado ~9° y a 4 km del origen: no se veía en 3D).
+
 ## Computación Gráfica (rama `main`)
 
 Estado según el PDF de la semana 10; revisar la rama `main` para el detalle actualizado.
@@ -144,6 +171,8 @@ Diagnósticos y prueba de manejo (más lentos):
 ... -s res://tests/diag_climb.gd                     # pendiente que sube la mototaxi
 ... -s res://tests/diag_terrain.gd -- game|full|demo|noerosion|nograde
 ... -s res://tests/test_drive_routes.gd -- 6 2026    # piloto automático: viajes y semilla
+... -s res://tests/test_drive_routes.gd -- 8 editor  # piloto automático en el terreno de terrain_demo.tscn
+... -s res://tests/test_editor_scene.gd              # el juego copia bien el escenario del editor
 ```
 
 Si se agregó un script con `class_name` nuevo, correr antes una vez `--headless --path project --import`
@@ -155,3 +184,7 @@ para que Godot registre la clase.
   Se devolvió `TerrainWorld` al origen en `main.tscn` (estaba desplazado a y≈96 y rotado, lo que rompía `get_height`).
 - **2026-10-19** — Merge de `origin/main` en `juego` y juego sobre el terreno de CG; vías con pendiente
   limitada, transitabilidad, mototaxi con más fuerza en subidas (ver "Integración terreno de CG + juego").
+- **2026-10-21** — El juego usa el terreno guardado en `terrain_demo.tscn` (`use_editor_scene`), en vez de
+  generar uno con valores por defecto. Nueva prueba `tests/test_editor_scene.gd`.
+- **2026-10-21** — `terrain_demo.tscn` guarda solo configuración + suelo (113 MB → 5.6 MB); la malla se
+  rehace al abrir. `Terrain` vuelve al origen.

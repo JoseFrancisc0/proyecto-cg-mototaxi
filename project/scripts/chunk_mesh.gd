@@ -141,6 +141,8 @@ var _saved_snapshot: Dictionary = {}
 var _saved_ground: PackedByteArray = PackedByteArray()
 var _saved_details: Array[Dictionary] = []
 var _generated_details: Array[MeshInstance3D] = []
+## false = _ready no genera un T0 cuando no hay malla (el juego reconstruye el suelo guardado).
+var auto_generate := true
 
 
 func _ready() -> void:
@@ -159,20 +161,35 @@ func _ready() -> void:
 		_apply_params(terrain_snapshot.get("params", {}))
 	_configure_stub()
 	if mesh == null:
-		generate_base()
+		# La escena guarda solo la configuracion y el suelo: la malla se rehace al abrirla.
+		if not auto_generate:
+			pass
+		elif not ground_bytes.is_empty() and not terrain_snapshot.is_empty():
+			rebuild_saved_ground()
+		else:
+			generate_base()
 	else:
 		_apply_material()
 
 
-# El material con texturas se arma al abrir la escena y no se guarda en el .tscn:
-# asi la escena no depende del cache de texturas (que no se sube a git).
+# Ni la malla ni el material se guardan en el .tscn: se rehacen al abrir la escena desde
+# terrain_snapshot + ground_bytes (unos 2 s). Asi la escena pesa ~6 MB en vez de >100 MB
+# y no depende del cache de texturas (que no se sube a git).
+var _mesh_on_save: Mesh
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_EDITOR_PRE_SAVE and material_override is ShaderMaterial:
-		material_override = null
-		_strip_material_on_save = true
-	elif what == NOTIFICATION_EDITOR_POST_SAVE and _strip_material_on_save:
-		_strip_material_on_save = false
-		_apply_material()
+	if what == NOTIFICATION_EDITOR_PRE_SAVE:
+		_mesh_on_save = mesh
+		mesh = null
+		if material_override is ShaderMaterial:
+			material_override = null
+			_strip_material_on_save = true
+	elif what == NOTIFICATION_EDITOR_POST_SAVE:
+		if _mesh_on_save != null:
+			mesh = _mesh_on_save
+			_mesh_on_save = null
+		if _strip_material_on_save:
+			_strip_material_on_save = false
+			_apply_material()
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +246,31 @@ func apply_erosion() -> void:
 	_show(builder, roads, generated, "Erosion aplicada", t0)
 
 
+## Rehace rios, caminos y malla sobre el suelo guardado (ground_bytes), sin erosionar de nuevo.
+## Lo usa el juego para cargar el terreno de terrain_demo.tscn con sus propias opciones de vias.
+func rebuild_saved_ground() -> bool:
+	if terrain_snapshot.is_empty() or ground_bytes.is_empty():
+		push_warning("No hay suelo guardado para reconstruir.")
+		return false
+	if not _valid_grid():
+		return false
+	var terrain := _configure_stub()
+	var cfg := _build_cfg()
+	cfg["erosion_enabled"] = not terrain_snapshot.get("erosions", []).is_empty()
+	var roads := _make_roads(terrain, cfg)
+	var builder := TerrainMesh.new()
+	if not builder.set_ground_heights(ground_bytes.to_float32_array(), grid_size, cell_size):
+		push_error("El suelo guardado no coincide con Grid Size y Cell Size.")
+		return false
+	var t0 := Time.get_ticks_msec()
+	var generated := builder.rebuild_surface(terrain, roads, grid_size, cell_size, cfg)
+	if generated == null:
+		push_error("No se pudo reconstruir el terreno guardado.")
+		return false
+	_show(builder, roads, generated, "Terreno guardado reconstruido", t0)
+	return true
+
+
 ## 3. Vuelve a la malla guardada en la escena, con su configuracion y su suelo.
 func restore_saved_mesh() -> void:
 	_clear_details()
@@ -239,7 +281,9 @@ func restore_saved_mesh() -> void:
 	if not terrain_snapshot.is_empty():
 		_apply_params(terrain_snapshot.get("params", {}))
 	_configure_stub()
-	if _saved_mesh != null:
+	if _saved_mesh == null and not ground_bytes.is_empty():
+		rebuild_saved_ground()
+	elif _saved_mesh != null:
 		mesh = _saved_mesh
 		_apply_material()
 		for detail: Dictionary in _saved_details:
@@ -485,6 +529,5 @@ func _add_detail(detail_name: String, detail_mesh: ArrayMesh, color: Color) -> v
 	material.cull_mode = BaseMaterial3D.CULL_BACK
 	material.roughness = 0.35 if detail_name == "AguaGenerada" else 0.9
 	detail.material_override = material
-	add_child(detail)
-	if owner != null: detail.owner = owner
+	add_child(detail)  # Sin owner: no se guarda en el .tscn, se rehace al abrir la escena.
 	_generated_details.append(detail)
