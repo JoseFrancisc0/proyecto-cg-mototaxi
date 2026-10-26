@@ -1,0 +1,52 @@
+{
+	"A_una_resolucion": {
+		"change_correlation": 0.999999992670886,
+		"cpu_seconds": 31.613,
+		"gpu_seconds": 56.203,
+		"max_abs_m": 0.0243453979492188,
+		"mean_change_m": 4.73971297664446,
+		"relief_m": 162.599794387817,
+		"rmse_m": 0.000801530375487167,
+		"rmse_relative": 0.00000492946733730446,
+		"samples": 257,
+		"within_10cm": 1.0,
+		"within_1cm": 0.999318687640994
+	},
+	"B_efecto_upsampling": {
+		"change_correlation": 0.998688240795215,
+		"max_abs_m": 12.2975692749023,
+		"mean_change_m": 8.88190326171871,
+		"relief_m": 154.187593460083,
+		"rmse_m": 0.610240452182866,
+		"rmse_relative": 0.00395777921224802,
+		"samples": 513,
+		"within_10cm": 0.618993878458329,
+		"within_1cm": 0.226071459784397
+	},
+	"B_multiescala_bicubico": {
+		"change_correlation": 0.999993439040204,
+		"cpu_seconds": 103.262,
+		"gpu_seconds": 74.431,
+		"max_abs_m": 3.78743362426758,
+		"mean_change_m": 8.88190326171871,
+		"relief_m": 154.187593460083,
+		"rmse_m": 0.0429041032109952,
+		"rmse_relative": 0.000278259114421567,
+		"samples": 513,
+		"within_10cm": 0.996542145921442,
+		"within_1cm": 0.980636017160076
+	},
+	"B_multiescala_lineal": {
+		"change_correlation": 0.999919189923005,
+		"cpu_seconds": 105.556,
+		"gpu_seconds": 74.219,
+		"max_abs_m": 6.52698707580566,
+		"mean_change_m": 8.91041060859996,
+		"relief_m": 152.537678718567,
+		"rmse_m": 0.150968421090557,
+		"rmse_relative": 0.000989712327857662,
+		"samples": 513,
+		"within_10cm": 0.986806956746425,
+		"within_1cm": 0.962879366490734
+	}
+}

@@ -26,6 +26,14 @@ render_mode unshaded;
 //      C++ con rayos sobre el heightfield. Oscurece quebradas y fondos de valle.
 //   7. POM: ray marching dentro del mapa Displacement de la textura (relieve de cerca).
 //   8. Niebla por distancia (perspectiva aerea) y tone mapping.
+//
+// Agua (S14):
+//   9. Rios desde el drenaje: river_map guarda, por texel, la distancia con signo a la orilla
+//      del rio mas cercano (campo de distancia, como las fuentes SDF), su semiancho y la
+//      direccion de la corriente. Interpolado por la GPU da orillas suaves sin malla extra.
+//      El agua usa Fresnel (Schlick) para reflejar el cielo, especular Blinn-Phong muy
+//      brillante y ondas que avanzan con la corriente (ruido desplazado con TIME).
+//  10. Sombra de las copas de los arboles (canopy_map), calculada al repartir la vegetacion.
 
 // Capas, mismo orden que TerrainTextures.MATERIALS:
 // 0 Ground054 arena (costa plano)      1 Rocks021 piedras (costa ladera)
@@ -97,14 +105,40 @@ uniform float pom_depth : hint_range(0.0, 0.1) = 0.04;
 /** Solo se calcula cerca de la camara (m). */
 uniform float pom_distance = 40.0;
 
+group_uniforms Agua_y_rios;
+uniform bool rivers_enabled = false;
+/** R: distancia con signo a la orilla, G: semiancho, B y A: direccion de la corriente. La pone chunk_mesh.gd. */
+uniform sampler2D river_map : filter_linear, repeat_disable;
+uniform float river_map_size = 2.0;
+uniform float river_extent = 1.0;
+/** Nivel del agua del rio mas cercano (una muestra por vertice): el agua no sube por las paredes del cauce. */
+uniform sampler2D river_level_map : filter_linear, repeat_disable;
+uniform vec3 water_shallow : source_color = vec3(0.20, 0.42, 0.40);
+uniform vec3 water_deep : source_color = vec3(0.05, 0.18, 0.25);
+/** Velocidad base de las ondas (m/s). En los tramos empinados va mas rapido. */
+uniform float water_speed : hint_range(0.0, 4.0) = 0.7;
+/** Fuerza de las ondas en la normal del agua. */
+uniform float water_ripple : hint_range(0.0, 1.0) = 0.35;
+/** Metros de orilla mojada (mas oscura) junto al agua. */
+uniform float bank_wet_width : hint_range(0.0, 8.0) = 2.5;
+/** Pendiente (1 - normal.y) donde aparece espuma de rapidos. */
+uniform float foam_slope : hint_range(0.01, 0.5) = 0.10;
+
+group_uniforms Vegetacion;
+uniform bool canopy_enabled = false;
+/** Sombra de las copas (0 = nada, 1 = sombra completa). La pone TerrainVegetation. */
+uniform sampler2D canopy_map : filter_linear, repeat_disable;
+uniform float canopy_shadow : hint_range(0.0, 1.0) = 0.55;
+
 group_uniforms Atmosfera;
 uniform vec3 fog_color : source_color = vec3(0.62, 0.72, 0.86);
 uniform float fog_density : hint_range(0.0, 0.005, 0.00001) = 0.00008;
 
 group_uniforms Depuracion;
 /** 0 = final, 1 = color por material, 2 = regiones, 3 = ajedrez de UV,
-    4 = solo sombras del sol, 5 = solo oclusion ambiental, 6 = texturas sin luz. */
-uniform int debug_view : hint_range(0, 6) = 0;
+    4 = solo sombras del sol, 5 = solo oclusion ambiental, 6 = texturas sin luz,
+    7 = rios (profundidad), 8 = sombra de las copas. */
+uniform int debug_view : hint_range(0, 8) = 0;
 
 varying vec3 world_pos;
 // Posicion en el espacio del terreno: si se mueve el nodo, la nieve y las
@@ -236,6 +270,22 @@ vec3 tonemap(vec3 c) {
 	return clamp((c * (2.51 * c + 0.03)) / (c * (2.43 * c + 0.59) + 0.14), 0.0, 1.0);
 }
 
+// Ruido de valor 2D (para las ondas del agua).
+float hash21(vec2 p) {
+	p = fract(p * vec2(123.34, 456.21));
+	p += dot(p, p + 45.32);
+	return fract(p.x * p.y);
+}
+float value_noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float ripple_height(vec2 q) {
+	return value_noise(q * 0.9) * 0.6 + value_noise(q * 2.3 + 7.1) * 0.3 + value_noise(q * 5.1 + 3.3) * 0.1;
+}
+
 vec3 checker(vec2 uv) {
 	vec2 c = floor(uv / tile_size);
 	return mod(c.x + c.y, 2.0) < 1.0 ? vec3(0.9) : vec3(0.15);
@@ -308,11 +358,58 @@ void fragment() {
 	rough = mix(rough, 0.9, road);
 	normal = normalize(mix(normal, N, road));
 
+	// ---- Rios (campo de distancia a la orilla) ----
+	float water = 0.0;
+	float water_depth = 0.0;
+	vec3 water_normal = N;
+	float foam = 0.0;
+	if (rivers_enabled) {
+		vec2 ruv = (local_pos.xz / river_extent + 0.5) * (river_map_size - 1.0);
+		vec4 rm = texture(river_map, (ruv + 0.5) / river_map_size);
+		float s = (rm.r - 0.5) * 16.0; // metros; negativo = dentro del agua
+		float half_width = max(rm.g * 8.0, 0.3);
+		vec2 flow = rm.ba * 2.0 - 1.0;
+		float aa = max(fwidth(s) * 0.75, 0.04);
+		// Altura sobre el nivel del agua: en las paredes de un cauce hondo no hay agua.
+		vec2 guv = (local_pos.xz / map_cell_size + vec2((map_cells - 1.0) * 0.5) + 0.5) / map_cells;
+		float above = local_pos.y - texture(river_level_map, guv).r;
+		water = (1.0 - smoothstep(-aa, aa, s)) * (1.0 - road) * (1.0 - smoothstep(0.35, 1.2, above));
+		water_depth = clamp(-s / half_width, 0.0, 1.0);
+		// Orilla mojada: mas oscura y brillante (solo cerca del nivel del agua).
+		float bank = (1.0 - smoothstep(0.0, bank_wet_width, s)) * (1.0 - water) * (1.0 - smoothstep(0.8, 2.5, above));
+		albedo *= 1.0 - 0.35 * bank;
+		rough = mix(rough, 0.3, bank);
+		if (water > 0.001) {
+			// Ondas que avanzan con la corriente: coordenadas a lo largo y a lo ancho del rio.
+			vec2 dir = length(flow) > 0.05 ? normalize(flow) : vec2(1.0, 0.0);
+			vec2 side = vec2(-dir.y, dir.x);
+			float steep_w = 1.0 - N.y;
+			float speed = water_speed * (1.0 + 6.0 * steep_w);
+			vec2 q = vec2(dot(local_pos.xz, dir) - TIME * speed, dot(local_pos.xz, side) * 1.6);
+			float e = 0.06;
+			vec2 g = vec2(ripple_height(q + vec2(e, 0.0)) - ripple_height(q - vec2(e, 0.0)),
+					ripple_height(q + vec2(0.0, e)) - ripple_height(q - vec2(0.0, e))) / (2.0 * e);
+			vec2 gw = dir * g.x + side * g.y * 1.6;
+			water_normal = normalize(vec3(-gw.x * water_ripple, 1.0, -gw.y * water_ripple));
+			// La superficie del agua sigue la pendiente del cauce (rapidos en las bajadas).
+			water_normal = normalize(water_normal + vec3(N.x, 0.0, N.z) * 0.6);
+			foam = smoothstep(foam_slope, foam_slope * 2.5, steep_w) * smoothstep(0.35, 0.8, value_noise(q * 2.7));
+			foam += (1.0 - smoothstep(0.0, 0.18, water_depth)) * 0.35 * value_noise(q * 4.0);
+		}
+	}
+
 	// ---- Iluminacion ----
 	vec3 L = normalize((MODEL_MATRIX * vec4(sun_direction, 0.0)).xyz);
 	vec3 V = normalize(CAMERA_POSITION_WORLD - world_pos);
 	float shadow = shadows_enabled ? sun_visibility(local_pos, normalize(sun_direction)) : 1.0;
 	float ao = mix(1.0, pow(clamp(sky_visibility, 0.0, 1.0), ao_contrast), ao_strength);
+	float canopy = 0.0;
+	if (canopy_enabled) {
+		vec2 cuv = (local_pos.xz / map_cell_size + vec2((map_cells - 1.0) * 0.5) + 0.5) / map_cells;
+		canopy = min(texture(canopy_map, cuv).r, 0.85) * canopy_shadow;
+		shadow *= 1.0 - canopy;
+		ao *= 1.0 - 0.35 * canopy;
+	}
 	// Blinn-Phong: difusa de Lambert + especular con el vector medio H.
 	float ndl = max(dot(normal, L), 0.0);
 	vec3 H = normalize(L + V);
@@ -323,6 +420,21 @@ void fragment() {
 	vec3 ambient = mix(ground_color, sky_color, normal.y * 0.5 + 0.5) * ambient_intensity * ao;
 	vec3 sun = sun_color * sun_intensity * shadow;
 	vec3 color = albedo * (ambient + sun * ndl) + sun * spec;
+	if (water > 0.001) {
+		// Agua: color segun profundidad (orilla clara, centro oscuro), lecho visible en la orilla,
+		// reflejo del cielo con Fresnel (Schlick) y brillo del sol (Blinn-Phong muy brillante).
+		vec3 wc = mix(water_shallow, water_deep, smoothstep(0.0, 1.0, water_depth));
+		wc = mix(albedo * 0.55, wc, 0.25 + 0.75 * smoothstep(0.0, 0.4, water_depth));
+		float wndl = max(dot(water_normal, L), 0.0);
+		vec3 Hw = normalize(L + V);
+		float wspec = pow(max(dot(water_normal, Hw), 0.0), 220.0) * 1.6;
+		float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(water_normal, V), 0.0), 5.0);
+		vec3 sky_reflect = mix(sky_color * 0.9, fog_color, 0.3) * ambient_intensity * 2.2;
+		vec3 wcolor = wc * (ambient + sun * wndl * 0.7);
+		wcolor = mix(wcolor, sky_reflect, fresnel * 0.8) + sun * wspec * (0.3 + 0.7 * shadow);
+		wcolor = mix(wcolor, vec3(0.92, 0.95, 0.97) * (ambient + sun * 0.8), clamp(foam, 0.0, 1.0));
+		color = mix(color, wcolor, water);
+	}
 	// Perspectiva aerea: lo lejano se funde con el color del cielo.
 	color = mix(color, fog_color, 1.0 - exp(-dist * fog_density));
 	color = tonemap(color);
@@ -345,6 +457,10 @@ void fragment() {
 		color = vec3(R.x, R.z, R.y) * (0.35 + 0.65 * ndl);
 	} else if (debug_view == 3) {
 		color = checker(UV);
+	} else if (debug_view == 7) {
+		color = mix(vec3(0.85), mix(vec3(0.3, 0.7, 0.9), vec3(0.0, 0.1, 0.5), water_depth), water) * (0.4 + 0.6 * ndl);
+	} else if (debug_view == 8) {
+		color = vec3(1.0 - canopy);
 	}
 
 	ALBEDO = color;

@@ -157,7 +157,9 @@ inline float incoming(const Grid &g, const std::vector<float> &W, const std::vec
 // ---------------------------------------------------------------------------
 // 1. Erosion fluvial (erosion.glsl)
 // ---------------------------------------------------------------------------
-void fluvial_erosion(const Grid &g, std::vector<float> &h, int steps) {
+using StepHook = std::function<void(int, const std::vector<float> &)>;
+
+void fluvial_erosion(const Grid &g, std::vector<float> &h, int steps, const StepHook &after_step) {
     int count = g.n * g.n;
     std::vector<float> h_out(count), stream(count, 0.0f), stream_out(count), W(count * 8);
     float rain = std::sqrt(2.0f) * g.cell;  // 1.0f * length(cellDiag)
@@ -193,6 +195,7 @@ void fluvial_erosion(const Grid &g, std::vector<float> &h, int steps) {
         });
         std::swap(h, h_out);
         std::swap(stream, stream_out);
+        if (after_step) after_step(s + 1, h);
     }
 }
 
@@ -275,7 +278,7 @@ float snoise(V3 v) {
 // ---------------------------------------------------------------------------
 // 2. Estabilizacion termica (thermal.glsl)
 // ---------------------------------------------------------------------------
-void thermal_erosion(const Grid &g, std::vector<float> &h, int steps) {
+void thermal_erosion(const Grid &g, std::vector<float> &h, int steps, const StepHook &after_step) {
     int count = g.n * g.n;
     std::vector<float> h_out(count);
     float matter = EPS_THERMAL * g.cell * g.cell;
@@ -292,7 +295,10 @@ void thermal_erosion(const Grid &g, std::vector<float> &h, int steps) {
                     // evaluating 3D simplex noise again in every iteration.
                     tan_angle = (*g.talus)[id];
                 } else {
-                    V3 pt = {x * g.cell * NOISE_WAVELENGTH, y * g.cell * NOISE_WAVELENGTH, z * NOISE_WAVELENGTH};
+                    // Point(p) del shader = a + p * cellDiag, con a = (-10 km, -10 km): el repo
+                    // oficial usa Box2(Vector2::Null, 10 * 1000), una caja centrada en el origen.
+                    const float a0 = float(-PAPER_SIZE * 0.5);
+                    V3 pt = {(a0 + float(x) * g.cell) * NOISE_WAVELENGTH, (a0 + float(y) * g.cell) * NOISE_WAVELENGTH, z * NOISE_WAVELENGTH};
                     float t = snoise(pt) * 0.5f + 0.5f;
                     tan_angle = NOISE_MIN + (NOISE_MAX - NOISE_MIN) * t;
                 }
@@ -315,13 +321,14 @@ void thermal_erosion(const Grid &g, std::vector<float> &h, int steps) {
             }
         });
         std::swap(h, h_out);
+        if (after_step) after_step(s + 1, h);
     }
 }
 
 // ---------------------------------------------------------------------------
 // 3. Deposicion de sedimentos (deposition.glsl)
 // ---------------------------------------------------------------------------
-void deposition(const Grid &g, std::vector<float> &h, int steps) {
+void deposition(const Grid &g, std::vector<float> &h, int steps, const StepHook &after_step) {
     int count = g.n * g.n;
     std::vector<float> h_out(count), stream(count, 0.0f), stream_out(count);
     std::vector<float> sed(count, 0.0f), sed_out(count), W(count * 8);
@@ -364,52 +371,59 @@ void deposition(const Grid &g, std::vector<float> &h, int steps) {
         std::swap(h, h_out);
         std::swap(stream, stream_out);
         std::swap(sed, sed_out);
+        if (after_step) after_step(s + 1, h);
     }
 }
 
 // ---------------------------------------------------------------------------
-// 4. Upsampling x2 bicubico (U_k en el paper)
+// 4. Upsampling x2 (U_k en el paper)
 // El paper describe un upsampling bicubico. Ojo: en el repo oficial,
 // SetResolution(x, y, true) termina usando Value(), que es bilineal
-// (las dos ramas del if son iguales). Aqui se usa bicubica de verdad
-// (Catmull-Rom), para que la pendiente sea continua entre celdas.
+// (las dos ramas del if son iguales). Por defecto se usa bicubica de verdad
+// (Catmull-Rom), para que la pendiente sea continua entre celdas; con
+// bicubic = false se usa la lineal del repo oficial (para validar).
 // Pasa de nc x nc a (2 * (nc - 1) + 1) x (2 * (nc - 1) + 1): los puntos
 // viejos se conservan y se agrega uno nuevo entre cada par.
 // ---------------------------------------------------------------------------
-inline float cubic(float p0, float p1, float p2, float p3, float t) {
-    return p1 + 0.5f * t * (p2 - p0 + t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 + t * (3.0f * (p1 - p2) + p3 - p0)));
+template <typename T>
+inline T cubic(T p0, T p1, T p2, T p3, T t) {
+    return p1 + T(0.5) * t * (p2 - p0 + t * (T(2) * p0 - T(5) * p1 + T(4) * p2 - p3 + t * (T(3) * (p1 - p2) + p3 - p0)));
 }
 
-std::vector<float> upsample_x2(const std::vector<float> &h, int nc) {
+template <typename T>
+std::vector<T> upsample_x2(const std::vector<T> &h, int nc, bool bicubic) {
     int nf = 2 * (nc - 1) + 1;
 
     // valor de la grilla gruesa sin salirse del borde
     auto at = [&](int x, int y) {
         x = std::min(std::max(x, 0), nc - 1);
         y = std::min(std::max(y, 0), nc - 1);
-        return h[y * nc + x];
+        return h[size_t(y) * nc + x];
+    };
+    auto mid = [&](T p0, T p1, T p2, T p3) {
+        return bicubic ? cubic<T>(p0, p1, p2, p3, T(0.5)) : T(0.5) * (p1 + p2);
     };
 
     // 1) interpolar en x: grilla de nf columnas x nc filas
-    std::vector<float> tmp(nf * nc);
+    std::vector<T> tmp(size_t(nf) * nc);
     for (int y = 0; y < nc; y++) {
         for (int i = 0; i < nf; i++) {
             int x = i / 2;
-            if (i % 2 == 0) tmp[y * nf + i] = at(x, y);
-            else tmp[y * nf + i] = cubic(at(x - 1, y), at(x, y), at(x + 1, y), at(x + 2, y), 0.5f);
+            if (i % 2 == 0) tmp[size_t(y) * nf + i] = at(x, y);
+            else tmp[size_t(y) * nf + i] = mid(at(x - 1, y), at(x, y), at(x + 1, y), at(x + 2, y));
         }
     }
 
     // 2) interpolar en y: grilla final nf x nf
-    std::vector<float> out(nf * nf);
+    std::vector<T> out(size_t(nf) * nf);
     for (int j = 0; j < nf; j++) {
         int y = j / 2;
         for (int i = 0; i < nf; i++) {
             if (j % 2 == 0) {
-                out[j * nf + i] = tmp[y * nf + i];
+                out[size_t(j) * nf + i] = tmp[size_t(y) * nf + i];
             } else {
                 int y0 = std::max(y - 1, 0), y2 = std::min(y + 1, nc - 1), y3 = std::min(y + 2, nc - 1);
-                out[j * nf + i] = cubic(tmp[y0 * nf + i], tmp[y * nf + i], tmp[y2 * nf + i], tmp[y3 * nf + i], 0.5f);
+                out[size_t(j) * nf + i] = mid(tmp[size_t(y0) * nf + i], tmp[size_t(y) * nf + i], tmp[size_t(y2) * nf + i], tmp[size_t(y3) * nf + i]);
             }
         }
     }
@@ -421,7 +435,40 @@ const int LEVEL_FLUVIAL[4]    = {3000, 1500, 700, 400};
 const int LEVEL_THERMAL[4]    = {600, 1000, 2000, 6000};
 const int LEVEL_DEPOSITION[4] = {2000, 700, 200, 150};
 
+// Cuantas rondas de upsampling: la grilla base debe quedar entera y no muy chica.
+int usable_levels(int n, int requested) {
+    int levels = std::min(std::max(requested, 0), 3);
+    while (levels > 0 && (((n - 1) % (1 << levels)) != 0 || (n - 1) / (1 << levels) < 32)) levels--;
+    return levels;
+}
+
 } // namespace
+
+std::vector<double> upsample_heights_x2(const std::vector<double> &h, int n, bool bicubic) {
+    if (n < 2 || h.size() != size_t(n) * n) return {};
+    return upsample_x2<double>(h, n, bicubic);
+}
+
+std::vector<ErosionLevelPlan> erosion_plan(int n, const ErosionSteps &steps) {
+    std::vector<ErosionLevelPlan> plan;
+    if (n < 3) return plan;
+    int levels = usable_levels(n, steps.levels);
+    int nl = (n - 1) / (1 << levels) + 1;
+    for (int level = 0; level <= levels; level++) {
+        if (level > 0) nl = 2 * (nl - 1) + 1;
+        // primera ronda: pasos del Inspector; siguientes: receta del paper
+        int fl = (level == 0) ? steps.fluvial : LEVEL_FLUVIAL[level];
+        int th = (level == 0) ? steps.thermal : LEVEL_THERMAL[level];
+        int de = (level == 0) ? steps.deposition : LEVEL_DEPOSITION[level];
+        ErosionLevelPlan p;
+        p.samples = nl;
+        p.fluvial = std::max(0, int(fl * steps.iteration_scale));
+        p.thermal = std::max(0, int(th * steps.iteration_scale));
+        p.deposition = std::max(0, int(de * steps.iteration_scale));
+        plan.push_back(p);
+    }
+    return plan;
+}
 
 // ============================================================================
 // Caja negra: H entra con nuestras unidades y sale erosionada en las mismas unidades.
@@ -438,9 +485,8 @@ void erode_terrain(std::vector<double> &H, int n, double cell_size, const Erosio
     RowExecutor executor;
     active_executor = &executor;
 
-    // Cuantas rondas de upsampling: la grilla base debe quedar entera y no muy chica
-    int levels = std::min(std::max(steps.levels, 0), 3);
-    while (levels > 0 && (((n - 1) % (1 << levels)) != 0 || (n - 1) / (1 << levels) < 32)) levels--;
+    const std::vector<ErosionLevelPlan> plan = erosion_plan(n, steps);
+    const int levels = int(plan.size()) - 1;
 
     // 1. Pasar a la escala del paper (20 km de lado). La escala es la misma en
     //    horizontal y en vertical, asi las pendientes no cambian.
@@ -450,26 +496,100 @@ void erode_terrain(std::vector<double> &H, int n, double cell_size, const Erosio
     // 2. Bajar a la resolucion base: tomar 1 de cada 2^levels puntos
     int step = 1 << levels;
     int nb = (n - 1) / step + 1;
-    std::vector<float> h(nb * nb);
+    std::vector<float> h(size_t(nb) * nb);
     for (int y = 0; y < nb; y++)
         for (int x = 0; x < nb; x++)
-            h[y * nb + x] = float((H[(y * step) * n + (x * step)] - h_min) * scale);
+            h[size_t(y) * nb + x] = float((H[size_t(y * step) * n + (x * step)] - h_min) * scale);
+
+    // --- Plan de capturas y avance (S14) ---
+    long long total = 0;
+    for (const auto &p : plan) total += (long long)p.fluvial + p.thermal + p.deposition;
+    std::vector<long long> targets;
+    if (steps.frames || steps.on_frame) {
+        int count = std::max(0, steps.capture_count);
+        if (count == 1) targets.push_back(total);
+        for (int i = 0; count >= 2 && i < count; i++)
+            targets.push_back((long long)std::llround(double(i) * double(total) / double(count - 1)));
+        if (steps.capture_stage_ends) {
+            long long acc = 0;
+            targets.push_back(0);
+            for (const auto &p : plan) {
+                acc += p.fluvial; targets.push_back(acc);
+                acc += p.thermal; targets.push_back(acc);
+                acc += p.deposition; targets.push_back(acc);
+            }
+        }
+        std::sort(targets.begin(), targets.end());
+        targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
+    }
+    size_t next_target = 0;
+    long long global = 0;
+    int done_fluvial = 0, done_thermal = 0, done_deposition = 0;
+    int level_fluvial = 0, level_thermal = 0, level_deposition = 0;
+    int frame_index = 0;
+    const auto start_time = std::chrono::steady_clock::now();
+    const long long progress_every = std::max<long long>(1, total / 400);
+
+    auto take_frame = [&](int level, int nl, const char *stage, int iteration, int stage_total, const std::vector<float> &hh) {
+        ErosionFrame f;
+        f.index = frame_index++;
+        f.level = level;
+        f.levels = levels;
+        f.samples = nl;
+        f.cell = cell_size * double(n - 1) / double(nl - 1);
+        f.stage = stage;
+        f.iteration = iteration;
+        f.stage_total = stage_total;
+        f.fluvial = done_fluvial;
+        f.thermal = done_thermal;
+        f.deposition = done_deposition;
+        f.level_fluvial = level_fluvial;
+        f.level_thermal = level_thermal;
+        f.level_deposition = level_deposition;
+        f.global_iteration = global;
+        f.total_iterations = total;
+        f.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start_time).count();
+        f.heights.resize(hh.size());
+        for (size_t i = 0; i < hh.size(); i++) f.heights[i] = float(double(hh[i]) / scale + h_min);
+        if (steps.on_frame) steps.on_frame(f);
+        if (steps.frames) steps.frames->push_back(std::move(f));
+    };
+    auto stage_label = [&](int level, int nl, const char *stage) {
+        return std::string(stage) + " " + std::to_string(nl) + "x" + std::to_string(nl) +
+               " (nivel " + std::to_string(level + 1) + "/" + std::to_string(levels + 1) + ")";
+    };
+    if (steps.progress) steps.progress(0.0, stage_label(0, nb, "fluvial"));
+    if (next_target < targets.size() && targets[next_target] == 0) {
+        // T0 se guarda a la resolucion completa de entrada (el terreno que se ve antes de erosionar).
+        ErosionFrame f;
+        f.index = frame_index++;
+        f.levels = levels;
+        f.samples = n;
+        f.cell = cell_size;
+        f.stage = "T0";
+        f.total_iterations = total;
+        f.heights.assign(H.begin(), H.end());
+        if (steps.on_frame) steps.on_frame(f);
+        if (steps.frames) steps.frames->push_back(std::move(f));
+        next_target++;
+    }
 
     // 3. Multiescala: en cada ronda, subir x2 (menos en la primera) y erosionar
     int nl = nb;
     for (int level = 0; level <= levels; level++) {
         if (level > 0) {
-            h = upsample_x2(h, nl);
+            h = upsample_x2<float>(h, nl, steps.upsampling != 0);
             nl = 2 * (nl - 1) + 1;
         }
+        level_fluvial = level_thermal = level_deposition = 0;
 
-        std::vector<float> hardness(nl * nl), talus(nl * nl);
+        std::vector<float> hardness(size_t(nl) * nl), talus(size_t(nl) * nl);
         bool regional = steps.hardness.size() == H.size() && steps.talus.size() == H.size();
         if (regional) {
             int stride = (n - 1) / (nl - 1);
             for (int y = 0; y < nl; y++) for (int x = 0; x < nl; x++) {
-                hardness[y * nl + x] = steps.hardness[y * stride * n + x * stride];
-                talus[y * nl + x] = steps.talus[y * stride * n + x * stride];
+                hardness[size_t(y) * nl + x] = steps.hardness[size_t(y) * stride * n + x * stride];
+                talus[size_t(y) * nl + x] = steps.talus[size_t(y) * stride * n + x * stride];
             }
         }
         Grid g;
@@ -479,28 +599,49 @@ void erode_terrain(std::vector<double> &H, int n, double cell_size, const Erosio
         for (int i = 0; i < 8; i++)
             g.dist[i] = g.cell * std::sqrt(float(DX[i] * DX[i] + DY[i] * DY[i]));
 
-        // primera ronda: pasos del Inspector; siguientes: receta del paper
-        int fl = (level == 0) ? steps.fluvial : LEVEL_FLUVIAL[level];
-        int th = (level == 0) ? steps.thermal : LEVEL_THERMAL[level];
-        int de = (level == 0) ? steps.deposition : LEVEL_DEPOSITION[level];
-        fl = std::max(0, int(fl * steps.iteration_scale));
-        th = std::max(0, int(th * steps.iteration_scale));
-        de = std::max(0, int(de * steps.iteration_scale));
+        const ErosionLevelPlan &p = plan[level];
+        // Despues de cada iteracion: avance, y foto si toca.
+        auto hook_for = [&](const char *stage, int stage_total, int *level_counter, int *global_counter) {
+            std::string label = stage_label(level, nl, stage);
+            return StepHook([&, stage, stage_total, level_counter, global_counter, label](int done, const std::vector<float> &hh) {
+                (*level_counter)++;
+                (*global_counter)++;
+                global++;
+                if (steps.progress && (global % progress_every == 0 || done == stage_total))
+                    steps.progress(total > 0 ? double(global) / double(total) : 1.0, label);
+                while (next_target < targets.size() && targets[next_target] <= global) {
+                    if (targets[next_target] == global) take_frame(level, nl, stage, done, stage_total, hh);
+                    next_target++;
+                }
+            });
+        };
 
         auto begin = std::chrono::steady_clock::now();
-        fluvial_erosion(g, h, fl);
+        if (steps.progress) steps.progress(total > 0 ? double(global) / double(total) : 0.0, stage_label(level, nl, "fluvial"));
+        fluvial_erosion(g, h, p.fluvial, hook_for("fluvial", p.fluvial, &level_fluvial, &done_fluvial));
         auto after_fluvial = std::chrono::steady_clock::now();
-        thermal_erosion(g, h, th);
+        thermal_erosion(g, h, p.thermal, hook_for("thermal", p.thermal, &level_thermal, &done_thermal));
         auto after_thermal = std::chrono::steady_clock::now();
-        deposition(g, h, de);
+        deposition(g, h, p.deposition, hook_for("deposition", p.deposition, &level_deposition, &done_deposition));
         auto end = std::chrono::steady_clock::now();
-        if (steps.timings) steps.timings->push_back({nl,
-            std::chrono::duration<double>(after_fluvial-begin).count(),
-            std::chrono::duration<double>(after_thermal-after_fluvial).count(),
-            std::chrono::duration<double>(end-after_thermal).count()});
+        if (steps.timings) {
+            ErosionTiming t;
+            t.samples = nl;
+            t.fluvial_seconds = std::chrono::duration<double>(after_fluvial - begin).count();
+            t.thermal_seconds = std::chrono::duration<double>(after_thermal - after_fluvial).count();
+            t.deposition_seconds = std::chrono::duration<double>(end - after_thermal).count();
+            t.fluvial_iterations = p.fluvial;
+            t.thermal_iterations = p.thermal;
+            t.deposition_iterations = p.deposition;
+            steps.timings->push_back(t);
+        }
     }
+    // Fotos que no se alcanzaron (por ejemplo, 0 iteraciones en total): se toma el final.
+    if (next_target < targets.size())
+        take_frame(levels, nl, "deposition", plan.back().deposition, plan.back().deposition, h);
 
     // 4. Volver a nuestra escala (nl ya es igual a n)
-    for (int i = 0; i < n * n; i++) H[i] = double(h[i]) / scale + h_min;
+    for (size_t i = 0; i < size_t(n) * n; i++) H[i] = double(h[i]) / scale + h_min;
     active_executor = nullptr;
+    if (steps.progress) steps.progress(1.0, "erosion terminada");
 }
