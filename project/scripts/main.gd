@@ -32,17 +32,22 @@ func _ready() -> void:
 	if not _choice_from_args(choice) and show_menu:
 		loading.show_menu(choice)
 		choice = await loading.start_requested
-	world.use_editor_scene = choice["mode"] == "editor"
-	world.erosion_scale = choice["erosion_scale"]
-	world.preview_size = 384
 	world.progress.connect(loading.set_progress)
-	loading.show_progress()
-	var t0 := Time.get_ticks_msec()
-	var ok: bool = await world.generate_async(-1 if world.use_editor_scene else int(choice["seed"]))
-	print("Mundo listo en %.1f s (%s)" % [(Time.get_ticks_msec() - t0) / 1000.0, "terreno del editor" if world.use_editor_scene else "semilla %d" % world.world_seed])
-	if not ok:
+	while true:
+		world.use_editor_scene = choice["mode"] == "editor"
+		world.erosion_scale = choice["erosion_scale"]
+		world.preview_size = 768
+		loading.show_progress()
+		var t0 := Time.get_ticks_msec()
+		var ok: bool = await world.generate_async(-1 if world.use_editor_scene else int(choice["seed"]))
+		if ok and world.is_generated():
+			print("Mundo listo en %.1f s (%s)" % [(Time.get_ticks_msec() - t0) / 1000.0, "terreno del editor" if world.use_editor_scene else "semilla %d" % world.world_seed])
+			_start_game()
+			break
 		push_error("No se pudo generar el mundo.")
-	_start_game()
+		loading.show_error()
+		choice = await loading.start_requested
+
 
 
 ## Lee --seed=N, --editor y --erosion=F de los argumentos de usuario. true si hay alguno.
