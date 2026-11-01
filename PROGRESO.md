@@ -40,12 +40,13 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 
 | Rol | Tarea | Estado |
 |---|---|---|
-| J-A | Vida: daño por impulso de choque | ⬜ |
-| J-A | Detección de vuelco como daño, fin de partida y reinicio | ⬜ (ya existe la detección de vuelco para enderezar) |
-| J-B | Ruta A* dibujada en el mundo | ⬜ (`RaceManager.route` ya guarda la ruta) |
-| J-B | Flecha de navegación | 🟡 (hay flecha 2D en el HUD hacia el destino en línea recta; falta seguir la ruta) |
-| J-B | Tiempo límite según largo **y pendiente** de la ruta | 🟡 (solo largo) |
-| — | Fin de partida por tiempo (p. ej. turno total o N fallos) | ⬜ |
+| J-A | Vida: daño por choque (cambio brusco de velocidad en un paso) | ✅ `Mototaxi.apply_damage`, `crash_threshold` |
+| J-A | Vuelco = daño (20), fin de partida y reinicio | ✅ `GameSession`, `GameOverScreen`, `main.restart()` |
+| J-A | Fin por salir del mapa o quedar atrapada (acelera sin moverse 12 s, aviso 5 s antes) | ✅ `GameSession` |
+| J-B | Ruta dibujada en el mundo, **por las vías** (A* sobre el grafo de vías) | ✅ `RouteLine`, `RoadRouter`, `TerrainWorld.find_road_route` |
+| J-B | Flecha de navegación que sigue la ruta; se recalcula si te desvías (atajo) | ✅ `RaceManager.get_guide_point` |
+| J-B | Tiempo límite según largo **y pendiente** de la ruta | ✅ `RaceManager.compute_route_time` |
+| — | Fin de partida por N fallos (3) | ✅ |
 
 ### S13 — Integración
 
@@ -53,7 +54,8 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 |---|---|---|
 | J-A | Integrar con la API real; ajustar suspensión y agarre en terreno erosionado | ⬜ |
 | J-B | Integrar con la API real | ⬜ |
-| J-B | Pasajero que se enoja, propina y puntaje | ⬜ |
+| J-B | Pasajero que se enoja (golpes, vuelcos, tiempo), propina y puntaje en soles | ✅ `RaceManager` (ánimo, `paid`), HUD |
+| CG/J | Región elegida en el menú: mayoría o solo costa/sierra/selva (`biome_bias` en C++) y empezar en ella | ✅ |
 | J-B | Pasajeros reales (modelo/personaje) en lugar de zonas brillantes | ⬜ |
 | CG-B | Landmarks automáticos por tipo (picos, confluencias, costa) | ⬜ (hoy son los POI de la red de caminos, tipo `"poi"`) |
 
@@ -64,7 +66,7 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 | J-A | Sonido de motor y choques; balance de vida y daño | ⬜ |
 | J-B | Menú con semilla | ⬜ |
 | J-B | Minimapa a partir del heightmap | ⬜ |
-| J-B | Pantalla final con puntaje | ⬜ |
+| J-B | Pantalla final con puntaje | ✅ `GameOverScreen` |
 
 ---
 
@@ -179,6 +181,12 @@ Si se agregó un script con `class_name` nuevo, correr antes una vez `--headless
 para que Godot registre la clase.
 
 ## Registro
+
+- **2026-11-01** — Merge de `main` en `juego` (se conservó el `terrain_demo.tscn` de `juego`). Vida, daño,
+  vuelcos, fin de partida (vida, borde, atrapado, 3 pasajeros perdidos) y reinicio; ruta por vías dibujada
+  en el mundo; tiempo con pendiente; ánimo, pasaje y propina; región elegida en el menú (`biome_bias`).
+  `place_at` despierta el cuerpo (dormido ignoraba el cambio de posición). Pruebas: `tests/test_s13_juego.gd`,
+  `tests/test_drive_routes.gd -- 8 editor` (8/8, 0 daño), capturas con `tests/capture_game_hud.gd`.
 
 - **2026-10-18** — Ciclo de carrera S11 (J-B) completo: `RaceManager`, `GlowZone`, `RaceHUD` y `tests/test_race.gd`.
   Se devolvió `TerrainWorld` al origen en `main.tscn` (estaba desplazado a y≈96 y rotado, lo que rompía `get_height`).

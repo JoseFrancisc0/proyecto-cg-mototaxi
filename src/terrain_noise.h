@@ -28,6 +28,8 @@ private:
 		int biome;
 	};
 	int region_patches = 16;
+	// Proporcion pedida de (costa, sierra, selva). Cero = reparto al azar segun la semilla.
+	Vector3 biome_bias = Vector3(0, 0, 0);
 	std::vector<RegionSite> region_sites;
 	void _build_regions();
 

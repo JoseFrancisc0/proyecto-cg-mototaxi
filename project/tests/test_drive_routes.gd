@@ -38,6 +38,7 @@ func _initialize() -> void:
 	var ok := 0
 	var done := 0
 	var attempts := 0
+	var damage_total := 0.0
 	while done < rides and attempts < 200:
 		attempts += 1
 		var a: Vector3 = lms[rng.randi_range(0, lms.size() - 1)]["position"]
@@ -45,17 +46,20 @@ func _initialize() -> void:
 		var d := Vector2(b.x - a.x, b.z - a.z).length()
 		if d < race.ride_min_dist or d > race.ride_max_dist or not world.is_reachable(a, b):
 			continue
-		var route := world.find_route(a, b)
+		var route := world.find_road_route(a, b)  # La ruta que el juego dibuja.
 		if route.size() < 2:
 			continue
 		done += 1
-		var limit := race.compute_time_limit(TerrainWorld.route_length(route))
+		var limit := race.compute_route_time(route)
+		moto.repair()
 		var res: Dictionary = await _drive(route, b, limit)
+		damage_total += moto.max_health - moto.health
 		if res["ok"]:
 			ok += 1
-		print("  %s viaje %d: %.0f m de ruta, %.0f s de %.0f s límite, %d reinicios, pendiente máx. en ruta %.2f%s" % [
+		print("  %s viaje %d: %.0f m de ruta, %.0f s de %.0f s límite, %d reinicios, daño %.0f, pendiente máx. en ruta %.2f%s" % [
 			"OK  " if res["ok"] else "FAIL", done, TerrainWorld.route_length(route), res["time"], limit,
-			res["resets"], _max_grade(route), "" if res["ok"] else "  (" + res["why"] + ")"])
+			res["resets"], moto.max_health - moto.health, _max_grade(route), "" if res["ok"] else "  (" + res["why"] + ")"])
+	print("Daño total del piloto automático: %.0f en %d viajes" % [damage_total, done])
 	print("RESULTADO: %d/%d viajes completados a tiempo" % [ok, done])
 	quit(0 if ok == done and done > 0 else 1)
 

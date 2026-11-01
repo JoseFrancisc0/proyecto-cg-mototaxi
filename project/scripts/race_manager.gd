@@ -7,14 +7,23 @@ extends Node3D
 ##   CON_PASAJERO ──(se acaba el tiempo)──> FALLADO
 ##   ENTREGADO / FALLADO ──(tras result_time segundos)──> LIBRE (nuevo pasajero)
 ##
-## Los puntos salen de TerrainWorld.get_landmarks() y el tiempo límite del largo de
-## find_route(), así que cuando CG entregue la API real esto no cambia.
+## Los puntos salen de TerrainWorld.get_landmarks(). La ruta recomendada va por las vías
+## (TerrainWorld.find_road_route) y se dibuja en el mundo (RouteLine); el tiempo límite
+## sale de su largo y su pendiente (S12).
+##
+## S13: el pasajero tiene ánimo (1 = contento, 0 = furioso). Baja con los golpes, los
+## vuelcos y cuando se acaba el tiempo. Al entregar paga la tarifa (según el largo de la
+## ruta) más una propina proporcional a su ánimo; las ganancias son el puntaje.
 
 enum State { LIBRE, CON_PASAJERO, ENTREGADO, FALLADO }
 
 signal state_changed(state: State)
 signal ride_started(time_limit: float, route_length: float)
 signal ride_finished(success: bool, time_left: float)
+## Al entregar: tarifa y propina (en soles).
+signal paid(fare: float, tip: float)
+## El pasajero reacciona (texto corto para el HUD).
+signal passenger_said(text: String)
 
 @export_group("Recogida")
 @export var pickup_min_dist := 30.0    ## Distancia mínima (m) del pasajero a la mototaxi.
@@ -29,6 +38,23 @@ signal ride_finished(success: bool, time_left: float)
 @export var base_time := 15.0          ## Segundos extra fijos por carrera.
 @export var ref_speed_kmh := 30.0      ## Velocidad media esperada sobre la ruta.
 @export var result_time := 3.0         ## Segundos que se muestra el resultado.
+## Subir cuesta: la velocidad esperada baja uphill_penalty por cada unidad de pendiente
+## (0.2 de pendiente con 2.0 = 40 % más lento), hasta min_speed_factor.
+@export var uphill_penalty := 2.0
+@export var min_speed_factor := 0.45
+
+@export_group("Pago y ánimo (S13)")
+@export var fare_base := 3.0           ## Soles por carrera.
+@export var fare_per_km := 4.0         ## Soles por km de ruta recomendada.
+@export var max_tip_ratio := 0.5       ## Propina máxima, como fracción de la tarifa.
+@export var mood_hit_factor := 0.02    ## Ánimo perdido por punto de daño a la mototaxi.
+@export var mood_flip_loss := 0.35     ## Ánimo perdido por cada vuelco.
+@export var mood_time_start := 0.5     ## Fracción de tiempo restante desde la que se impacienta.
+
+@export_group("Ruta")
+@export var show_route := true
+@export var reroute_distance := 25.0   ## Si se aleja más que esto de la ruta, se recalcula.
+@export var route_check_time := 1.5
 
 @export_group("Zonas")
 @export var zone_radius := 4.0
@@ -45,6 +71,10 @@ var route := PackedVector3Array()
 var route_length := 0.0
 var deliveries := 0
 var failures := 0
+var earnings := 0.0       ## Puntaje: soles ganados en la partida.
+var tips_total := 0.0
+var mood := 1.0           ## Ánimo del pasajero a bordo (0..1).
+var route_line: RouteLine
 
 var pickup_zone: GlowZone
 var dropoff_zone: GlowZone
@@ -53,10 +83,14 @@ var _pickup_id := -1
 var _dropoff_id := -1
 var _result_timer := 0.0
 var _rng := RandomNumberGenerator.new()
+var _comfort := 1.0       # parte del ánimo que depende de cómo maneja (golpes, vuelcos)
+var _off_route_timer := 0.0
+var _impatient_said := false
 
 
 func _ready() -> void:
 	_ensure_zones()
+	_ensure_route_line()
 
 
 ## Arranca el ciclo. rng_seed fija qué pasajeros salen (útil en pruebas).
@@ -66,8 +100,15 @@ func start(rng_seed: int = -1) -> void:
 	else:
 		_rng.randomize()
 	_ensure_zones()
+	_ensure_route_line()
+	route_line.terrain = world
+	if moto and not moto.damaged.is_connected(_on_moto_damaged):
+		moto.damaged.connect(_on_moto_damaged)
 	deliveries = 0
 	failures = 0
+	earnings = 0.0
+	tips_total = 0.0
+	_result_timer = 0.0
 	_new_passenger()
 
 
@@ -80,6 +121,7 @@ func _physics_process(delta: float) -> void:
 				_board()
 		State.CON_PASAJERO:
 			time_left = maxf(time_left - delta, 0.0)
+			_update_mood()
 			if dropoff_zone.contains(moto):
 				_finish(true)
 			elif time_left <= 0.0:
@@ -88,6 +130,7 @@ func _physics_process(delta: float) -> void:
 			_result_timer -= delta
 			if _result_timer <= 0.0:
 				_new_passenger()
+	_follow_route(delta)
 
 
 ## Punto al que debe ir el jugador ahora (Vector3.INF si no hay ninguno).
@@ -111,9 +154,39 @@ static func state_name(s: State) -> String:
 	return ["Libre", "Con pasajero", "Entregado", "Fallado"][s]
 
 
-## Tiempo límite para una ruta: fijo + lo que tarda a la velocidad de referencia.
+## Tiempo límite para un largo en llano: fijo + lo que tarda a la velocidad de referencia.
 func compute_time_limit(length: float) -> float:
 	return base_time + length / (ref_speed_kmh / 3.6)
+
+
+## Tiempo límite para una ruta: como compute_time_limit, pero cada tramo en subida se
+## recorre más lento según su pendiente (las bajadas cuentan como llano).
+func compute_route_time(path: PackedVector3Array) -> float:
+	var v := ref_speed_kmh / 3.6
+	var t := base_time
+	for i in range(1, path.size()):
+		var a := path[i - 1]
+		var b := path[i]
+		var run := Vector2(b.x - a.x, b.z - a.z).length()
+		if run < 0.001:
+			continue
+		var grade := maxf((b.y - a.y) / run, 0.0)
+		t += a.distance_to(b) / (v * maxf(1.0 - uphill_penalty * grade, min_speed_factor))
+	return t
+
+
+## Tarifa de una carrera según el largo de la ruta recomendada (m).
+func compute_fare(length: float) -> float:
+	return fare_base + fare_per_km * length / 1000.0
+
+
+## Punto hacia el que debe apuntar la flecha: sobre la ruta, un poco por delante.
+func get_guide_point(ahead: float = 25.0) -> Vector3:
+	if route_line and show_route and state in [State.LIBRE, State.CON_PASAJERO]:
+		var p := route_line.point_ahead(ahead)
+		if p != Vector3.INF:
+			return p
+	return get_target()
 
 
 # --- Transiciones -------------------------------------------------------------
@@ -127,6 +200,7 @@ func _new_passenger() -> void:
 		return
 	pickup_zone.place(_landmark_pos(_pickup_id))
 	_set_state(State.LIBRE)
+	_show_route(world.find_road_route(moto.global_position, _landmark_pos(_pickup_id)))
 
 
 func _board() -> void:
@@ -135,28 +209,104 @@ func _board() -> void:
 	if _dropoff_id < 0:
 		return
 	var to := _landmark_pos(_dropoff_id)
-	route = world.find_route(from, to)
+	route = world.find_road_route(from, to)
 	route_length = TerrainWorld.route_length(route)
 	if route.size() < 2:
 		route_length = from.distance_to(to) * 1.4  # Sin ruta A*: estimación en línea recta.
-	time_limit = compute_time_limit(route_length)
+		time_limit = compute_time_limit(route_length)
+	else:
+		time_limit = compute_route_time(route)
 	time_left = time_limit
+	mood = 1.0
+	_comfort = 1.0
+	_impatient_said = false
 
 	pickup_zone.activate(false)
 	dropoff_zone.place(to)
 	_set_state(State.CON_PASAJERO)
+	_show_route(route)
 	ride_started.emit(time_limit, route_length)
 
 
 func _finish(success: bool) -> void:
 	dropoff_zone.activate(false)
+	_show_route(PackedVector3Array())
+	var fare := 0.0
+	var tip := 0.0
 	if success:
 		deliveries += 1
+		fare = compute_fare(route_length)
+		tip = fare * max_tip_ratio * mood
+		earnings += fare + tip
+		tips_total += tip
 	else:
 		failures += 1
+		mood = 0.0
 	_result_timer = result_time
 	_set_state(State.ENTREGADO if success else State.FALLADO)
 	ride_finished.emit(success, time_left)
+	if success:
+		paid.emit(fare, tip)
+
+
+## Detiene el ciclo (fin de partida): sin zonas ni ruta.
+func stop() -> void:
+	pickup_zone.activate(false)
+	dropoff_zone.activate(false)
+	_show_route(PackedVector3Array())
+	state = State.FALLADO
+	_result_timer = INF
+
+
+# --- Ánimo del pasajero -------------------------------------------------------
+
+func _update_mood() -> void:
+	var f := time_left / maxf(time_limit, 0.001)
+	var patience := clampf(f / mood_time_start, 0.0, 1.0)
+	mood = clampf(_comfort * (0.35 + 0.65 * patience), 0.0, 1.0)
+	if patience < 0.6 and not _impatient_said:
+		_impatient_said = true
+		passenger_said.emit("¡Apúrese, por favor, que llego tarde!")
+
+
+func _on_moto_damaged(amount: float, reason: String) -> void:
+	if state != State.CON_PASAJERO:
+		return
+	if reason == "vuelco":
+		_comfort -= mood_flip_loss
+		passenger_said.emit("¡¿Qué le pasa?! ¡Casi me mata!")
+	else:
+		_comfort -= amount * mood_hit_factor
+		if amount >= 8.0:
+			passenger_said.emit("¡Cuidado con los golpes!")
+	_comfort = maxf(_comfort, 0.0)
+
+
+# --- Ruta recomendada ---------------------------------------------------------
+
+func _show_route(path: PackedVector3Array) -> void:
+	_off_route_timer = 0.0
+	if route_line == null:
+		return
+	route_line.color = pickup_color if state == State.LIBRE else dropoff_color
+	route_line.set_route(path if show_route else PackedVector3Array())
+
+
+## Recorta lo ya recorrido y recalcula si la mototaxi se alejó de la ruta (tomó un atajo).
+func _follow_route(delta: float) -> void:
+	if route_line == null or not show_route or state not in [State.LIBRE, State.CON_PASAJERO]:
+		return
+	var off := route_line.advance(moto.global_position)
+	_off_route_timer = _off_route_timer + delta if off > reroute_distance else 0.0
+	if _off_route_timer > route_check_time:
+		_show_route(world.find_road_route(moto.global_position, get_target()))
+
+
+func _ensure_route_line() -> void:
+	if route_line == null:
+		route_line = RouteLine.new()
+		route_line.name = "RouteLine"
+		add_child(route_line)
 
 
 func _set_state(s: State) -> void:

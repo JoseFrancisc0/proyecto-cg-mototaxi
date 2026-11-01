@@ -111,10 +111,32 @@ void TerrainNoise::_build_regions() {
 	int rows = (region_patches + columns - 1) / columns;
 	std::vector<int> labels(region_patches);
 	double probabilities[3] = { 0.2 + random01(), 0.2 + random01(), 0.2 + random01() };
-	double total = probabilities[0] + probabilities[1] + probabilities[2];
-	for (int i = 0; i < region_patches; i++) {
-		double choice = random01() * total;
-		labels[i] = i < 3 ? i : (choice < probabilities[0] ? 0 : (choice < probabilities[0] + probabilities[1] ? 1 : 2));
+	double bias_total = double(biome_bias.x + biome_bias.y + biome_bias.z);
+	if (bias_total > 0.0) {
+		// Proporcion elegida por el jugador: cada bioma recibe su cuota de zonas (al menos
+		// una si su peso es mayor que 0; ninguna si es 0). Las zonas se reparten al azar.
+		int counts[3];
+		int assigned = 0, largest = 0;
+		for (int b = 0; b < 3; b++) {
+			double share = std::max(0.0, double(biome_bias[b])) / bias_total;
+			counts[b] = share > 0.0 ? std::max(1, int(std::lround(share * region_patches))) : 0;
+			assigned += counts[b];
+			if (counts[b] > counts[largest])
+				largest = b;
+		}
+		counts[largest] += region_patches - assigned; // El sobrante (o faltante) va al mayoritario.
+		int i = 0;
+		for (int b = 0; b < 3; b++)
+			for (int k = 0; k < counts[b] && i < region_patches; k++)
+				labels[i++] = b;
+		while (i < region_patches)
+			labels[i++] = largest;
+	} else {
+		double total = probabilities[0] + probabilities[1] + probabilities[2];
+		for (int i = 0; i < region_patches; i++) {
+			double choice = random01() * total;
+			labels[i] = i < 3 ? i : (choice < probabilities[0] ? 0 : (choice < probabilities[0] + probabilities[1] ? 1 : 2));
+		}
 	}
 	for (int i = region_patches - 1; i > 0; i--)
 		std::swap(labels[i], labels[int(random01() * (i + 1))]);
@@ -136,6 +158,11 @@ void TerrainNoise::configure_regions(Dictionary config) {
 	transition_width = std::clamp(value("transition_width", 0.16), 0.02, 0.25);
 	border_warp = std::clamp(value("border_warp", 0.16), 0.0, 0.30);
 	region_patches = std::clamp(int(value("region_patches", 16)), 6, 32);
+	Variant bias = config.get("biome_bias", Vector3());
+	biome_bias = bias.get_type() == Variant::VECTOR3 ? Vector3(bias) : Vector3();
+	for (int b = 0; b < 3; b++)
+		if (!std::isfinite(double(biome_bias[b])) || biome_bias[b] < 0)
+			biome_bias[b] = 0;
 	_build_regions();
 	coast_params = { value("coast_base", 4), std::max(0.0, value("coast_amplitude", 4)), std::max(0.00001, value("coast_frequency", 0.003)), OCTAVES };
 	mountain_params = { value("mountain_base", 130), std::max(0.0, value("mountain_amplitude", 85)), std::max(0.00001, value("mountain_frequency", 0.008)), OCTAVES };

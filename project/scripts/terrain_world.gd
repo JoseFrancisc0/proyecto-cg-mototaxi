@@ -99,6 +99,7 @@ var _sign_root: Node3D
 var _generated_ok := false
 var _chunk_collision := false
 var _editor_t0 := 0
+var _router: RoadRouter  # Grafo de vías para find_road_route (se arma la primera vez).
 ## Tamaño de la vista previa del terreno en la pantalla de carga (0 = sin vista previa).
 var preview_size := 0
 
@@ -167,6 +168,7 @@ func _on_job_progress(stage: String, fraction: float) -> void:
 func _prepare_generator(new_seed: int) -> bool:
 	if new_seed >= 0:
 		world_seed = new_seed
+	_router = null
 	_generated_ok = false
 	_n = grid_size + 1
 	_half = grid_size * cell_size * 0.5
@@ -367,6 +369,45 @@ func find_route(a: Vector3, b: Vector3) -> PackedVector3Array:
 		p.y = get_height(p.x, p.z)
 		path[i] = p
 	return path
+
+
+## Ruta recomendada por las vías (lo que se dibuja en el mundo): A* sobre el grafo de
+## get_roads(). Si a o b quedan lejos de una vía, se agrega un tramo con find_route().
+## Si por las vías el rodeo es absurdo (> detour_limit veces la línea recta), usa find_route().
+func find_road_route(a: Vector3, b: Vector3, detour_limit: float = 3.0) -> PackedVector3Array:
+	if _router == null:
+		_router = RoadRouter.new()
+		_router.build(get_roads())
+	if _router.is_empty():
+		return find_route(a, b)
+	var ra := get_reach_id(a.x, a.z)
+	var same_zone := func(q: Vector3) -> bool: return ra < 0 or get_reach_id(q.x, q.z) == ra
+	var mid := _router.road_path(a, b, same_zone)
+	if mid.is_empty():
+		return find_route(a, b)
+	var out := PackedVector3Array()
+	if _flat_dist(a, mid[0]) > 12.0:
+		out.append_array(find_route(a, mid[0]))
+	else:
+		out.append(a)
+	out.append_array(mid)
+	if _flat_dist(mid[-1], b) > 12.0:
+		out.append_array(find_route(mid[-1], b))
+	else:
+		out.append(b)
+	for i in out.size():
+		var p := out[i]
+		p.y = maxf(p.y, get_height(p.x, p.z))
+		out[i] = p
+	if route_length(out) > detour_limit * _flat_dist(a, b) + 150.0:
+		var direct := find_route(a, b)
+		if direct.size() >= 2:
+			return direct
+	return out
+
+
+static func _flat_dist(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x - b.x, a.z - b.z).length()
 
 
 # --- Transitabilidad ----------------------------------------------------------

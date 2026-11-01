@@ -11,6 +11,10 @@ extends VehicleBody3D
 ## Convención: el frente del vehículo es +Z local; steering > 0 gira a la izquierda.
 
 signal was_reset
+## Recibió daño: amount en puntos de vida; reason = "choque" o "vuelco".
+signal damaged(amount: float, reason: String)
+## La vida llegó a 0.
+signal destroyed
 
 @export_group("Motor")
 @export var max_engine_force := 650.0     ## Fuerza por rueda tractora (N).
@@ -37,6 +41,14 @@ signal was_reset
 @export var flip_reset_time := 2.5
 @export var spawn_height := 0.6
 
+@export_group("Vida (S12)")
+@export var max_health := 100.0
+## Cambio brusco de velocidad (m/s) en un paso de física a partir del cual un golpe daña.
+## Frenar, acelerar o pasar baches cambia menos de ~1 m/s por paso.
+@export var crash_threshold := 4.0
+@export var crash_damage_per_ms := 4.0     ## Daño por cada m/s por encima del umbral.
+@export var flip_damage := 20.0            ## Daño de cada vuelco (al enderezarse).
+
 ## Si es false, la entrada se fija desde código (pruebas, IA, cinemáticas).
 @export var use_input := true
 
@@ -52,6 +64,10 @@ var terrain: TerrainWorld
 var _wheels: Array[VehicleWheel3D] = []
 var _flip_timer := 0.0
 
+var health := 100.0
+var _prev_velocity := Vector3.ZERO
+var _hit_grace := 0.0  # segundos sin daño tras aparecer o tras un golpe
+
 
 func _ready() -> void:
 	_ensure_input_actions()
@@ -59,6 +75,7 @@ func _ready() -> void:
 		var w := c as VehicleWheel3D
 		if w:
 			_wheels.append(w)
+	health = max_health
 
 
 func _physics_process(delta: float) -> void:
@@ -104,14 +121,53 @@ func _physics_process(delta: float) -> void:
 	var target := steer_input * max_steer * lerpf(1.0, steer_at_max_speed, speed_factor)
 	steering = move_toward(steering, target, steer_speed * delta)
 
-	# Detección de vuelco: volcada y casi quieta durante un rato -> se endereza.
+	_check_crash(delta)
+
+	# Detección de vuelco: volcada y casi quieta durante un rato -> se endereza y daña.
 	if global_basis.y.dot(Vector3.UP) < upright_threshold and linear_velocity.length() < 3.0:
 		_flip_timer += delta
 	else:
 		_flip_timer = 0.0
 	var manual_reset := use_input and Input.is_action_just_pressed("moto_reset")
-	if _flip_timer > flip_reset_time or manual_reset:
+	if _flip_timer > flip_reset_time or (manual_reset and not is_upright()):
+		apply_damage(flip_damage, "vuelco")
+		if health > 0.0:
+			reset_upright()
+	elif manual_reset:
 		reset_upright()
+
+
+## Daño por choque: un cambio brusco de velocidad en un solo paso (sin contar la gravedad)
+## es un golpe contra el suelo, una roca o un puente. El daño crece con la violencia.
+func _check_crash(delta: float) -> void:
+	var gravity := get_gravity() * delta
+	var dv := (linear_velocity - _prev_velocity - gravity).length()
+	_prev_velocity = linear_velocity
+	if _hit_grace > 0.0:
+		_hit_grace -= delta
+		return
+	if dv > crash_threshold:
+		apply_damage((dv - crash_threshold) * crash_damage_per_ms, "choque")
+		_hit_grace = 0.4  # un mismo golpe dura varios pasos
+
+
+## Resta vida. Emite damaged y, si llega a 0, destroyed (una sola vez).
+func apply_damage(amount: float, reason: String) -> void:
+	if amount <= 0.0 or health <= 0.0:
+		return
+	health = maxf(health - amount, 0.0)
+	damaged.emit(amount, reason)
+	if health <= 0.0:
+		destroyed.emit()
+
+
+## Vida al máximo (al reiniciar la partida).
+func repair() -> void:
+	health = max_health
+
+
+func get_health_ratio() -> float:
+	return health / max_health
 
 
 ## Multiplicador de fuerza según la velocidad (marcha corta al arrancar).
@@ -134,12 +190,19 @@ func is_upright() -> bool:
 
 ## Coloca la mototaxi sobre ground_pos mirando hacia yaw (0 = +Z) y la detiene.
 func place_at(ground_pos: Vector3, yaw: float) -> void:
-	global_transform = Transform3D(Basis(Vector3.UP, yaw), ground_pos + Vector3.UP * spawn_height)
+	# Estacionada, la física la duerme y un cuerpo dormido ignora el cambio de posición:
+	# se despierta y se fija también en el servidor de física.
+	sleeping = false
+	var t := Transform3D(Basis(Vector3.UP, yaw), ground_pos + Vector3.UP * spawn_height)
+	global_transform = t
+	PhysicsServer3D.body_set_state(get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM, t)
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	engine_force = 0.0
 	steering = 0.0
 	_flip_timer = 0.0
+	_prev_velocity = Vector3.ZERO
+	_hit_grace = 1.0  # al aparecer cae unos centímetros y la suspensión se asienta
 
 
 ## Endereza la mototaxi donde está, conservando hacia dónde miraba.

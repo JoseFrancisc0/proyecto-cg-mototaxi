@@ -78,6 +78,9 @@ signal job_progress(stage: String, fraction: float)
 @export_range(6, 32, 1) var region_patches := 16
 @export_range(0.02, 0.25, 0.01) var transition_width := 0.16
 @export_range(0.0, 0.30, 0.01) var border_warp := 0.16
+## Proporcion de (costa, sierra, selva) al repartir las zonas. (0, 0, 0) = al azar segun la
+## semilla. Un 0 en un bioma lo quita del mapa; p. ej. (0.15, 0.15, 0.7) = mayoria de selva.
+@export var biome_bias := Vector3.ZERO
 @export var coast_base := 4.0
 @export var coast_amplitude := 4.0
 @export var coast_frequency := 0.003
@@ -174,7 +177,7 @@ const BASE_PARAMS := [
 	"preview_roads", "num_points", "min_point_dist", "k_neighbors", "hierarchical_roads", "town_count",
 	"block_size", "highway_width", "avenue_width", "street_width", "road_width", "road_fade", "road_smooth", "road_max_grade",
 	"hydrology_enabled", "river_catchment", "breach_radius",
-	"three_regions", "region_patches", "transition_width", "border_warp",
+	"three_regions", "region_patches", "transition_width", "border_warp", "biome_bias",
 	"coast_base", "coast_amplitude", "coast_frequency",
 	"mountain_base", "mountain_amplitude", "mountain_frequency",
 	"jungle_base", "jungle_amplitude", "jungle_frequency",
@@ -582,7 +585,7 @@ func _changed_params(params: Dictionary) -> PackedStringArray:
 func _region_config() -> Dictionary:
 	return {
 		"enabled": three_regions, "extent": grid_size * cell_size, "region_patches": region_patches,
-		"transition_width": transition_width, "border_warp": border_warp,
+		"transition_width": transition_width, "border_warp": border_warp, "biome_bias": biome_bias,
 		"coast_base": coast_base, "coast_amplitude": coast_amplitude, "coast_frequency": coast_frequency,
 		"mountain_base": mountain_base, "mountain_amplitude": mountain_amplitude, "mountain_frequency": mountain_frequency,
 		"jungle_base": jungle_base, "jungle_amplitude": jungle_amplitude, "jungle_frequency": jungle_frequency,

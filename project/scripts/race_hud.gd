@@ -1,7 +1,8 @@
 class_name RaceHUD
 extends CanvasLayer
-## HUD básico de la carrera: velocidad, estado, objetivo y distancia, temporizador,
-## marcador, flecha hacia el objetivo y anuncios grandes (recogida, entrega, fallo).
+## HUD de la carrera: velocidad, estado, objetivo y distancia, temporizador, marcador
+## (soles), vida de la mototaxi, ánimo del pasajero y lo que dice, flecha que sigue la
+## ruta recomendada, avisos (atrapado, borde del mapa) y anuncios grandes.
 ## Los controles se crean por código para no depender de editar la escena.
 
 const COLOR_PICKUP := Color(1.0, 0.85, 0.25)
@@ -10,6 +11,7 @@ const COLOR_FAIL := Color(1.0, 0.3, 0.25)
 
 var race: RaceManager
 var moto: Mototaxi
+var session: GameSession
 
 var _info: Label
 var _objective: Label
@@ -19,6 +21,16 @@ var _banner: Label
 var _sub_banner: Label
 var _arrow: _Arrow
 var _banner_tween: Tween
+var _health_bar: ProgressBar
+var _health_fill: StyleBoxFlat
+var _mood_box: VBoxContainer
+var _mood_bar: ProgressBar
+var _mood_fill: StyleBoxFlat
+var _speech: Label
+var _speech_tween: Tween
+var _warning: Label
+var _warning_until := 0
+var _damage_flash: ColorRect
 
 
 func _ready() -> void:
@@ -63,6 +75,50 @@ func _ready() -> void:
 	_banner.modulate.a = 0.0
 	_sub_banner.modulate.a = 0.0
 
+	# Vida (abajo a la derecha).
+	var hb := VBoxContainer.new()
+	hb.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	hb.offset_left = -276
+	hb.offset_right = -16
+	hb.offset_top = -64
+	hb.offset_bottom = -16
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(hb)
+	hb.add_child(_small_label("Mototaxi"))
+	_health_fill = StyleBoxFlat.new()
+	_health_bar = _bar(hb, _health_fill)
+
+	# Ánimo del pasajero (debajo del objetivo, solo con pasajero a bordo).
+	_mood_box = VBoxContainer.new()
+	_mood_box.position = Vector2(16, 84)
+	_mood_box.custom_minimum_size = Vector2(260, 0)
+	_mood_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_mood_box)
+	_mood_box.add_child(_small_label("Ánimo del pasajero"))
+	_mood_fill = StyleBoxFlat.new()
+	_mood_bar = _bar(_mood_box, _mood_fill)
+	_speech = Label.new()
+	_speech.add_theme_font_size_override("font_size", 22)
+	_speech.add_theme_color_override("font_color", Color(1, 1, 1))
+	_speech.add_theme_color_override("font_outline_color", Color.BLACK)
+	_speech.add_theme_constant_override("outline_size", 6)
+	_speech.modulate.a = 0.0
+	_mood_box.add_child(_speech)
+	_mood_box.visible = false
+
+	_warning = _label(30, Control.PRESET_CENTER_BOTTOM, HORIZONTAL_ALIGNMENT_CENTER)
+	_warning.offset_left = -500
+	_warning.offset_right = 500
+	_warning.offset_top = -150
+	_warning.offset_bottom = -100
+	_warning.modulate = COLOR_FAIL
+
+	_damage_flash = ColorRect.new()
+	_damage_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_damage_flash.color = Color(1, 0, 0, 0)
+	_damage_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_damage_flash)
+
 
 ## Conecta el HUD al gestor de carrera.
 func bind(r: RaceManager, m: Mototaxi) -> void:
@@ -71,16 +127,33 @@ func bind(r: RaceManager, m: Mototaxi) -> void:
 	race.ride_started.connect(_on_ride_started)
 	race.ride_finished.connect(_on_ride_finished)
 	race.state_changed.connect(_on_state_changed)
+	race.paid.connect(_on_paid)
+	race.passenger_said.connect(say)
+	moto.damaged.connect(_on_damaged)
+
+
+func bind_session(s: GameSession) -> void:
+	session = s
+	session.warning.connect(_on_warning)
 
 
 func _process(_delta: float) -> void:
 	if moto:
-		_info.text = "%d km/h\nW/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   R: enderezar" \
+		_info.text = "%d km/h\nW/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   R: enderezar (volcada cuesta vida)" \
 			% roundi(moto.get_speed_kmh())
+		var hp := moto.get_health_ratio()
+		_health_bar.value = hp * 100.0
+		_health_fill.bg_color = Color(0.9, 0.2, 0.15).lerp(Color(0.25, 0.85, 0.3), hp)
+	if Time.get_ticks_msec() > _warning_until:
+		_warning.text = ""
 	if race == null:
 		return
 
-	_score.text = "Entregas: %d\nFallidas: %d" % [race.deliveries, race.failures]
+	_score.text = "S/ %.2f\nEntregas: %d   Perdidos: %d" % [race.earnings, race.deliveries, race.failures]
+	_mood_box.visible = race.state == RaceManager.State.CON_PASAJERO
+	if _mood_box.visible:
+		_mood_bar.value = race.mood * 100.0
+		_mood_fill.bg_color = Color(0.9, 0.2, 0.15).lerp(Color(0.25, 0.85, 0.3), race.mood)
 
 	var dist := race.get_target_distance()
 	match race.state:
@@ -101,8 +174,8 @@ func _process(_delta: float) -> void:
 			_objective.text = "Esperando nuevo pasajero..."
 			_objective.modulate = Color.WHITE
 
-	# Flecha: arriba = hacia donde mira la mototaxi; gira hacia el objetivo.
-	var target := race.get_target()
+	# Flecha: arriba = hacia donde mira la mototaxi; gira hacia la ruta recomendada.
+	var target := race.get_guide_point()
 	_arrow.visible = target != Vector3.INF and moto != null
 	if _arrow.visible:
 		_arrow.color = COLOR_PICKUP if race.state == RaceManager.State.LIBRE else COLOR_DROPOFF
@@ -125,12 +198,48 @@ func _on_ride_started(limit: float, length: float) -> void:
 	show_banner("¡Pasajero a bordo!", "Ruta de %d m · tienes %s" % [roundi(length), _fmt_time(limit)], COLOR_DROPOFF)
 
 
-func _on_ride_finished(success: bool, time_left: float) -> void:
+func _on_ride_finished(success: bool, _time_left: float) -> void:
 	_timer.text = ""
-	if success:
-		show_banner("¡PASAJERO ENTREGADO!", "Llegaste con %s de sobra" % _fmt_time(time_left), COLOR_DROPOFF)
-	else:
-		show_banner("¡SE ACABÓ EL TIEMPO!", "El pasajero se bajó molesto", COLOR_FAIL)
+	if not success:
+		show_banner("¡SE ACABÓ EL TIEMPO!", "El pasajero se bajó molesto y no pagó", COLOR_FAIL)
+
+
+func _on_paid(fare: float, tip: float) -> void:
+	var note := "¡Excelente viaje!" if race.mood > 0.75 else ("Buen viaje" if race.mood > 0.4 else "El pasajero se bajó enojado")
+	show_banner("¡PASAJERO ENTREGADO!", "Pasaje S/ %.2f + propina S/ %.2f  ·  %s" % [fare, tip, note], COLOR_DROPOFF)
+
+
+## Lo que dice el pasajero, bajo su barra de ánimo.
+func say(text: String) -> void:
+	_speech.text = "\"%s\"" % text
+	if _speech_tween:
+		_speech_tween.kill()
+	_speech.modulate.a = 1.0
+	_speech_tween = create_tween()
+	_speech_tween.tween_property(_speech, "modulate:a", 0.0, 0.8).set_delay(2.5)
+
+
+func _on_damaged(amount: float, _reason: String) -> void:
+	var a := clampf(amount / 40.0, 0.12, 0.45)
+	_damage_flash.color.a = a
+	create_tween().tween_property(_damage_flash, "color:a", 0.0, 0.5)
+
+
+func _on_warning(text: String, seconds_left: float) -> void:
+	_warning.text = text if seconds_left < 0.0 else "%s  (%d s)" % [text, ceili(seconds_left)]
+	_warning_until = Time.get_ticks_msec() + 300
+
+
+## Limpia anuncios, avisos y temporizador (al reiniciar la partida).
+func reset_view() -> void:
+	if _banner_tween:
+		_banner_tween.kill()
+	_banner.modulate.a = 0.0
+	_sub_banner.modulate.a = 0.0
+	_speech.modulate.a = 0.0
+	_warning.text = ""
+	_timer.text = ""
+	_damage_flash.color.a = 0.0
 
 
 ## Muestra un anuncio grande en el centro que se desvanece solo.
@@ -149,6 +258,32 @@ func show_banner(title: String, subtitle: String, c: Color, seconds := 2.5) -> v
 static func _fmt_time(t: float) -> String:
 	var s := ceili(t)
 	return "%d:%02d" % [s / 60, s % 60]
+
+
+func _small_label(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 16)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 5)
+	return l
+
+
+func _bar(parent: Control, fill: StyleBoxFlat) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(260, 18)
+	bar.show_percentage = false
+	bar.value = 100.0
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.55)
+	bg.set_corner_radius_all(4)
+	fill.set_corner_radius_all(4)
+	fill.bg_color = Color(0.25, 0.85, 0.3)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(bar)
+	return bar
 
 
 func _label(size: int, preset: Control.LayoutPreset, align: HorizontalAlignment) -> Label:

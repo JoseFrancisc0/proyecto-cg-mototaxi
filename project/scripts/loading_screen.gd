@@ -28,6 +28,10 @@ var _seed_edit: LineEdit
 var _seed_row: VBoxContainer
 var _quality_row: VBoxContainer
 var _mode: OptionButton
+var _region: OptionButton
+var _region_note: Label
+var _share_row: VBoxContainer
+var _share: OptionButton
 var _quality: OptionButton
 var _play: Button
 var _help: Button
@@ -186,6 +190,21 @@ func _build_dialog() -> void:
 	_mode.custom_minimum_size.y = 44
 	_mode.item_selected.connect(_update_mode)
 	_menu.add_child(_mode)
+	_menu.add_child(_label("Región"))
+	_region = OptionButton.new()
+	for item in ["Mixta (costa, sierra y selva)","Costa","Sierra","Selva"]: _region.add_item(item)
+	_region.custom_minimum_size.y = 44
+	_region.item_selected.connect(_update_mode)
+	_menu.add_child(_region)
+	_share_row = VBoxContainer.new()
+	_menu.add_child(_share_row)
+	_share = OptionButton.new()
+	for item in ["Mayoría de esa región","Solo esa región"]: _share.add_item(item)
+	_share.custom_minimum_size.y = 44
+	_share_row.add_child(_share)
+	_region_note = _label("",15,MUTED)
+	_region_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_menu.add_child(_region_note)
 	_seed_row = VBoxContainer.new()
 	_menu.add_child(_seed_row)
 	_seed_row.add_child(_label("Semilla"))
@@ -359,6 +378,14 @@ func _responsive() -> void:
 func _update_mode(_index := 0) -> void:
 	_seed_row.visible = _mode.selected == 1
 	_quality_row.visible = _mode.selected == 1
+	_share_row.visible = _mode.selected == 1 and _region.selected > 0
+	if _region.selected == 0:
+		_region_note.text = ""
+	elif _mode.selected == 0:
+		_region_note.text = "El terreno guardado ya tiene sus regiones: empiezas en la zona de esa región."
+	else:
+		_region_note.text = "El mapa se genera con esa región como protagonista y empiezas en ella."
+	_region_note.visible = _region_note.text != ""
 
 func show_menu(choice: Dictionary) -> void:
 	_starting = false
@@ -372,6 +399,8 @@ func show_menu(choice: Dictionary) -> void:
 	_mode.select(0 if choice.get("mode","editor") == "editor" else 1)
 	var scale: float = choice.get("erosion_scale",.1)
 	_quality.select(0 if scale <= .15 else (1 if scale <= .5 else 2))
+	_region.select(clampi(int(choice.get("region",_region.selected)),0,3))
+	_share.select(1 if choice.get("region_only",_share.selected == 1) else 0)
 	_notice.hide()
 	_play.disabled = false
 	_update_mode()
@@ -387,7 +416,13 @@ func _on_play() -> void:
 		return
 	_starting = true
 	_play.disabled = true
-	start_requested.emit({"mode":"editor" if _mode.selected == 0 else "seed","seed":int(seed_text) if seed_text.is_valid_int() else 67,"erosion_scale":[.1,.35,1.0][_quality.selected]})
+	start_requested.emit(_current_choice())
+
+## Lo elegido en el menú. region: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva.
+func _current_choice() -> Dictionary:
+	var seed_text := _seed_edit.text.strip_edges()
+	return {"mode":"editor" if _mode.selected == 0 else "seed","seed":int(seed_text) if seed_text.is_valid_int() else 67,
+		"erosion_scale":[.1,.35,1.0][_quality.selected],"region":_region.selected,"region_only":_share.selected == 1}
 
 func show_progress() -> void:
 	_home.hide()
@@ -412,7 +447,7 @@ func set_progress(stage: String, fraction: float) -> void:
 	_progress_percent.text = "%d %%" % int(_fraction*100)
 
 func show_error(message := "No se pudo preparar el terreno. Intenta de nuevo.") -> void:
-	show_menu({"mode":"editor" if _mode.selected == 0 else "seed","seed":int(_seed_edit.text),"erosion_scale":[.1,.35,1.0][_quality.selected]})
+	show_menu(_current_choice())
 	_open_setup()
 	_notice.text = message
 	_notice.show()
