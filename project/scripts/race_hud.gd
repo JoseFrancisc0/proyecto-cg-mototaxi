@@ -19,9 +19,24 @@ var _banner: Label
 var _sub_banner: Label
 var _arrow: _Arrow
 var _banner_tween: Tween
+var _turbo_bar: ProgressBar
+var _turbo_label: Label
 
 
 func _ready() -> void:
+	_turbo_bar = ProgressBar.new()
+	_turbo_bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_turbo_bar.offset_left = -240
+	_turbo_bar.offset_right = -20
+	_turbo_bar.offset_top = -42
+	_turbo_bar.offset_bottom = -20
+	_turbo_bar.show_percentage = false
+	add_child(_turbo_bar)
+	_turbo_label = _label(18, Control.PRESET_BOTTOM_RIGHT, HORIZONTAL_ALIGNMENT_RIGHT)
+	_turbo_label.offset_left = -300
+	_turbo_label.offset_right = -20
+	_turbo_label.offset_top = -72
+	_turbo_label.offset_bottom = -44
 	_info = _label(18, Control.PRESET_BOTTOM_LEFT, HORIZONTAL_ALIGNMENT_LEFT)
 	_info.offset_left = 16
 	_info.offset_right = 1000
@@ -75,8 +90,13 @@ func bind(r: RaceManager, m: Mototaxi) -> void:
 
 func _process(_delta: float) -> void:
 	if moto:
+		_turbo_bar.value = moto.turbo_charge * 100.0
+		_turbo_label.text = "TURBO ACTIVO" if moto.turbo_active else "TURBO · SHIFT / X"
+		_turbo_label.modulate = Color("ffdb38") if moto.turbo_active else Color.WHITE
 		_info.text = "%d km/h\nW/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   R: enderezar" \
 			% roundi(moto.get_speed_kmh())
+		if moto.offroad_amount > 0.45:
+			_info.text = "TIERRA · MENOR AGARRE   " + _info.text
 	if race == null:
 		return
 

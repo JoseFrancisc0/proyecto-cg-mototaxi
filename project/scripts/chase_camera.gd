@@ -4,8 +4,8 @@ extends Camera3D
 ## suavizado exponencial y nunca baja de la superficie del terreno.
 
 @export var target: Node3D
-@export var distance := 6.5
-@export var height := 2.6
+@export var distance := 5.8
+@export var height := 2.5
 @export var look_height := 1.2
 @export var follow_speed := 5.0
 @export var ground_clearance := 1.0

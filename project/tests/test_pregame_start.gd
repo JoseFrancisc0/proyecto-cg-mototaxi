@@ -13,12 +13,16 @@ func _run() -> void:
 	root.add_child(main)
 	await process_frame
 	main.loading._seed_edit.text = "31415"
+	main.loading._garage.select_vehicle(5)
 	main.loading._on_play()
 	var deadline := Time.get_ticks_msec()+45000
 	while not world.is_generated() and Time.get_ticks_msec()<deadline:
 		await create_timer(.05,true).timeout
 		if is_instance_valid(main.loading) and main.loading._notice.visible: break
 	var failures := 0
+	if main.moto.vehicle_index != 5 or main.moto.get_node_or_null("VehicleVisual") == null:
+		failures += 1
+		push_error("El modelo seleccionado debe aparecer en la partida")
 	if not world.is_generated() or paused or not main.hud.visible or world.world_seed!=31415:
 		failures+=1
 		push_error("El menú debe entregar una nueva ruta real y entrar a la partida")

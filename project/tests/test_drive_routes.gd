@@ -100,6 +100,8 @@ func _drive(route: PackedVector3Array, goal: Vector3, limit: float) -> Dictionar
 			moto.steer_input = clampf(ang * 2.5, -1.0, 1.0)
 			var target_kmh := CRUISE_KMH * (0.5 if absf(ang) > 0.6 else 1.0)
 			moto.throttle = clampf((target_kmh - moto.get_speed_kmh()) * 0.25, -1.0, 1.0)
+		# El piloto usa el mismo turbo de subida que tiene disponible el jugador.
+		moto.turbo_requested = moto.throttle > 0.1 and moto.global_basis.z.y > 0.08 and moto.get_speed_kmh() < 35.0
 		await physics_frame
 		t += dt
 		# Atascada: casi no se mueve en 6 s.
@@ -118,6 +120,7 @@ func _drive(route: PackedVector3Array, goal: Vector3, limit: float) -> Dictionar
 			stall = 0.0
 	moto.was_reset.disconnect(on_reset)
 	moto.throttle = 0.0
+	moto.turbo_requested = false
 	moto.steer_input = 0.0
 	result["time"] = t
 	result["resets"] = resets[0]
