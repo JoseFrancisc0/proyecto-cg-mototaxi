@@ -11,8 +11,10 @@ extends RefCounted
 ## Basta con descomprimir cada .zip dentro de res://textures/ ("Extraer todo" de Windows).
 ##
 ## Las 7 texturas de cada tipo se juntan en un Texture2DArray (una capa por material).
-## Asi el shader usa 3 samplers en vez de 21; el renderer Compatibility tiene pocos.
-## El resultado se guarda en res://textures/_cache/ y solo se rehace si cambian los archivos.
+## Asi el shader usa 4 samplers en vez de 28; el renderer Compatibility tiene pocos.
+## Las imagenes ya comprimidas se guardan en res://textures/_cache/ y solo se rehacen si
+## cambian los archivos. (Antes se guardaba el Texture2DArray con ResourceSaver: Godot lo
+## escribia vacio, porque lee las capas desde la GPU, y el cache se rehacia en cada inicio.)
 
 const TEXTURE_DIR := "res://textures/"
 const CACHE_DIR := "res://textures/_cache/"
@@ -66,11 +68,11 @@ static func report() -> String:
 
 
 static func _texture_array(map_name: String, force_rebuild: bool) -> Texture2DArray:
-	var cache_path := CACHE_DIR + "terrain_%s.res" % map_name
+	var cache_path := CACHE_DIR + "terrain_%s.imgcache" % map_name
 	var signature := _signature(map_name)
-	if not force_rebuild and ResourceLoader.exists(cache_path):
-		var cached := ResourceLoader.load(cache_path, "", ResourceLoader.CACHE_MODE_REPLACE) as Texture2DArray
-		if cached != null and cached.get_layers() == MATERIALS.size() and cached.get_meta("signature", "") == signature:
+	if not force_rebuild:
+		var cached := _load_cache(cache_path, signature)
+		if cached != null:
 			return cached
 
 	var t0 := Time.get_ticks_msec()
@@ -102,12 +104,41 @@ static func _texture_array(map_name: String, force_rebuild: bool) -> Texture2DAr
 	if array.create_from_images(images) != OK:
 		push_error("No se pudo crear el Texture2DArray de '%s'." % map_name)
 		return array
-	array.set_meta("signature", signature)
-	DirAccess.make_dir_recursive_absolute(CACHE_DIR)
-	if ResourceSaver.save(array, cache_path) == OK:
-		array.take_over_path(cache_path)
+	_save_cache(cache_path, signature, images)
 	print("Texturas '%s' preparadas en %.1f s" % [map_name, (Time.get_ticks_msec() - t0) / 1000.0])
 	return array
+
+
+## Cache: las 7 imagenes (ya comprimidas y con mipmaps) en un archivo binario de Godot.
+static func _save_cache(path: String, signature: String, images: Array[Image]) -> void:
+	DirAccess.make_dir_recursive_absolute(CACHE_DIR)
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return
+	var data := []
+	for image in images:
+		data.append({"width": image.get_width(), "height": image.get_height(), "mipmaps": image.has_mipmaps(),
+			"format": image.get_format(), "data": image.get_data()})
+	file.store_var({"signature": signature, "layers": data})
+
+
+static func _load_cache(path: String, signature: String) -> Texture2DArray:
+	if not FileAccess.file_exists(path):
+		return null
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return null
+	var stored = file.get_var()
+	if not (stored is Dictionary) or stored.get("signature", "") != signature or stored.get("layers", []).size() != MATERIALS.size():
+		return null
+	var images: Array[Image] = []
+	for layer: Dictionary in stored["layers"]:
+		var image := Image.create_from_data(layer["width"], layer["height"], layer["mipmaps"], layer["format"], layer["data"])
+		if image == null or image.is_empty():
+			return null
+		images.append(image)
+	var array := Texture2DArray.new()
+	return array if array.create_from_images(images) == OK else null
 
 
 static func _load_layer(item: Dictionary, map_name: String) -> Image:

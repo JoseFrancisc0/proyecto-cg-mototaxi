@@ -1,6 +1,9 @@
 #include "terrain_mesh.h"
 #include "erosion.h"
+#include "retarget.h"
+#include "terrain_internal.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <map>
 #include <set>
@@ -43,6 +46,38 @@ void TerrainMesh::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_ground_heights"), &TerrainMesh::get_ground_heights);
 	ClassDB::bind_method(D_METHOD("get_surface_heights"), &TerrainMesh::get_surface_heights);
 	ClassDB::bind_method(D_METHOD("set_ground_heights", "heights", "grid_size", "cell_size"), &TerrainMesh::set_ground_heights);
+
+	// Erosion de cualquier heightfield (validacion, DEM).
+	ClassDB::bind_method(D_METHOD("erode_heightfield", "heights", "samples", "cell_size", "cfg"), &TerrainMesh::erode_heightfield);
+	ClassDB::bind_static_method("TerrainMesh", D_METHOD("upsample_heightfield", "heights", "samples", "bicubic"), &TerrainMesh::upsample_heightfield);
+	ClassDB::bind_static_method("TerrainMesh", D_METHOD("get_erosion_plan", "samples", "cfg"), &TerrainMesh::get_erosion_plan);
+	ClassDB::bind_static_method("TerrainMesh", D_METHOD("render_heightfield", "heights", "samples", "cell_size", "kind", "width", "height", "options"), &TerrainMesh::render_heightfield);
+
+	// Avance (S13).
+	ClassDB::bind_method(D_METHOD("get_progress"), &TerrainMesh::get_progress);
+	ClassDB::bind_method(D_METHOD("get_preview"), &TerrainMesh::get_preview);
+
+	// Capturas y figuras (S14).
+	ClassDB::bind_method(D_METHOD("set_capture_options", "options"), &TerrainMesh::set_capture_options);
+	ClassDB::bind_method(D_METHOD("get_capture_count"), &TerrainMesh::get_capture_count);
+	ClassDB::bind_method(D_METHOD("get_capture_info", "index"), &TerrainMesh::get_capture_info);
+	ClassDB::bind_method(D_METHOD("get_capture_heights", "index"), &TerrainMesh::get_capture_heights);
+	ClassDB::bind_method(D_METHOD("get_capture_stats", "index"), &TerrainMesh::get_capture_stats);
+	ClassDB::bind_method(D_METHOD("render_capture", "index", "kind", "width", "height", "options"), &TerrainMesh::render_capture);
+	ClassDB::bind_method(D_METHOD("build_capture_mesh", "index", "terrain", "options"), &TerrainMesh::build_capture_mesh);
+	ClassDB::bind_method(D_METHOD("clear_captures"), &TerrainMesh::clear_captures);
+	ClassDB::bind_method(D_METHOD("get_timings"), &TerrainMesh::get_timings);
+	ClassDB::bind_method(D_METHOD("get_retarget_info"), &TerrainMesh::get_retarget_info);
+	ClassDB::bind_method(D_METHOD("get_layer_names"), &TerrainMesh::get_layer_names);
+	ClassDB::bind_method(D_METHOD("render_layer", "name", "size", "options"), &TerrainMesh::render_layer);
+	ClassDB::bind_method(D_METHOD("render_surface", "kind", "width", "height", "options"), &TerrainMesh::render_surface);
+
+	// Mundo del juego (S12-S14).
+	ClassDB::bind_method(D_METHOD("get_river_map"), &TerrainMesh::get_river_map);
+	ClassDB::bind_method(D_METHOD("scatter_vegetation", "terrain", "species", "options"), &TerrainMesh::scatter_vegetation);
+	ClassDB::bind_method(D_METHOD("find_landmark_features", "terrain", "options"), &TerrainMesh::find_landmark_features);
+	ClassDB::bind_method(D_METHOD("build_chunks", "chunk_cells", "lod_levels", "skirt_depth"), &TerrainMesh::build_chunks);
+	ClassDB::bind_method(D_METHOD("release_arrays"), &TerrainMesh::release_arrays);
 }
 
 TerrainMesh::TerrainMesh() {}
@@ -152,6 +187,15 @@ double grid_sample(const std::vector<double> &h, int n, double cell, double x, d
 	return (h[iz * n + ix] * (1 - tx) + h[iz * n + ix + 1] * tx) * (1 - tz) + (h[(iz + 1) * n + ix] * (1 - tx) + h[(iz + 1) * n + ix + 1] * tx) * tz;
 }
 } //namespace
+
+// Visibles desde los otros .cpp de TerrainMesh (capturas, mundo del juego).
+std::vector<float> terrain_sky_visibility(const std::vector<double> &H, int n, double cell, double radius, int dirs) {
+	return sky_visibility(H, n, cell, radius, dirs);
+}
+double terrain_grid_sample(const std::vector<double> &h, int n, double cell, double x, double z) {
+	return grid_sample(h, n, cell, x, z);
+}
+
 double TerrainMesh::get_height(double x, double z) const { return grid_sample(final_height, final_n, final_cell, x, z); }
 double TerrainMesh::get_drainage(double x, double z) const { return grid_sample(drainage.accumulation, drainage.n, drainage.cell, x, z); }
 Dictionary TerrainMesh::get_hydrology_data() const {
@@ -346,39 +390,80 @@ Ref<ArrayMesh> TerrainMesh::generate_mesh(Ref<TerrainNoise> terrain, Ref<RoadNet
 	if (terrain.is_null() || !valid_grid(grid_size, cell_size))
 		return Ref<ArrayMesh>();
 
+	begin_run();
+	timings = Dictionary();
+	const bool erosion = (bool)road_cfg.get("erosion_enabled", false);
+	// Reparto del avance: T0 3%, erosion 77% (si hay), superficie el resto.
+	set_phase(0.0, erosion ? 0.03 : 0.08, "Terreno base T0 (ruido Perlin + regiones)");
+
 	// 1. Suelo T0 desde el ruido.
+	auto t_begin = std::chrono::steady_clock::now();
 	const int n = grid_size + 1;
 	const double offset = grid_size * cell_size * 0.5;
 	ground_height.assign((size_t)n * n, 0.0);
 	ground_n = n;
 	ground_cell = cell_size;
-	for (int iz = 0; iz < n; iz++)
+	for (int iz = 0; iz < n; iz++) {
 		for (int ix = 0; ix < n; ix++)
 			ground_height[(size_t)iz * n + ix] = terrain->get_height(ix * cell_size - offset, iz * cell_size - offset);
+		if ((iz & 63) == 0)
+			report(double(iz) / n, "Terreno base T0 (ruido Perlin + regiones)");
+	}
+	timings["t0"] = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_begin).count();
+	// El suelo se guarda en la escena como float32 (ground_bytes): se redondea igual aqui,
+	// asi "seguir erosionando en memoria" y "reabrir la escena y erosionar" dan lo mismo.
+	for (double &h : ground_height)
+		h = (double)(float)h;
 
-	// 2. Erosion opcional en el mismo paso (compatibilidad con pruebas y scripts anteriores).
-	if ((bool)road_cfg.get("erosion_enabled", false))
+	// 2. Erosion opcional en el mismo paso (semilla -> mapa completo).
+	if (erosion) {
+		set_phase(0.03, 0.80, "Erosion multiescala");
 		erode_heights(ground_height, terrain, n, cell_size, road_cfg);
+		for (double &h : ground_height)
+			h = (double)(float)h;
+	}
 
 	// 3. Rios, caminos y malla sobre el suelo.
-	return build_surface(terrain, roads, grid_size, cell_size, road_cfg);
+	set_phase(erosion ? 0.83 : 0.08, erosion ? 0.17 : 0.92, "Superficie");
+	Ref<ArrayMesh> result = build_surface(terrain, roads, grid_size, cell_size, road_cfg);
+	timings["total"] = std::chrono::duration<double>(std::chrono::steady_clock::now() - run_start).count();
+	set_phase(1.0, 0.0, "Listo");
+	report(1.0, "Listo");
+	return result;
 }
 
 Ref<ArrayMesh> TerrainMesh::erode_ground(Ref<TerrainNoise> terrain, Ref<RoadNetwork> roads, int grid_size, double cell_size, Dictionary road_cfg) {
 	if (terrain.is_null() || !valid_grid(grid_size, cell_size) || ground_n != grid_size + 1 ||
 			ground_height.size() != (size_t)ground_n * ground_n)
 		return Ref<ArrayMesh>();
+	begin_run();
+	timings = Dictionary();
+	set_phase(0.0, 0.82, "Erosion multiescala");
 	erode_heights(ground_height, terrain, ground_n, cell_size, road_cfg);
+	for (double &h : ground_height)
+		h = (double)(float)h;
 	Dictionary cfg = road_cfg.duplicate();
 	cfg["erosion_enabled"] = true; // los caminos deben seguir el suelo erosionado
-	return build_surface(terrain, roads, grid_size, cell_size, cfg);
+	set_phase(0.82, 0.18, "Superficie");
+	Ref<ArrayMesh> result = build_surface(terrain, roads, grid_size, cell_size, cfg);
+	timings["total"] = std::chrono::duration<double>(std::chrono::steady_clock::now() - run_start).count();
+	set_phase(1.0, 0.0, "Listo");
+	report(1.0, "Listo");
+	return result;
 }
 
 Ref<ArrayMesh> TerrainMesh::rebuild_surface(Ref<TerrainNoise> terrain, Ref<RoadNetwork> roads, int grid_size, double cell_size, Dictionary road_cfg) {
 	if (terrain.is_null() || !valid_grid(grid_size, cell_size) || ground_n != grid_size + 1 ||
 			ground_height.size() != (size_t)ground_n * ground_n)
 		return Ref<ArrayMesh>();
-	return build_surface(terrain, roads, grid_size, cell_size, road_cfg);
+	begin_run();
+	timings = Dictionary();
+	set_phase(0.0, 1.0, "Superficie");
+	Ref<ArrayMesh> result = build_surface(terrain, roads, grid_size, cell_size, road_cfg);
+	timings["total"] = std::chrono::duration<double>(std::chrono::steady_clock::now() - run_start).count();
+	set_phase(1.0, 0.0, "Listo");
+	report(1.0, "Listo");
+	return result;
 }
 
 PackedFloat32Array TerrainMesh::get_ground_heights() const {
@@ -418,30 +503,144 @@ bool TerrainMesh::set_ground_heights(const PackedFloat32Array &heights, int grid
 void TerrainMesh::erode_heights(std::vector<double> &H, Ref<TerrainNoise> terrain, int n, double cell_size, const Dictionary &road_cfg) {
 	auto cfg_d = [&](const char *k, double def) { Variant v = road_cfg.get(k, def); return (double)v; };
 	const double offset = (n - 1) * cell_size * 0.5;
-	{
-		ErosionSteps steps;
-		steps.fluvial = (int)cfg_d("erosion_fluvial", 3000.0);
-		steps.thermal = (int)cfg_d("erosion_thermal", 600.0);
-		steps.deposition = (int)cfg_d("erosion_deposition", 2000.0);
-		steps.levels = (int)cfg_d("erosion_levels", 0.0);
-		if (bool(road_cfg.get("regional_erosion_maps", false))) {
-			// S11 CG-B publishes rho(p) and s0(p). The EXISTING CG-A erosion
-			// consumes them (paper sections 4.2 and 4.3); it is not replaced.
-			steps.hardness.resize(H.size());
-			steps.talus.resize(H.size());
-			for (int z = 0; z < n; z++)
-				for (int x = 0; x < n; x++) {
-					double wx = x * cell_size - offset, wz = z * cell_size - offset;
-					steps.hardness[z * n + x] = terrain->get_hardness(wx, wz);
-					steps.talus[z * n + x] = terrain->get_critical_slope(wx, wz);
-				}
-		}
-		erode_terrain(H, n, cell_size, steps);
+	const auto begin = std::chrono::steady_clock::now();
+	const double base_start = phase_start, base_span = phase_span;
+	erosion_input = H;
+	layers.clear();
+	layers_n = n;
+	frames.clear();
+
+	ErosionSteps steps;
+	steps.fluvial = (int)cfg_d("erosion_fluvial", 3000.0);
+	steps.thermal = (int)cfg_d("erosion_thermal", 600.0);
+	steps.deposition = (int)cfg_d("erosion_deposition", 2000.0);
+	steps.levels = (int)cfg_d("erosion_levels", 0.0);
+	steps.iteration_scale = std::clamp(cfg_d("erosion_iteration_scale", 1.0), 0.0, 1.0);
+	steps.upsampling = (int)cfg_d("erosion_upsampling", 1.0);
+	if (bool(road_cfg.get("regional_erosion_maps", false))) {
+		// S11 CG-B publishes rho(p) and s0(p). The EXISTING CG-A erosion
+		// consumes them (paper sections 4.2 and 4.3); it is not replaced.
+		steps.hardness.resize(H.size());
+		steps.talus.resize(H.size());
+		for (int z = 0; z < n; z++)
+			for (int x = 0; x < n; x++) {
+				double wx = x * cell_size - offset, wz = z * cell_size - offset;
+				steps.hardness[z * n + x] = terrain->get_hardness(wx, wz);
+				steps.talus[z * n + x] = terrain->get_critical_slope(wx, wz);
+			}
+		layers["dureza"] = steps.hardness;
+		layers["talud"] = steps.talus;
 	}
+	layers["t0"] = std::vector<float>(H.begin(), H.end());
+
+	// Avance: la erosion ocupa el 92% de su fase; el retargeting el resto.
+	const double erosion_span = base_span * 0.92;
+	auto stage_es = [](const std::string &label) {
+		std::string out = label;
+		auto swap = [&](const char *from, const char *to) {
+			size_t p = out.find(from);
+			if (p != std::string::npos)
+				out.replace(p, std::string(from).size(), to);
+		};
+		swap("fluvial", "Erosion fluvial");
+		swap("thermal", "Estabilizacion termica");
+		swap("deposition", "Deposicion");
+		return out;
+	};
+	steps.progress = [&, erosion_span, base_start](double f, const std::string &label) {
+		phase_start = base_start;
+		phase_span = erosion_span;
+		report(f, stage_es(label));
+	};
+
+	// Capturas: se guardan (frames) y/o se muestran en la pantalla de carga (preview).
+	std::vector<ErosionTiming> erosion_times;
+	steps.timings = &erosion_times;
+	int count = capture_count;
+	if (count <= 0 && capture_preview_size > 0)
+		count = 12; // solo para la vista previa de la pantalla de carga
+	steps.capture_count = count;
+	steps.capture_stage_ends = capture_stage_ends && capture_keep && capture_count > 0;
+	if (capture_keep && capture_count > 0)
+		steps.frames = &frames;
+	double lo = H[0], hi = H[0];
+	for (double v : H) {
+		lo = std::min(lo, v);
+		hi = std::max(hi, v);
+	}
+	double margin = std::max(1.0, (hi - lo) * 0.05);
+	if (capture_preview_size > 0)
+		steps.on_frame = [&, lo, hi, margin](const ErosionFrame &f) {
+			update_preview(f.heights, f.samples, f.cell, lo - margin, hi + margin);
+		};
+	if (steps.capture_count > 0 && (steps.frames || steps.on_frame))
+		biome_weights(terrain, n, cell_size); // colores de las fotos (una sola vez)
+
+	erode_terrain(H, n, cell_size, steps);
+	double erosion_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
+	Array levels;
+	for (const ErosionTiming &t : erosion_times) {
+		Dictionary level;
+		level["samples"] = t.samples;
+		level["fluvial_seconds"] = t.fluvial_seconds;
+		level["thermal_seconds"] = t.thermal_seconds;
+		level["deposition_seconds"] = t.deposition_seconds;
+		level["fluvial_iterations"] = t.fluvial_iterations;
+		level["thermal_iterations"] = t.thermal_iterations;
+		level["deposition_iterations"] = t.deposition_iterations;
+		levels.push_back(level);
+	}
+	timings["erosion_levels"] = levels;
+	timings["erosion"] = erosion_seconds;
+
+	// Paper 5.1: retargeting por difusion para devolver crestas y picos a su altura de T0.
+	retarget_info = Dictionary();
+	if (bool(road_cfg.get("retarget_enabled", false))) {
+		phase_start = base_start + erosion_span;
+		phase_span = base_span - erosion_span;
+		report(0.0, "Retargeting por difusion (paper 5.1)");
+		std::vector<unsigned char> mask;
+		std::vector<double> E;
+		RetargetStats rs = retarget_heights(H, erosion_input, n, cell_size, cfg_d("retarget_threshold", 1.0),
+				std::clamp((int)cfg_d("retarget_iterations", 500.0), 0, 5000), &mask, &E);
+		retarget_info["constrained_points"] = rs.constrained;
+		retarget_info["constrained_fraction"] = double(rs.constrained) / double(H.size());
+		retarget_info["mean_delta"] = rs.mean_delta;
+		retarget_info["max_delta"] = rs.max_delta;
+		retarget_info["max_constraint_error"] = rs.max_constraint_error;
+		retarget_info["mean_abs_correction"] = rs.mean_abs_correction;
+		retarget_info["seconds"] = rs.seconds;
+		retarget_info["threshold_cells"] = cfg_d("retarget_threshold", 1.0);
+		retarget_info["iterations"] = (int)cfg_d("retarget_iterations", 500.0);
+		timings["retarget"] = rs.seconds;
+		layers["retarget_error"] = std::vector<float>(E.begin(), E.end());
+		std::vector<float> m(mask.begin(), mask.end());
+		layers["retarget_puntos"] = m;
+		if (steps.frames && !frames.empty()) {
+			ErosionFrame f = frames.back();
+			f.index = (int)frames.size();
+			f.stage = "retarget";
+			f.samples = n;
+			f.cell = cell_size;
+			f.seconds = erosion_seconds + rs.seconds;
+			f.heights.assign(H.begin(), H.end());
+			frames.push_back(std::move(f));
+		}
+		report(1.0, "Retargeting por difusion (paper 5.1)");
+	}
+	std::vector<float> diff(H.size());
+	for (size_t i = 0; i < H.size(); i++)
+		diff[i] = float(H[i] - erosion_input[i]);
+	layers["cambio_erosion"] = diff;
+	phase_start = base_start;
+	phase_span = base_span;
 }
 
 Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNetwork> roads, int grid_size, double cell_size, Dictionary road_cfg) {
 	auto cfg_d = [&](const char *k, double def) { Variant v = road_cfg.get(k, def); return (double)v; };
+	using Clock = std::chrono::steady_clock;
+	auto seconds_since = [](Clock::time_point t) { return std::chrono::duration<double>(Clock::now() - t).count(); };
+	keep_arrays = bool(road_cfg.get("keep_arrays", false));
 	double road_width = std::max(0.0, cfg_d("road_width", 4.0));
 	double road_fade = std::max(0.01, cfg_d("road_fade", 3.0));
 
@@ -459,7 +658,17 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	drainage = DrainageField();
 	water_mesh.unref();
 	bridge_mesh.unref();
+	river_rgba.clear();
+	river_size = 0;
+	river_bank.clear();
+	river_level.clear();
+	river_threshold_used = 0.0;
+	if (layers_n != n) {
+		layers.clear();
+		layers_n = n;
+	}
 	bool hydrology = bool(road_cfg.get("hydrology_enabled", false));
+	bool water_ribbons = bool(road_cfg.get("water_mesh_enabled", true));
 	// Pendiente maxima de las vias para el juego (0 = sin limite, como antes).
 	double road_max_grade = std::max(0.0, cfg_d("road_max_grade", 0.0));
 	RibbonMesh water_geometry, bridge_geometry;
@@ -467,9 +676,36 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	if (hydrology) {
 		// Main-river display needs meaningful catchments, not tiny tributaries on every slope.
  double threshold = std::max({cell_size * cell_size * 8,grid_size*cell_size*grid_size*cell_size*.01,cfg_d("river_catchment",60000.0)});
+		report(0.0, "Breaching multiescala (paper 5.2)");
+		auto t_breach = Clock::now();
+		std::vector<double> before_breach = H;
 		drainage.breach_multiscale(H, n, cell_size, cfg_d("breach_radius", 24.0));
+		timings["breach"] = seconds_since(t_breach);
+		{
+			std::vector<float> cut(H.size());
+			for (size_t i = 0; i < H.size(); i++)
+				cut[i] = float(before_breach[i] - H[i]);
+			layers["breach_cut"] = cut;
+			layers["antes_breach"] = std::vector<float>(before_breach.begin(), before_breach.end());
+		}
+		report(0.35, "Drenaje (flow routing, paper 4.1)");
+		auto t_drain = Clock::now();
 		drainage.compute(H, n, cell_size, threshold);
+		timings["drainage"] = seconds_since(t_drain);
 		river_threshold = threshold;
+		river_threshold_used = threshold;
+		{
+			std::vector<float> acc(H.size());
+			for (size_t i = 0; i < H.size(); i++)
+				acc[i] = float(std::log10(std::max(1.0, drainage.accumulation[i])));
+			layers["drenaje"] = acc;
+		}
+		report(0.45, "Rios");
+		if (bool(road_cfg.get("river_map_enabled", true))) {
+			auto t_rivers = Clock::now();
+			build_river_map(n, cell_size, threshold, road_cfg);
+			timings["rivers"] = seconds_since(t_rivers);
+		}
 
 		// Display the corrected ground drainage; no automatic filling of depressions.
 		for (int i = 0; i < n * n; i++)
@@ -481,7 +717,7 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
                 double grade=(drainage.level[i]-drainage.level[j])/distance;
                 // A static water sheet cannot represent a waterfall. Keep its drainage,
                 // but do not paint steep mountain sides blue.
-                if(grade>.20)continue;
+                if(grade>.20||!water_ribbons)continue;
                 double width=std::clamp(.35+.20*std::sqrt(drainage.accumulation[i]/threshold),.45,1.2);
 				Vector3 a((i % n) * cell_size - offset, drainage.level[i] + .08, (i / n) * cell_size - offset);
 				Vector3 b((j % n) * cell_size - offset, drainage.level[j] + .08, (j / n) * cell_size - offset);
@@ -494,6 +730,8 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 
 		water_mesh = water_geometry.mesh();
 	}
+	report(0.50, "Red vial (A* sobre el terreno erosionado)");
+	auto t_roads = Clock::now();
 	// Rebuild hierarchical roads AFTER CG-A and drainage, using the actual surface.
 	if (roads.is_valid() && bool(road_cfg.get("hierarchical_roads", false))) {
 		roads->set_surface(H, drainage.protected_water, n, cell_size);
@@ -616,6 +854,9 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 		limit_network_grade(roads->get_roads_mutable(), road_max_grade, road_width);
 	}
 
+	timings["roads"] = seconds_since(t_roads);
+	report(0.70, "Caminos sobre la malla");
+	auto t_raster = Clock::now();
 	// Rasterizar solo la vecindad de cada segmento. Conserva el perfil original
 	// sin comparar cada vertice del mapa con todos los segmentos de caminos.
 	std::vector<double> road_distance(H.size(), std::numeric_limits<double>::infinity());
@@ -651,6 +892,7 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 		}
 
 	// Apply roads after erosion so the final surface preserves the road profile.
+	road_weight.assign(H.size(), 0.0f);
 	for (int iz = 0; iz < n; iz++) {
 		for (int ix = 0; ix < n; ix++) {
 			double x = ix * cell_size - offset;
@@ -669,14 +911,18 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 			// Alfa del color = mascara de camino (0 = suelo, 1 = camino). El shader
 			// de texturas la usa para pintar el camino encima de las texturas.
 			col.a = (float)w;
+			road_weight[i] = (float)w;
 			H[(size_t)iz * n + ix] = base_h;
 			Cv[(size_t)iz * n + ix] = col;
 		}
 	}
 
+	timings["road_raster"] = seconds_since(t_raster);
 	final_height = H;
 	final_n = n;
 	final_cell = cell_size;
+	// Pesos de region: se calculan una vez por terreno y se reutilizan (vegetacion, fotos).
+	const std::vector<float> &biome = biome_weights(terrain, n, cell_size);
 	PackedVector3Array verts;
 	PackedColorArray cols;
 	PackedVector3Array norms;
@@ -690,7 +936,13 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	PackedFloat32Array regions;
 	regions.resize((int64_t)n * n * 4);
 	// CUSTOM1 = visibilidad del cielo (oclusion ambiental) por vertice.
+	report(0.75, "Iluminacion global (AO por ray tracing)");
+	auto t_ao = Clock::now();
 	std::vector<float> sky = sky_visibility(H, n, cell_size, cfg_d("ao_radius", 300.0), (int)cfg_d("ao_directions", 16.0));
+	timings["ao"] = seconds_since(t_ao);
+	layers["ao"] = sky;
+	report(0.95, "Malla");
+	auto t_mesh = Clock::now();
 	PackedFloat32Array ao;
 	ao.resize((int64_t)n * n);
 	for (int64_t i = 0; i < (int64_t)n * n; i++)
@@ -713,8 +965,8 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 			verts.push_back(Vector3(x, H[(size_t)iz * n + ix], z));
 			cols.push_back(Cv[(size_t)iz * n + ix]);
 			uvs.push_back(Vector2(x, z));
-			Vector3 bw = terrain->get_biome_weights(x, z);
 			size_t vi = (size_t)iz * n + ix;
+			Vector3 bw(biome[vi * 3], biome[vi * 3 + 1], biome[vi * 3 + 2]);
 			double wet = 0.0;
 			if (river_threshold > 0.0 && drainage.accumulation.size() == (size_t)n * n)
 				wet = smoothstep_d(0.15 * river_threshold, river_threshold, drainage.accumulation[vi]);
@@ -760,5 +1012,18 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	int64_t custom_format = (int64_t(Mesh::ARRAY_CUSTOM_RGBA_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT) |
 			(int64_t(Mesh::ARRAY_CUSTOM_R_FLOAT) << Mesh::ARRAY_FORMAT_CUSTOM1_SHIFT);
 	am->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays, Array(), Dictionary(), (BitField<Mesh::ArrayFormat>)custom_format);
+	if (keep_arrays) {
+		kept_vertices = verts;
+		kept_normals = norms;
+		kept_colors = cols;
+		kept_uvs = uvs;
+		kept_regions = regions;
+		kept_ao = ao;
+	} else {
+		release_arrays();
+	}
+	layers["superficie"] = std::vector<float>(H.begin(), H.end());
+	timings["mesh"] = seconds_since(t_mesh);
+	report(1.0, "Superficie lista");
 	return am;
 }

@@ -23,6 +23,7 @@ script = ExtResource("1_main")
 
 [node name="TerrainWorld" type="Node3D" parent="." unique_id=1907334636]
 script = ExtResource("2_tw")
+generate_on_ready = false
 use_editor_scene = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1378862625]

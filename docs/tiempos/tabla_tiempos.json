@@ -1,0 +1,155 @@
+{
+	"estimates": [
+		{
+			"detail": "129: 10.3 s",
+			"levels": 0,
+			"samples": 129,
+			"seconds": 10.2830062933333
+		},
+		{
+			"detail": "129: 10.3 s, 257: 14.6 s",
+			"levels": 1,
+			"samples": 257,
+			"seconds": 24.88691723
+		},
+		{
+			"detail": "129: 10.3 s, 257: 14.6 s, 513: 26.4 s",
+			"levels": 2,
+			"samples": 513,
+			"seconds": 51.2768895
+		},
+		{
+			"detail": "129: 10.3 s, 257: 14.6 s, 513: 26.4 s, 1025: 146.6 s",
+			"levels": 3,
+			"samples": 1025,
+			"seconds": 197.888522936667
+		}
+	],
+	"measured_full": {
+		"levels": 2,
+		"samples": 513,
+		"seconds": 43.472,
+		"timings": {
+			"erosion": 43.235817899,
+			"erosion_levels": [
+				{
+					"deposition_iterations": 2000,
+					"deposition_seconds": 3.0074922,
+					"fluvial_iterations": 3000,
+					"fluvial_seconds": 4.419367753,
+					"samples": 129,
+					"thermal_iterations": 600,
+					"thermal_seconds": 0.191404679
+				},
+				{
+					"deposition_iterations": 700,
+					"deposition_seconds": 3.169427786,
+					"fluvial_iterations": 1500,
+					"fluvial_seconds": 6.116904862,
+					"samples": 257,
+					"thermal_iterations": 1000,
+					"thermal_seconds": 1.296440191
+				},
+				{
+					"deposition_iterations": 200,
+					"deposition_seconds": 3.619559179,
+					"fluvial_iterations": 700,
+					"fluvial_seconds": 11.542704785,
+					"samples": 513,
+					"thermal_iterations": 2000,
+					"thermal_seconds": 9.868646451
+				}
+			]
+		}
+	},
+	"rows": [
+		{
+			"ao_s": 0.013294676,
+			"breach_s": 0.006605633,
+			"cell_m": 12.0,
+			"chunks": 1,
+			"chunks_s": 0.003,
+			"deposition_ms": 2.74747596666667,
+			"drainage_s": 0.005784088,
+			"fluvial_ms": 1.44282096666667,
+			"mesh_s": 0.003338896,
+			"retarget_s": 0.053303736,
+			"rivers_s": 0.002411328,
+			"road_raster_s": 0.008264074,
+			"roads_s": 0.106272696,
+			"samples": 129,
+			"surface_wall_s": 0.394,
+			"t0_s": 0.008000597,
+			"thermal_ms": 0.765985766666667,
+			"thermal_noise_ms": 3.68166426666667,
+			"vegetation_count": 63653,
+			"vegetation_s": 0.058
+		},
+		{
+			"ao_s": 0.094852036,
+			"breach_s": 0.036941822,
+			"cell_m": 6.0,
+			"chunks": 4,
+			"chunks_s": 0.023,
+			"deposition_ms": 6.5340671,
+			"drainage_s": 0.021294828,
+			"fluvial_ms": 5.1011656,
+			"mesh_s": 0.019606809,
+			"retarget_s": 0.158957855,
+			"rivers_s": 0.010270126,
+			"road_raster_s": 0.03692166,
+			"roads_s": 0.08897248,
+			"samples": 257,
+			"surface_wall_s": 0.897,
+			"t0_s": 0.021130428,
+			"thermal_ms": 2.37831556666667,
+			"thermal_noise_ms": 9.45822123333333,
+			"vegetation_count": 61665,
+			"vegetation_s": 0.084
+		},
+		{
+			"ao_s": 0.336879644,
+			"breach_s": 0.153570942,
+			"cell_m": 3.0,
+			"chunks": 16,
+			"chunks_s": 0.077,
+			"deposition_ms": 19.0300816333333,
+			"drainage_s": 0.065929667,
+			"fluvial_ms": 17.7378063,
+			"mesh_s": 0.076118124,
+			"retarget_s": 0.286400041,
+			"rivers_s": 0.030372502,
+			"road_raster_s": 0.124926937,
+			"roads_s": 0.080482277,
+			"samples": 513,
+			"surface_wall_s": 2.556,
+			"t0_s": 0.090060736,
+			"thermal_ms": 5.08374576666667,
+			"thermal_noise_ms": 33.0109803666667,
+			"vegetation_count": 60913,
+			"vegetation_s": 0.111
+		},
+		{
+			"ao_s": 1.494995154,
+			"breach_s": 0.969065938,
+			"cell_m": 1.5,
+			"chunks": 64,
+			"chunks_s": 0.279,
+			"deposition_ms": 69.5717856666667,
+			"drainage_s": 0.287591906,
+			"fluvial_ms": 62.4707914666667,
+			"mesh_s": 0.316286231,
+			"retarget_s": 1.010996044,
+			"rivers_s": 0.133995934,
+			"road_raster_s": 0.535086837,
+			"roads_s": 0.094006113,
+			"samples": 1025,
+			"surface_wall_s": 10.752,
+			"t0_s": 0.343284722,
+			"thermal_ms": 18.5312581666667,
+			"thermal_noise_ms": 109.560555033333,
+			"vegetation_count": 60705,
+			"vegetation_s": 0.161
+		}
+	]
+}

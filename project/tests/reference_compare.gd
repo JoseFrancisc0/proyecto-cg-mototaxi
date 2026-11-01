@@ -63,8 +63,9 @@ func _gpu_run(stage: String, input: PackedFloat32Array, side: int, iterations: i
 		var name := match.get_string(2)
 		var value := match.get_string(3)
 		if name == "nx" or name == "ny": value = str(side)
-		if name == "a": value = "vec2(0.0)"
-		if name == "b": value = "vec2(20000.0)"
+		# Como el repo oficial: Box2(Vector2::Null, 10 * 1000) = caja de -10 km a 10 km.
+		if name == "a": value = "vec2(-10000.0)"
+		if name == "b": value = "vec2(10000.0)"
 		if name == "cellDiag": value = "vec2(%s)" % (20000.0 / (side - 1))
 		source = source.substr(0, match.get_start()) + "const %s %s = %s;" % [type, name, value] + source.substr(match.get_end())
 	# The official erosion shader declares a hardness buffer but never uses it.
