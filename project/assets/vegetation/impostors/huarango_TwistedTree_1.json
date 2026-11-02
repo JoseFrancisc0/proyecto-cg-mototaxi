@@ -1,0 +1,11 @@
+{
+	"center": [
+		0.0,
+		2.75,
+		0.0
+	],
+	"frame_px": 128,
+	"frames": 8,
+	"radius": 3.4066034536102,
+	"source": "TwistedTree_1.gltf"
+}

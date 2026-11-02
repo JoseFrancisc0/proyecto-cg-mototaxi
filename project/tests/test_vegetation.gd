@@ -41,6 +41,9 @@ func _initialize() -> void:
 	var far_tris: int = VegetationModels.get_far_variants("arbol_selva")[0].surface_get_array_index_len(0)
 	var near_tris: int = VegetationModels.get_variants("arbol_selva")[0].surface_get_array_index_len(0)
 	_check(far_tris < near_tris / 3, "la versión lejana tiene menos triángulos (%d vs %d índices)" % [far_tris, near_tris])
+	for sp in ["arbol_selva", "eucalipto", "huarango", "quenua", "palmera", "cactus"]:
+		_check(VegetationModels.uses_impostors(sp), "%s lejos usa impostor octaédrico" % sp)
+	_check(VegetationModels.draw_range("arbol_selva", 1500.0) == 1500.0, "con impostores los árboles se dibujan hasta 1.5 km")
 	_check(tv.near != null and tv.near.visible_count > 0, "árboles con modelo completo cerca de la cámara (%d)" % (tv.near.visible_count if tv.near else 0))
 	var faded := 0
 	for n in tv.find_children("*", "MultiMeshInstance3D", true, false):

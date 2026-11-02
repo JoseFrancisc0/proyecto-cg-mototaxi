@@ -68,6 +68,7 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 | J-B | Minimapa a partir del heightmap | ⬜ |
 | J-B | Pantalla final con puntaje | ✅ `GameOverScreen` |
 | CG/J | Vegetación con modelos reales, troncos sólidos que dañan al chocar | ✅ `VegetationModels`, `NearVegetation`, `TreeColliders` |
+| CG | Impostores octaédricos para los árboles lejanos (horneado propio + shader) | ✅ `VegetationImpostors`, `tools/bake_impostors.gd` |
 
 ---
 
@@ -225,3 +226,15 @@ para que Godot registre la clase.
   (`TerrainWorld._routing_heights`). Rendimiento (RTX 3050 Laptop, Compatibility): 59–72 FPS (antes 60–109).
   Piloto automático en el terreno del editor: 8/8. En mapas generados (semilla 2026) falla 3/6 por
   pendientes de 0.42; ya fallaba igual sin la vegetación nueva.
+- **2026-11-02** — Impostores octaédricos (implementación propia) para los árboles lejanos:
+  `tools/bake_impostors.gd` dibuja cada árbol real desde 8×8 direcciones del hemisferio superior
+  (proyección hemi-octaédrica) en un SubViewport y guarda dos atlas por especie/variante en
+  `project/assets/vegetation/impostors/` (color y normal + hojosidad; 1024², S3TC con mipmaps).
+  `shaders/vegetation_impostor.gdshader` dibuja cada árbol lejano con 2 triángulos: elige las 3 vistas más
+  cercanas a la dirección de la cámara, proyecta el rayo sobre el plano de cada una y las mezcla con pesos
+  baricéntricos (sin saltos al girar); la luz se recalcula con la normal horneada (mismo sol, cielo, niebla y
+  sombra del relieve que el terreno). Modelo completo a < 80 m (antes 130), impostores hasta 1.5 km (antes
+  900 m). Rendimiento (RTX 3050 Laptop, `benchmark_vegetation.gd -- --editor`): 150–165 FPS, 3–4 M
+  triángulos (versión simplificada anterior: 60–69 FPS, 12–14 M). Si se cambian los modelos, volver a
+  hornear: `Godot --path project -s res://tools/bake_impostors.gd` (con ventana). Comparar con
+  `benchmark_vegetation.gd -- --editor --noimpostor`.

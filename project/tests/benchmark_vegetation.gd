@@ -1,6 +1,7 @@
 extends SceneTree
 ## FPS y triángulos dibujados con la vegetación, en el juego real (terreno del editor).
 ##   Godot --path project -s res://tests/benchmark_vegetation.gd -- --editor   (con ventana)
+## --noimpostor = árboles lejanos con la versión simplificada en vez de impostores.
 ## Mide desde la mototaxi en 3 puntos de vista (al inicio y girando) y guarda una captura.
 
 func _measure(label: String, seconds := 4.0) -> void:
@@ -23,6 +24,8 @@ func _measure(label: String, seconds := 4.0) -> void:
 
 
 func _initialize() -> void:
+	if "--noimpostor" in OS.get_cmdline_user_args():
+		VegetationImpostors.enabled = false  # versión lejana simplificada (para comparar)
 	var main = load("res://main.tscn").instantiate()
 	main.show_menu = false
 	root.add_child(main)

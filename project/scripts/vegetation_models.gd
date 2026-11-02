@@ -10,19 +10,23 @@ extends RefCounted
 ## misma luz del terreno y se arma una versión simplificada (LOD) del mismo modelo.
 ##
 ## LOD por planta (los árboles se ven hasta 1.5 km y hay cientos de miles): cada especie de
-## árbol tiene una variante "cerca" (modelo completo) y una "lejos" (simplificada, mismas
-## texturas). El shader decide por planta según la distancia a la cámara (LOD_DISTANCE): la
+## árbol tiene una variante "cerca" (modelo completo) y una "lejos": el impostor octaédrico
+## horneado (VegetationImpostors, 2 triángulos) o, si no está horneado, una versión
+## simplificada con las mismas texturas. El shader decide por planta según la distancia a la cámara (LOD_DISTANCE): la
 ## versión lejana se oculta dentro del radio y la cercana fuera de él, sin dibujar dos veces.
 ## NearVegetation mantiene en la variante cercana solo los árboles alrededor de la cámara.
 
 const DIR := "res://assets/vegetation/"
-## Radio (m) dentro del cual los árboles usan el modelo completo.
-const LOD_DISTANCE := 130.0
+## Radio (m) dentro del cual los árboles usan el modelo completo (más allá, el impostor).
+## 80 m: a esa distancia un árbol ocupa ~1 vista del atlas en pantalla y no se nota el cambio;
+## con 130 m había el doble de triángulos (benchmark: ~115 -> ~155 FPS en RTX 3050 Laptop).
+const LOD_DISTANCE := 80.0
 ## Triángulos objetivo de la versión lejana de cada árbol.
 const FAR_TRIANGLES := 380
-## Distancia máxima de dibujo de los árboles (m). Más allá la niebla y el relieve ya los tapan;
-## con modelos reales dibujarlos hasta 1.5 km (como los provisionales) bajaba mucho los FPS.
-const FAR_RANGE := 900.0
+## Distancia máxima de dibujo de los árboles (m). Con impostores (2 triángulos por árbol)
+## dibujarlos hasta 1.5 km casi no cuesta; con la versión simplificada se limita a 900 m.
+const FAR_RANGE := 1500.0
+const FAR_RANGE_SIMPLIFIED := 900.0
 
 ## height = altura del modelo a escala 1 (m). trunk = radio del tronco a escala 1 (m) para la
 ## colisión; 0 = sin colisión (se puede atravesar). leaf_tint / bark_tint tiñen las texturas.
@@ -53,7 +57,7 @@ static func get_variants(species: String) -> Array[Mesh]:
 	return _entry(species)["near"]
 
 
-## Variantes simplificadas (solo árboles; vacío para arbustos y pasto, que se ven de cerca).
+## Variantes lejanas: impostores o simplificadas (solo árboles; vacío para arbustos y pasto, que se ven de cerca).
 static func get_far_variants(species: String) -> Array[Mesh]:
 	return _entry(species)["far"]
 
@@ -82,14 +86,24 @@ static func _entry(species: String) -> Dictionary:
 		near.append(built["near"])
 		if built.has("far"):
 			far.append(built["far"])
-	var entry := {"near": near, "far": far}
+	var impostors := not far.is_empty()
+	for m in far:
+		impostors = impostors and VegetationImpostors.is_impostor(m)
+	var entry := {"near": near, "far": far, "impostors": impostors}
 	_cache[species] = entry
 	return entry
 
 
-## Distancia de dibujo con modelos reales: la de la regla de C++, sin pasar de FAR_RANGE en árboles.
+## Distancia de dibujo con modelos reales: la de la regla de C++, con tope en los árboles.
 static func draw_range(species: String, rule_range: float) -> float:
-	return minf(rule_range, FAR_RANGE) if uses_lod(species) else rule_range
+	if not uses_lod(species):
+		return rule_range
+	return minf(rule_range, FAR_RANGE if uses_impostors(species) else FAR_RANGE_SIMPLIFIED)
+
+
+## true si los árboles lejanos de la especie son impostores horneados.
+static func uses_impostors(species: String) -> bool:
+	return _entry(species)["impostors"]
 
 
 static func trunk_radius(species: String) -> float:
@@ -146,7 +160,17 @@ static func _build(species: String, file: String, info: Dictionary, lod: bool) -
 	var out := {"near": near_mesh}
 	if not lod:
 		return out
-	# Versión lejana: el nivel de simplificación más cercano a FAR_TRIANGLES (mismas texturas).
+	# Versión lejana: el impostor horneado (2 triángulos, VegetationImpostors) si existe.
+	var impostor := VegetationImpostors.get_mesh(species, file, height)
+	if impostor:
+		var imp_mat := impostor.surface_get_material(0) as ShaderMaterial
+		if not _far_materials.has(imp_mat):
+			imp_mat.set_shader_parameter("hide_inside", LOD_DISTANCE)
+			_materials.append(imp_mat)
+			_far_materials.append(imp_mat)
+		out["far"] = impostor
+		return out
+	# Si no, el nivel de simplificación más cercano a FAR_TRIANGLES (mismas texturas).
 	importer.generate_lods(25.0, 60.0, [])
 	var far_mesh := ArrayMesh.new()
 	var ratio := minf(float(FAR_TRIANGLES) / maxf(total_tris, 1), 1.0)

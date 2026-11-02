@@ -10,3 +10,7 @@ hechos con código (`scripts/vegetation_assets.gd`, que queda como respaldo).
 | cactus_organ.glb | "Pipe organ cactus", Poly by Google — https://poly.pizza/m/8rSaubjT4uM | **CC-BY 3.0**: hay que dar crédito ("Pipe organ cactus" by Poly by Google, CC-BY 3.0) | cactus |
 
 Las texturas de hojas sin sufijo `_C` son máscaras blancas: el juego las tiñe por especie.
+
+`impostors/` contiene atlas horneados a partir de estos mismos modelos (impostores octaédricos de los
+árboles lejanos, ver `scripts/vegetation_impostors.gd`); tienen la misma licencia que el modelo de origen.
+Se regeneran con `Godot --path project -s res://tools/bake_impostors.gd` (con ventana).

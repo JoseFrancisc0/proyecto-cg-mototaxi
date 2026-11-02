@@ -1,0 +1,11 @@
+{
+	"center": [
+		0.0,
+		8.0,
+		0.0
+	],
+	"frame_px": 128,
+	"frames": 8,
+	"radius": 8.19334470908997,
+	"source": "CommonTree_3.gltf"
+}
