@@ -9,7 +9,7 @@ extends Node3D
 ## de altura, landmarks sobre las vías y un mapa de transitabilidad para la mototaxi.
 ##
 ## S12-S14 (CG): el mapa se parte en chunks de 128 x 128 celdas con LOD y una colisión
-## HeightMapShape3D por chunk; landmarks por tipo (picos, confluencias, costa) con
+## HeightMapShape3D continua; landmarks por tipo (picos, confluencias, costa) con
 ## carteles; vegetación con MultiMesh; y generate_async() para la pantalla de carga
 ## (semilla -> mapa completo sin congelar la ventana).
 ##
@@ -97,7 +97,6 @@ var _bridge_body: StaticBody3D
 var _chunk_root: Node3D
 var _sign_root: Node3D
 var _generated_ok := false
-var _chunk_collision := false
 var _editor_t0 := 0
 var _router: RoadRouter  # Grafo de vías para find_road_route (se arma la primera vez).
 ## Tamaño de la vista previa del terreno en la pantalla de carga (0 = sin vista previa).
@@ -178,7 +177,6 @@ func _prepare_generator(new_seed: int) -> bool:
 
 func _reset_generator() -> void:
 	_chunk_root = null  # era hijo del generador anterior
-	_chunk_collision = false
 	if generator != null:
 		if generator.is_inside_tree():
 			remove_child(generator)
@@ -251,6 +249,7 @@ func _finish_generate_async() -> void:
 
 
 func _collect_surface() -> bool:
+	_build_road_index()
 	_surface = generator.last_surface
 	_heights = _surface.get_surface_heights() if _surface else PackedFloat32Array()
 	if _heights.size() != _n * _n:
@@ -496,59 +495,33 @@ func _build_chunks() -> void:
 		_chunk_root.add_child(mi)
 	# La malla entera ya no hace falta: los chunks la reemplazan (menos memoria de video).
 	generator.mesh = null
-	if build_collision:
-		_build_chunk_collision(chunks)
+	# Los chunks son solo visuales. Una superficie física continua evita las
+	# colisiones internas en los bordes entre HeightMapShape3D vecinas.
 
 
-## Una HeightMapShape3D por chunk (bordes compartidos con el vecino).
-func _build_chunk_collision(chunks: Array) -> void:
+func _build_collision() -> void:
+	# Una superficie continua incluso cuando la malla visual usa chunks/LOD.
 	if _body != null:
 		_body.queue_free()
 	_body = StaticBody3D.new()
 	_body.name = "TerrainBody"
 	add_child(_body)
-	for c: Dictionary in chunks:
-		var samples: Vector2i = c["samples"]
-		var heights: PackedFloat32Array = c["heights"]
-		var hms := HeightMapShape3D.new()
-		hms.map_width = samples.x
-		hms.map_depth = samples.y
-		if not is_equal_approx(cell_size, 1.0):
-			for i in heights.size():
-				heights[i] = heights[i] / cell_size
-		hms.map_data = heights
-		var cs := CollisionShape3D.new()
-		cs.shape = hms
-		cs.scale = Vector3.ONE * cell_size
-		cs.position = c["center"]
-		_body.add_child(cs)
-	_chunk_collision = true
-
-
-func _build_collision() -> void:
-	if not _chunk_collision:
-		# Una sola HeightMapShape3D para todo el mapa (sin chunks).
-		if _body != null:
-			_body.queue_free()
-		_body = StaticBody3D.new()
-		_body.name = "TerrainBody"
-		add_child(_body)
-		var shape := CollisionShape3D.new()
-		_body.add_child(shape)
-		# HeightMapShape3D usa espaciado 1 centrado en el origen: se escala de forma
-		# uniforme por cell_size y se dividen las alturas para compensar en Y.
-		var hms := HeightMapShape3D.new()
-		hms.map_width = _n
-		hms.map_depth = _n
-		var scaled := _heights
-		if not is_equal_approx(cell_size, 1.0):
-			scaled = PackedFloat32Array()
-			scaled.resize(_heights.size())
-			for i in _heights.size():
-				scaled[i] = _heights[i] / cell_size
-		hms.map_data = scaled
-		shape.shape = hms
-		shape.scale = Vector3.ONE * cell_size
+	var shape := CollisionShape3D.new()
+	_body.add_child(shape)
+	# HeightMapShape3D usa espaciado 1 centrado en el origen: se escala de forma
+	# uniforme por cell_size y se dividen las alturas para compensar en Y.
+	var hms := HeightMapShape3D.new()
+	hms.map_width = _n
+	hms.map_depth = _n
+	var scaled := _heights
+	if not is_equal_approx(cell_size, 1.0):
+		scaled = PackedFloat32Array()
+		scaled.resize(_heights.size())
+		for i in _heights.size():
+			scaled[i] = _heights[i] / cell_size
+	hms.map_data = scaled
+	shape.shape = hms
+	shape.scale = Vector3.ONE * cell_size
 
 	# Los puentes son una malla aparte: sin colisión la mototaxi caería al cauce.
 	if _bridge_body != null:
@@ -753,6 +726,8 @@ func _build_signs() -> void:
 		label.font_size = 48
 		label.outline_size = 12
 		label.pixel_size = 0.01
+		# No cubrir la cámara de persecución cuando aparece junto al cartel.
+		label.visibility_range_begin = 2.5
 		label.visibility_range_end = 140.0
 		sign.add_child(label)
 		# Mirando hacia el rasgo (sin look_at: el nodo puede no estar en el arbol todavia).
@@ -767,6 +742,7 @@ func _sign_part(mesh: BoxMesh, size: Vector3, offset: Vector3, color: Color) -> 
 	mesh.material = mat
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
+	mi.visibility_range_begin = 2.5
 	mi.position = offset
 	return mi
 
@@ -777,3 +753,35 @@ func _build_vegetation() -> void:
 		return
 	generator.vegetation_density = vegetation_density
 	generator.vegetation_enabled = true  # el setter arma la vegetación sobre la superficie actual
+
+
+# Índice espacial de segmentos para consultar la superficie por rueda.
+const ROAD_BUCKET_SIZE := 32.0
+var _road_buckets: Dictionary = {}
+
+func _build_road_index() -> void:
+	_road_buckets.clear()
+	for road: Dictionary in get_roads():
+		var path: PackedVector3Array = road["path"]
+		var half_width := float(road["width"]) * 0.5
+		var margin := half_width + 2.0
+		for i in range(1, path.size()):
+			var a := Vector2(path[i-1].x, path[i-1].z)
+			var b := Vector2(path[i].x, path[i].z)
+			var lo := (a.min(b) - Vector2.ONE * margin) / ROAD_BUCKET_SIZE
+			var hi := (a.max(b) + Vector2.ONE * margin) / ROAD_BUCKET_SIZE
+			for z in range(floori(lo.y), floori(hi.y)+1):
+				for x in range(floori(lo.x), floori(hi.x)+1):
+					var key := Vector2i(x,z)
+					if not _road_buckets.has(key): _road_buckets[key] = []
+					_road_buckets[key].append([a,b,half_width])
+
+## Asfalto y puentes = 0; transición suave en la banquina; tierra = 1.
+func get_offroad_amount(x: float, z: float) -> float:
+	var p := Vector2(x,z)
+	var key := Vector2i(floori(x / ROAD_BUCKET_SIZE),floori(z / ROAD_BUCKET_SIZE))
+	var result := 1.0
+	for segment: Array in _road_buckets.get(key, []):
+		var closest := Geometry2D.get_closest_point_to_segment(p,segment[0],segment[1])
+		result = minf(result, smoothstep(float(segment[2]),float(segment[2])+1.5,p.distance_to(closest)))
+	return result

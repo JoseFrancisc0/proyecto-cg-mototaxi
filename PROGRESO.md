@@ -63,7 +63,7 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 
 | Rol | Tarea | Estado |
 |---|---|---|
-| J-A | Sonido de motor y choques; balance de vida y daño | 🟡 sonido ✅ (`EngineSynth`, `MototaxiAudio`, procedural con caja de 4 marchas); falta balance |
+| J-A | Sonido de motor y choques; balance de vida y daño | 🟡 sonido ✅ motor por vehículo (`VehicleEngineAudio`, garaje) + golpes y rodadura (`MototaxiAudio`); falta balance |
 | J-B | Menú con semilla | ⬜ |
 | J-B | Minimapa a partir del heightmap | ⬜ |
 | J-B | Pantalla final con puntaje | ✅ `GameOverScreen` |
@@ -201,3 +201,8 @@ para que Godot registre la clase.
   4 tiempos sintetizado en tiempo real (pulsos de explosión → resonadores de silenciador y escape, variación
   entre ciclos), caja virtual de 4 marchas + reversa con embrague, rodadura y golpes de chapa en choques y
   vuelcos. Nodo `Audio` en `mototaxi.tscn`; ~4 % de un núcleo. Prueba: `tests/render_engine_audio.gd`.
+- **2026-11-02** — Merge de `origin/main` (garaje de 6 mototaxis, turbo, tierra, motores por vehículo) con
+  `main` (juego + sonido). Se conservaron ambos lados en `mototaxi.gd`, `race_hud.gd` y `loading_screen.gd`
+  (región y vehículo en el menú). El motor lo pone `VehicleEngineAudio`; `MototaxiAudio` queda con golpes y
+  rodadura (`engine_enabled = false`). Con el chasis redondeado la mototaxi se endereza sola: ahora pasar de
+  90° y volver también cuesta `flip_damage`. Barra de turbo sobre la de vida.

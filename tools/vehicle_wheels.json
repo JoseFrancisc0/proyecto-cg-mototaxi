@@ -1,0 +1,214 @@
+{
+  "neon_thunder": [
+    {
+      "name": "Front",
+      "center": [
+        -0.02,
+        -1.073,
+        0.24
+      ],
+      "radius": 0.226,
+      "half_width": 0.12
+    },
+    {
+      "name": "RearL",
+      "center": [
+        0.55,
+        0.835,
+        0.275
+      ],
+      "radius": 0.267,
+      "half_width": 0.15
+    },
+    {
+      "name": "RearR",
+      "center": [
+        -0.55,
+        0.835,
+        0.275
+      ],
+      "radius": 0.267,
+      "half_width": 0.15
+    }
+  ],
+  "faketaxi_drift": [
+    {
+      "name": "Front",
+      "center": [
+        0.0,
+        -1.083,
+        0.241
+      ],
+      "radius": 0.235,
+      "half_width": 0.15
+    },
+    {
+      "name": "RearL",
+      "center": [
+        0.65,
+        0.914,
+        0.28800000000000003
+      ],
+      "radius": 0.28,
+      "half_width": 0.17
+    },
+    {
+      "name": "RearR",
+      "center": [
+        -0.65,
+        0.914,
+        0.28800000000000003
+      ],
+      "radius": 0.28,
+      "half_width": 0.17
+    }
+  ],
+  "neon_shadow": [
+    {
+      "name": "Front",
+      "center": [
+        0.0,
+        -1.133,
+        0.196
+      ],
+      "radius": 0.192,
+      "half_width": 0.12
+    },
+    {
+      "name": "RearL",
+      "center": [
+        0.48,
+        0.506,
+        0.218
+      ],
+      "radius": 0.21,
+      "half_width": 0.11
+    },
+    {
+      "name": "RearR",
+      "center": [
+        -0.48,
+        0.506,
+        0.218
+      ],
+      "radius": 0.21,
+      "half_width": 0.11
+    },
+    {
+      "name": "RearExtraL",
+      "center": [
+        0.48,
+        0.944,
+        0.218
+      ],
+      "radius": 0.21,
+      "half_width": 0.11
+    },
+    {
+      "name": "RearExtraR",
+      "center": [
+        -0.48,
+        0.944,
+        0.218
+      ],
+      "radius": 0.21,
+      "half_width": 0.11
+    }
+  ],
+  "silver_guardian": [
+    {
+      "name": "Front",
+      "center": [
+        0.0,
+        -0.869,
+        0.253
+      ],
+      "radius": 0.244,
+      "half_width": 0.14
+    },
+    {
+      "name": "RearL",
+      "center": [
+        0.39,
+        0.725,
+        0.308
+      ],
+      "radius": 0.3,
+      "half_width": 0.18
+    },
+    {
+      "name": "RearR",
+      "center": [
+        -0.39,
+        0.725,
+        0.308
+      ],
+      "radius": 0.3,
+      "half_width": 0.18
+    }
+  ],
+  "midnight_camper": [
+    {
+      "name": "Front",
+      "center": [
+        -0.02,
+        -1.065,
+        0.28
+      ],
+      "radius": 0.255,
+      "half_width": 0.055
+    },
+    {
+      "name": "RearL",
+      "center": [
+        0.275,
+        0.94,
+        0.293
+      ],
+      "radius": 0.285,
+      "half_width": 0.1
+    },
+    {
+      "name": "RearR",
+      "center": [
+        -0.275,
+        0.94,
+        0.293
+      ],
+      "radius": 0.285,
+      "half_width": 0.1
+    }
+  ],
+  "dusty": [
+    {
+      "name": "Front",
+      "center": [
+        0.0,
+        -1.035,
+        0.298
+      ],
+      "radius": 0.295,
+      "half_width": 0.055
+    },
+    {
+      "name": "RearL",
+      "center": [
+        0.55,
+        0.79,
+        0.263
+      ],
+      "radius": 0.255,
+      "half_width": 0.08
+    },
+    {
+      "name": "RearR",
+      "center": [
+        -0.55,
+        0.79,
+        0.263
+      ],
+      "radius": 0.255,
+      "half_width": 0.08
+    }
+  ]
+}

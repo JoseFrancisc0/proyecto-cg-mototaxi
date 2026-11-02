@@ -62,6 +62,7 @@ var _saturation_toggle: CheckButton
 var _music_status: Label
 var _file_dialog: FileDialog
 var _bus_name := ""
+var _garage: VehicleGarage
 
 func _ready() -> void:
 	layer = 50
@@ -167,6 +168,7 @@ func _build_dialog() -> void:
 	_dialog_panel = PanelContainer.new()
 	_dialog_panel.add_theme_stylebox_override("panel",_style(Color("171820"),Color("67616a")))
 	_dialog.add_child(_dialog_panel)
+	_dialog_panel.minimum_size_changed.connect(func(): _responsive.call_deferred())
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation",14)
 	_dialog_panel.add_child(layout)
@@ -183,6 +185,8 @@ func _build_dialog() -> void:
 	_menu = VBoxContainer.new()
 	_menu.add_theme_constant_override("separation",12)
 	contents.add_child(_menu)
+	_garage = VehicleGarage.new()
+	_menu.add_child(_garage)
 	_menu.add_child(_label("Terreno"))
 	_mode = OptionButton.new()
 	_mode.add_item("Terreno guardado")
@@ -229,7 +233,7 @@ func _build_dialog() -> void:
 	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_menu.add_child(_notice)
 	_play = _button("Iniciar",_on_play)
-	_menu.add_child(_play)
+	layout.add_child(_play)
 	_options = VBoxContainer.new()
 	_options.add_theme_constant_override("separation",12)
 	contents.add_child(_options)
@@ -306,6 +310,7 @@ func _open_panel(title: String) -> void:
 	_home.hide()
 	_dialog_title.text = title
 	_menu.hide()
+	_play.hide()
 	_options.hide()
 	_dialog_body.hide()
 	_dialog.show()
@@ -315,6 +320,8 @@ func _open_panel(title: String) -> void:
 func _open_setup() -> void:
 	_open_panel("Jugar")
 	_menu.show()
+	_play.show()
+	_responsive()
 	_play.grab_focus()
 
 func _show_options() -> void:
@@ -332,7 +339,7 @@ func _close_dialog() -> void:
 	_navigation.get_child(0).grab_focus()
 
 func _show_controls() -> void:
-	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nR — Enderezar la mototaxi\n\nRecoge al pasajero en la zona amarilla y llévalo a la zona verde.")
+	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nShift / X del mando — Turbo (7 s, recarga automática)\nFuera de pista — Menos velocidad y agarre\nR — Enderezar la mototaxi\n\nRecoge al pasajero en la zona amarilla y llévalo a la zona verde.")
 
 func _show_credits() -> void:
 	_show_dialog("Créditos","Rodrigo Felix Meza Gavilan\nJosep Ratzinger Castro Ferrer\nJose Francisco Wong Orrillo\nJose Joaquin Osnayo Matos\n\nComputación Gráfica · UTEC · 2026-II\n\nMenú: Maaack's Menus Template\nMarek Belski · MIT\nFotografía: referencia aportada al proyecto.\nMúsica: Cumbieton vs Reggaeton Old School (2020)\nDJ Pirata, Maxi Gen, El Kaio y DJ Juanchii\nDescarga publicada por DJ Juanchii en su canal.\nTipografía Bangers: Vernon Adams · SIL OFL\nTexturas: ambientCG · CC0\n\nTerreno: Schott et al. (2024), Terrain Amplification using Multi-scale Erosion.")
@@ -366,8 +373,9 @@ func _responsive() -> void:
 	_music_toggle.offset_right = -12
 	_music_toggle.offset_top = -52
 	_music_toggle.offset_bottom = -12
-	var w := minf(540,v.x-28)
-	var h := minf(620,v.y-36)
+	var setup := is_instance_valid(_menu) and _menu.visible
+	var w := minf(1000 if setup else 540,v.x-28)
+	var h := minf(740 if setup else 620,v.y-36)
 	_dialog_panel.position = (v-Vector2(w,h))/2
 	_dialog_panel.size = Vector2(w,h)
 	_progress_box.offset_left = 20
@@ -401,6 +409,8 @@ func show_menu(choice: Dictionary) -> void:
 	_quality.select(0 if scale <= .15 else (1 if scale <= .5 else 2))
 	_region.select(clampi(int(choice.get("region",_region.selected)),0,3))
 	_share.select(1 if choice.get("region_only",_share.selected == 1) else 0)
+	if choice.has("vehicle"):
+		_garage.select_vehicle(int(choice.vehicle))
 	_notice.hide()
 	_play.disabled = false
 	_update_mode()
@@ -418,11 +428,12 @@ func _on_play() -> void:
 	_play.disabled = true
 	start_requested.emit(_current_choice())
 
-## Lo elegido en el menú. region: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva.
+## Lo elegido en el menú. region: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva; vehicle: índice del garaje.
 func _current_choice() -> Dictionary:
 	var seed_text := _seed_edit.text.strip_edges()
 	return {"mode":"editor" if _mode.selected == 0 else "seed","seed":int(seed_text) if seed_text.is_valid_int() else 67,
-		"erosion_scale":[.1,.35,1.0][_quality.selected],"region":_region.selected,"region_only":_share.selected == 1}
+		"erosion_scale":[.1,.35,1.0][_quality.selected],"region":_region.selected,"region_only":_share.selected == 1,
+		"vehicle":_garage.selected}
 
 func show_progress() -> void:
 	_home.hide()
@@ -574,3 +585,4 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and _dialog.visible:
 		_close_dialog()
 		get_viewport().set_input_as_handled()
+

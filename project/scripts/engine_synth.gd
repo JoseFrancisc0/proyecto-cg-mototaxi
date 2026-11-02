@@ -17,6 +17,8 @@ var rpm := 1400.0
 var load := 0.0       ## 0 = sin gas (freno motor), 1 = acelerador a fondo.
 var roll := 0.0       ## 0..1 ruido de las llantas sobre el suelo.
 var volume := 0.8
+## false = solo rodadura y golpes (el motor lo pone VehicleEngineAudio, uno por vehículo).
+var engine_enabled := true
 
 
 ## Filtro pasa banda (RBJ, ganancia 1 en el centro).
@@ -64,6 +66,7 @@ var _pulse_decay := 0.0
 var _tick := 0.0          # golpeteo de válvulas a mitad del ciclo
 var _ticked := false
 var _pop_lp := 0.0        # parte grave del pulso ("pop" del escape)
+var _pop_k := 0.0
 var _tone_lp := 0.0       # filtro de brillo: más abierto con más gas
 var _muffler: Resonator
 var _pipe: Resonator
@@ -91,6 +94,7 @@ func _init(rate := 22050.0, seed_value := 0) -> void:
 	mix_rate = rate
 	_rng.seed = seed_value if seed_value != 0 else randi()
 	_pulse_decay = exp(-1.0 / (0.0035 * rate))
+	_pop_k = 1.0 - exp(-TAU * 160.0 / rate)
 	_thump_decay = exp(-1.0 / (0.13 * rate))
 	_clank_exc_decay = exp(-1.0 / (0.012 * rate))
 	_rattle_decay = exp(-1.0 / (0.22 * rate))
@@ -127,7 +131,6 @@ func render(frames: int) -> PackedVector2Array:
 	var load_step := (load - _load_now) / frames
 	var roll_step := (roll - _roll_now) / frames
 	var roll_k := 1.0 - exp(-TAU * 380.0 * inv)
-	var pop_k := 1.0 - exp(-TAU * 160.0 * inv)
 	for i in frames:
 		_rpm_now += rpm_step
 		_load_now += load_step
@@ -135,28 +138,9 @@ func render(frames: int) -> PackedVector2Array:
 		var noise := _rng.randf() * 2.0 - 1.0
 
 		# --- Motor ---
-		_phase += _rpm_now / 120.0 * inv * _cycle_scale
-		if _phase >= 1.0:
-			_phase -= 1.0
-			_ticked = false
-			_fire()
-		elif not _ticked and _phase >= 0.5:
-			_ticked = true
-			_tick = 0.12 + 0.05 * _rng.randf()
-		_pulse *= _pulse_decay
-		_tick *= _pulse_decay
-		var exc := _pulse * (0.6 + 0.4 * noise)
-		_pop_lp += (exc - _pop_lp) * pop_k
-		var bright := 0.25 + 0.75 * _load_now
-		var engine := _pop_lp * 2.2 \
-			+ _muffler.process(exc) * 1.6 \
-			+ _pipe.process(exc) * 1.1 \
-			+ _pipe2.process(exc) * 0.5 \
-			+ _rasp.process(exc) * (0.12 + 0.4 * bright) \
-			+ _valve.process(_tick * noise) * 0.35
-		var tone_k := 1.0 - exp(-TAU * lerpf(1100.0, 4500.0, bright) * inv)
-		_tone_lp += (engine - _tone_lp) * tone_k
-		var s := _tone_lp
+		var s := 0.0
+		if engine_enabled:
+			s = _engine_sample(noise, inv)
 
 		# --- Rodadura: ruido grave que crece con la velocidad ---
 		if _roll_now > 0.001:
@@ -184,6 +168,32 @@ func render(frames: int) -> PackedVector2Array:
 		var v := tanh(s * 1.4) * volume
 		out[i] = Vector2(v, v)
 	return out
+
+
+## Una muestra del motor: tren de explosiones filtrado por silenciador y escape.
+func _engine_sample(noise: float, inv: float) -> float:
+	_phase += _rpm_now / 120.0 * inv * _cycle_scale
+	if _phase >= 1.0:
+		_phase -= 1.0
+		_ticked = false
+		_fire()
+	elif not _ticked and _phase >= 0.5:
+		_ticked = true
+		_tick = 0.12 + 0.05 * _rng.randf()
+	_pulse *= _pulse_decay
+	_tick *= _pulse_decay
+	var exc := _pulse * (0.6 + 0.4 * noise)
+	_pop_lp += (exc - _pop_lp) * _pop_k
+	var bright := 0.25 + 0.75 * _load_now
+	var engine := _pop_lp * 2.2 \
+		+ _muffler.process(exc) * 1.6 \
+		+ _pipe.process(exc) * 1.1 \
+		+ _pipe2.process(exc) * 0.5 \
+		+ _rasp.process(exc) * (0.12 + 0.4 * bright) \
+		+ _valve.process(_tick * noise) * 0.35
+	var tone_k := 1.0 - exp(-TAU * lerpf(1100.0, 4500.0, bright) * inv)
+	_tone_lp += (engine - _tone_lp) * tone_k
+	return _tone_lp
 
 
 ## Una explosión: fuerza según el gas, con variación entre ciclos.

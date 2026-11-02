@@ -54,6 +54,7 @@ func _ready() -> void:
 		var t0 := Time.get_ticks_msec()
 		var ok: bool = await world.generate_async(-1 if world.use_editor_scene else int(choice["seed"]))
 		if ok and world.is_generated():
+			moto.select_vehicle(int(choice.get("vehicle", 2)))
 			print("Mundo listo en %.1f s (%s)" % [(Time.get_ticks_msec() - t0) / 1000.0, "terreno del editor" if world.use_editor_scene else "semilla %d" % world.world_seed])
 			_start_game()
 			break

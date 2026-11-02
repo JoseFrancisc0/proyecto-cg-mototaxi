@@ -1,6 +1,8 @@
 class_name MototaxiAudio
 extends AudioStreamPlayer
-## Sonido de la mototaxi (S14): motor, rodadura y golpes, sintetizados en tiempo real (EngineSynth).
+## Sonido de la mototaxi (S14): rodadura y golpes de choque/vuelco, sintetizados en tiempo real
+## (EngineSynth). El motor lo pone VehicleEngineAudio (un sonido por vehículo del garaje); el motor
+## sintetizado de aquí queda como alternativa con engine_enabled = true.
 ##
 ## Las rpm salen de una caja de 4 marchas virtual: con la velocidad y la marcha se calculan
 ## las rpm; al pasar shift_up_rpm sube de marcha (las rpm caen y el gas se corta un instante)
@@ -17,6 +19,8 @@ extends AudioStreamPlayer
 @export var shift_time := 0.3          ## Segundos sin gas al subir de marcha.
 @export var clutch_rpm := 3300.0       ## rpm máximas con el embrague patinando en primera.
 @export var crash_volume := 1.0
+## Motor monocilíndrico sintetizado. Apagado: el motor lo pone VehicleEngineAudio.
+@export var engine_enabled := false
 
 var synth := EngineSynth.new(22050.0)
 ## 0 = reversa, 1..4 = marchas.
@@ -30,6 +34,7 @@ var _shift_timer := 0.0
 
 func _ready() -> void:
 	_moto = get_parent() as Mototaxi
+	synth.engine_enabled = engine_enabled
 	var gen := AudioStreamGenerator.new()
 	gen.mix_rate = synth.mix_rate
 	gen.buffer_length = 0.12

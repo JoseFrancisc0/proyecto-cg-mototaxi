@@ -40,9 +40,11 @@ func _run() -> void:
 	check(screen._dialog.visible and screen._menu.visible,"Jugar abre la configuración en una pantalla aparte")
 	screen._mode.select(0)
 	screen._mode.item_selected.emit(0)
+	screen._garage.select_vehicle(4)
 	screen._on_play()
 	screen._on_play()
 	check(choices.size()==1 and choices[0].mode=="editor","Arranque único, modo guardado conservado")
+	check(choices[0].vehicle==4,"La selección del garaje se entrega al juego")
 	screen.show_menu({"mode":"seed","seed":42,"erosion_scale":.35})
 	check(screen._seed_row.visible and screen._quality.selected==1,"Selección de semilla y calidad recuperadas")
 	screen._seed_edit.text="abc"

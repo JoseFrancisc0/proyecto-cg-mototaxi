@@ -31,9 +31,25 @@ var _speech_tween: Tween
 var _warning: Label
 var _warning_until := 0
 var _damage_flash: ColorRect
+var _turbo_bar: ProgressBar
+var _turbo_label: Label
 
 
 func _ready() -> void:
+	_turbo_bar = ProgressBar.new()
+	_turbo_bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	# Encima de la barra de vida (que ocupa de -64 a -16).
+	_turbo_bar.offset_left = -276
+	_turbo_bar.offset_right = -16
+	_turbo_bar.offset_top = -98
+	_turbo_bar.offset_bottom = -78
+	_turbo_bar.show_percentage = false
+	add_child(_turbo_bar)
+	_turbo_label = _label(18, Control.PRESET_BOTTOM_RIGHT, HORIZONTAL_ALIGNMENT_RIGHT)
+	_turbo_label.offset_left = -300
+	_turbo_label.offset_right = -16
+	_turbo_label.offset_top = -128
+	_turbo_label.offset_bottom = -100
 	_info = _label(18, Control.PRESET_BOTTOM_LEFT, HORIZONTAL_ALIGNMENT_LEFT)
 	_info.offset_left = 16
 	_info.offset_right = 1000
@@ -139,8 +155,13 @@ func bind_session(s: GameSession) -> void:
 
 func _process(_delta: float) -> void:
 	if moto:
-		_info.text = "%d km/h\nW/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   R: enderezar (volcada cuesta vida)" \
-			% roundi(moto.get_speed_kmh())
+		_turbo_bar.value = moto.turbo_charge * 100.0
+		_turbo_label.text = "TURBO ACTIVO" if moto.turbo_active else "TURBO · SHIFT / X"
+		_turbo_label.modulate = Color("ffdb38") if moto.turbo_active else Color.WHITE
+		_info.text = "%d km/h
+W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: turbo   R: enderezar (volcada cuesta vida)" 			% roundi(moto.get_speed_kmh())
+		if moto.offroad_amount > 0.45:
+			_info.text = "TIERRA · MENOR AGARRE   " + _info.text
 		var hp := moto.get_health_ratio()
 		_health_bar.value = hp * 100.0
 		_health_fill.bg_color = Color(0.9, 0.2, 0.15).lerp(Color(0.25, 0.85, 0.3), hp)
