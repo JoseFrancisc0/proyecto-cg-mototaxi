@@ -63,6 +63,7 @@ var terrain: TerrainWorld
 
 var _wheels: Array[VehicleWheel3D] = []
 var _flip_timer := 0.0
+var _contacts := 0
 
 var health := 100.0
 var _prev_velocity := Vector3.ZERO
@@ -113,6 +114,7 @@ func _physics_process(delta: float) -> void:
 			contacts += 1
 	# El freno de Godot es un impulso limitado y en pendientes deja deslizar un poco;
 	# estacionada y con todas las ruedas apoyadas, se amortigua el movimiento.
+	_contacts = contacts
 	var parked := absf(throttle) <= 0.01 and absf(speed) < 0.5 and contacts == _wheels.size()
 	linear_damp = park_damp if parked else 0.0
 
@@ -164,6 +166,11 @@ func apply_damage(amount: float, reason: String) -> void:
 ## Vida al máximo (al reiniciar la partida).
 func repair() -> void:
 	health = max_health
+
+
+## Ruedas apoyadas en el último paso de física.
+func wheels_in_contact() -> int:
+	return _contacts
 
 
 func get_health_ratio() -> float:

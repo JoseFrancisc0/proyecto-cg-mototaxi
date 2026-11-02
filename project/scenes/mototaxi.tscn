@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/mototaxi.gd" id="1_moto"]
+[ext_resource type="Script" path="res://scripts/mototaxi_audio.gd" id="2_audio"]
 
 [sub_resource type="StandardMaterial3D" id="mat_body"]
 albedo_color = Color(0.12, 0.52, 0.92, 1)
@@ -259,3 +260,6 @@ mesh = SubResource("m_tire")
 [node name="Hub" type="MeshInstance3D" parent="WheelRearR"]
 transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
 mesh = SubResource("m_hub")
+
+[node name="Audio" type="AudioStreamPlayer" parent="."]
+script = ExtResource("2_audio")

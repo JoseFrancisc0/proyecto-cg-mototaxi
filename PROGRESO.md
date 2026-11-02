@@ -63,7 +63,7 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 
 | Rol | Tarea | Estado |
 |---|---|---|
-| J-A | Sonido de motor y choques; balance de vida y daño | ⬜ |
+| J-A | Sonido de motor y choques; balance de vida y daño | 🟡 sonido ✅ (`EngineSynth`, `MototaxiAudio`, procedural con caja de 4 marchas); falta balance |
 | J-B | Menú con semilla | ⬜ |
 | J-B | Minimapa a partir del heightmap | ⬜ |
 | J-B | Pantalla final con puntaje | ✅ `GameOverScreen` |
@@ -165,6 +165,7 @@ Desde la raíz del repo (ajustar la ruta del ejecutable de Godot 4.7):
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_terrain_world.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_mototaxi.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_race.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/render_engine_audio.gd   # graba output/audio/mototaxi_demo.wav
 ```
 
 Diagnósticos y prueba de manejo (más lentos):
@@ -196,3 +197,7 @@ para que Godot registre la clase.
   generar uno con valores por defecto. Nueva prueba `tests/test_editor_scene.gd`.
 - **2026-10-21** — `terrain_demo.tscn` guarda solo configuración + suelo (113 MB → 5.6 MB); la malla se
   rehace al abrir. `Terrain` vuelve al origen.
+- **2026-11-02** — `juego` unido en `main` (avance rápido). Sonido de la mototaxi: motor monocilíndrico de
+  4 tiempos sintetizado en tiempo real (pulsos de explosión → resonadores de silenciador y escape, variación
+  entre ciclos), caja virtual de 4 marchas + reversa con embrague, rodadura y golpes de chapa en choques y
+  vuelcos. Nodo `Audio` en `mototaxi.tscn`; ~4 % de un núcleo. Prueba: `tests/render_engine_audio.gd`.

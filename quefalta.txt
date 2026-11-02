@@ -1,0 +1,6 @@
+1. sonido del mototaxi, que sea algo más realista
+2. Biomas más representativos, textura para la representación de cada región
+3. Especificar size del terreno, actualmente está por tamaño de defualt, como el número de regiones. (tipo un botón de opción avanzada para modificar cada paráemtro del terreeno, como drenaje, rio, parámetros de erosion en cada región, número de regiones, iluminación, etc etc)
+4. Opción para volver al menu cuando inicies juego
+5. Además cuando le das a mute o bajar el sonido al videojuego en el menu, cuando inicias el juego, sigue sonando
+6. Opción avanzada para especificar cada parámetro del terreno
