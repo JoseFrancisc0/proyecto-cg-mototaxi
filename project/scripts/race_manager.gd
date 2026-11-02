@@ -8,8 +8,9 @@ extends Node3D
 ##   ENTREGADO / FALLADO ──(tras result_time segundos)──> LIBRE (nuevo pasajero)
 ##
 ## Los puntos salen de TerrainWorld.get_landmarks(). La ruta recomendada va por las vías
-## (TerrainWorld.find_road_route) y se dibuja en el mundo (RouteLine); el tiempo límite
-## sale de su largo y su pendiente (S12).
+## (TerrainWorld.find_road_route); se muestra en el minimapa del HUD, como en GTA (la cinta
+## en el mundo, RouteLine, queda oculta salvo show_route_in_world). El tiempo límite sale
+## de su largo y su pendiente (S12).
 ##
 ## S13: el pasajero tiene ánimo (1 = contento, 0 = furioso). Baja con los golpes, los
 ## vuelcos y cuando se acaba el tiempo. Al entregar paga la tarifa (según el largo de la
@@ -53,6 +54,8 @@ signal passenger_said(text: String)
 
 @export_group("Ruta")
 @export var show_route := true
+## Dibujar además la cinta con flechas sobre el suelo (antes del minimapa).
+@export var show_route_in_world := false
 @export var reroute_distance := 25.0   ## Si se aleja más que esto de la ruta, se recalcula.
 @export var route_check_time := 1.5
 
@@ -104,6 +107,9 @@ func start(rng_seed: int = -1) -> void:
 	_ensure_zones()
 	_ensure_route_line()
 	route_line.terrain = world
+	route_line.visible = show_route_in_world
+	pickup_zone.terrain = world
+	dropoff_zone.terrain = world
 	if moto and not moto.damaged.is_connected(_on_moto_damaged):
 		moto.damaged.connect(_on_moto_damaged)
 	deliveries = 0
@@ -395,10 +401,10 @@ func _make_passenger() -> Passenger:
 	return p
 
 
-func _make_zone(zone_name: String, c: Color, beam := true) -> GlowZone:
+func _make_zone(zone_name: String, c: Color, marker := true) -> GlowZone:
 	var z := GlowZone.new()
 	z.name = zone_name
-	z.beam_enabled = beam
+	z.marker_enabled = marker
 	z.radius = zone_radius
 	z.color = c
 	add_child(z)

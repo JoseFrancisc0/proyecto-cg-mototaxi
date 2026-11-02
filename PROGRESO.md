@@ -65,11 +65,39 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 |---|---|---|
 | J-A | Sonido de motor y choques; balance de vida y daño | 🟡 sonido ✅ motor por vehículo (`VehicleEngineAudio`, garaje) + golpes y rodadura (`MototaxiAudio`); falta balance |
 | J-B | Menú con semilla | ✅ menú previo (terreno guardado o semilla, calidad, región, garaje) |
-| J-B | Minimapa a partir del heightmap | ⬜ |
+| J-B | Minimapa a partir del heightmap | ✅ `Minimap` (estilo GTA: gira con la mototaxi, relieve, ríos, vías, ruta y objetivo) |
 | J-B | Pantalla final con puntaje | ✅ `GameOverScreen` |
 | CG/J | Vegetación con modelos reales, troncos sólidos que dañan al chocar | ✅ `VegetationModels`, `NearVegetation`, `TreeColliders` |
 | CG | Impostores octaédricos para los árboles lejanos (horneado propio + shader) | ✅ `VegetationImpostors`, `tools/bake_impostors.gd` |
 | J | Menú de pausa: continuar, reiniciar turno, volver al menú sin perder, volumen | ✅ `PauseMenu` (Esc / P / Start) |
+
+### Pendientes de jugabilidad (inspirados en los minijuegos de taxi de GTA)
+
+Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de abajo hacia arriba.
+
+| # | Pendiente | Estado |
+|---|---|---|
+| 1 | Quitar las guías en el mundo: cinta con flechas (a veces al revés) y columnas/discos de luz que seguían junto al cliente | ✅ cinta oculta (`RaceManager.show_route_in_world = false`), recogida sin marcador, destino = anillo plano sobre el suelo, sin luz |
+| 2 | Minimapa estilo GTA como guía principal (ruta por las vías + punto del objetivo) | ✅ `Minimap` en `RaceHUD`; se quitó la flecha flotante |
+| 3 | Mapa completo (tecla M o en la pausa), estilo GTA, con el destino y la ruta | ⬜ |
+| 4 | Darle sentido al dinero (ver opciones abajo) y un fin de partida que no dependa solo de la vida | ⬜ elegir opción |
+| 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ⬜ |
+| 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | ⬜ |
+
+**Opciones para darle sentido al dinero** (en GTA el taxi solo suma dinero; aquí el juego necesita una meta)
+1. **Cuota del día (alquiler de la mototaxi).** La partida es una jornada con reloj (p. ej. 6–8 min). Al final
+   hay que pagar la cuota al dueño; si no alcanza, fin de partida. Cada día la cuota sube. Da un final claro y
+   presión de tiempo aunque la mototaxi esté sana.
+2. **Gastos que obligan a ganar.** Gasolina que se acaba (se recarga pagando en grifos del mapa) y
+   reparaciones pagadas (taller o "R" con costo). El dinero se vuelve vida: si te quedas sin plata y sin
+   gasolina, pierdes.
+3. **Progreso entre partidas.** Lo ganado se guarda y sirve para comprar las mototaxis del garaje y mejoras
+   (turbo, suspensión, blindaje, bocina para espantar animales). Da motivo para jugar otra vez.
+4. **Deuda de la mototaxi.** Empiezas debiendo S/ X; cada jornada pagas una cuota; saldarla es "ganar" el
+   juego (modo historia corto).
+
+Recomendación: **1 + 3** (cuota diaria como fin de partida y lo que sobra para el garaje), con las reparaciones
+pagadas de la opción 2 si hace falta más tensión.
 
 ---
 
@@ -243,3 +271,9 @@ para que Godot registre la clase.
   Menú principal y un control de volumen general (bus Master). Carrera, sesión y cámara pasan a modo
   pausable (antes heredaban `ALWAYS` de `Main`), así la pausa congela también el reloj del pasajero.
   Prueba: `tests/test_pause_menu.gd`; captura con ventana: `tests/capture_pause_menu.gd -- --editor`.
+- **2026-11-02** — Guías estilo GTA: se ocultó la cinta con flechas de la ruta y se quitaron la columna de
+  luz, el disco y la luz de las zonas. La recogida no tiene marcador (el pasajero marca el lugar); el destino
+  es un anillo plano que sigue el relieve (`GlowZone`). Nuevo `Minimap` (abajo a la izquierda): gira con la
+  mototaxi, fondo horneado una vez (región, sombreado del relieve, ríos y lagos; ~0.2–0.8 s al empezar),
+  vías y ruta como líneas, objetivo pegado al borde si queda fuera, zoom según la velocidad. Se quitó la
+  flecha flotante del HUD. Se anotaron los "Pendientes de jugabilidad" y las opciones para el dinero.

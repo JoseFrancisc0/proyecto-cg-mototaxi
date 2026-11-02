@@ -1,7 +1,8 @@
 class_name RouteLine
 extends MeshInstance3D
-## Ruta recomendada dibujada en el mundo (S12, J-B): una cinta sobre el suelo con
-## flechas que avanzan hacia el destino. Se recorta a medida que la mototaxi avanza.
+## Ruta recomendada (S12, J-B): guarda la ruta y la recorta a medida que la mototaxi
+## avanza. El minimapa la dibuja; opcionalmente también se ve como cinta con flechas sobre
+## el suelo (RaceManager.show_route_in_world).
 
 @export var width := 1.6
 @export var lift := 0.35            ## Altura sobre el suelo (m), para no hundirse en el terreno.
@@ -88,6 +89,11 @@ func point_ahead(ahead: float) -> Vector3:
 		if _dist[i] >= goal:
 			return _points[i]
 	return _points[-1]
+
+
+## Puntos de la ruta que faltan recorrer (para el minimapa).
+func remaining_points() -> PackedVector3Array:
+	return _points.slice(_from) if _points.size() - _from >= 2 else PackedVector3Array()
 
 
 func remaining_length() -> float:

@@ -1,21 +1,25 @@
 class_name GlowZone
 extends Area3D
-## Zona brillante de recogida o destino (versión provisional del pasajero).
+## Zona de recogida o destino.
 ##
-## Es un Area3D cilíndrico con un disco luminoso en el suelo y una columna de luz
-## alta para verla desde lejos. Todo se construye por código, así no hace falta
-## una escena aparte; basta con GlowZone.new() y place().
+## Es un Area3D cilíndrico (solo para detectar la mototaxi). Si marker_enabled, se ve un
+## anillo plano pintado sobre el suelo, que sigue el relieve (como el marcador de destino
+## de GTA). Sin columna de luz ni disco: la guía principal es el minimapa del HUD.
+## Todo se construye por código: basta con GlowZone.new() y place().
 
 @export var radius := 4.0
 @export var color := Color(1.0, 0.85, 0.2)
-@export var beam_height := 60.0
 @export var pulse_speed := 3.0
-## Columna de luz alta; en la recogida se apaga porque la persona ya marca el lugar.
-@export var beam_enabled := true
+## Anillo en el suelo; en la recogida se apaga porque la persona ya marca el lugar.
+@export var marker_enabled := true
+@export var ring_width := 0.45
+@export var ring_lift := 0.12      ## Altura sobre el suelo (m), para no hundirse.
 
-var _disc_mat: StandardMaterial3D
-var _beam_mat: StandardMaterial3D
-var _light: OmniLight3D
+## Si está, el anillo copia la altura del terreno en cada punto.
+var terrain: TerrainWorld
+
+var _ring: MeshInstance3D
+var _mat: StandardMaterial3D
 var _time := 0.0
 
 
@@ -31,57 +35,30 @@ func _ready() -> void:
 	shape.shape = cyl
 	add_child(shape)
 
-	# Disco en el suelo: un cilindro bajo, medio enterrado para no flotar en pendientes.
-	_disc_mat = _glow_material(0.45)
-	var disc := MeshInstance3D.new()
-	var disc_mesh := CylinderMesh.new()
-	disc_mesh.top_radius = radius
-	disc_mesh.bottom_radius = radius
-	disc_mesh.height = 1.2
-	disc_mesh.radial_segments = 48
-	disc_mesh.material = _disc_mat
-	disc.mesh = disc_mesh
-	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(disc)
-
-	# Columna de luz que se adelgaza hacia arriba.
-	_beam_mat = _glow_material(0.25)
-	var beam := MeshInstance3D.new()
-	var beam_mesh := CylinderMesh.new()
-	beam_mesh.top_radius = radius * 0.3
-	beam_mesh.bottom_radius = radius * 0.8
-	beam_mesh.height = beam_height
-	beam_mesh.radial_segments = 24
-	beam_mesh.cap_top = false
-	beam_mesh.cap_bottom = false
-	beam_mesh.material = _beam_mat
-	beam.mesh = beam_mesh
-	beam.position.y = beam_height * 0.5
-	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	beam.visible = beam_enabled
-	add_child(beam)
-
-	_light = OmniLight3D.new()
-	_light.light_color = color
-	_light.light_energy = 2.0
-	_light.omni_range = radius * 3.0
-	_light.position.y = 2.0
-	add_child(_light)
+	_mat = StandardMaterial3D.new()
+	_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mat.albedo_color = Color(color, 0.8)
+	_ring = MeshInstance3D.new()
+	_ring.material_override = _mat
+	_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_ring.visible = marker_enabled
+	add_child(_ring)
 
 
 func _process(delta: float) -> void:
-	if not visible:
+	if not visible or not marker_enabled:
 		return
 	_time += delta
-	var k := 0.5 + 0.5 * sin(_time * pulse_speed)
-	_disc_mat.albedo_color.a = lerpf(0.3, 0.6, k)
-	_beam_mat.albedo_color.a = lerpf(0.15, 0.35, k)
-	_light.light_energy = lerpf(1.2, 2.5, k)
+	_mat.albedo_color.a = lerpf(0.55, 0.95, 0.5 + 0.5 * sin(_time * pulse_speed))
 
 
 ## Coloca la zona sobre el suelo en ground_pos y la activa.
 func place(ground_pos: Vector3) -> void:
 	global_position = ground_pos
+	if marker_enabled:
+		_build_ring()
 	activate(true)
 
 
@@ -96,12 +73,28 @@ func contains(body: Node3D) -> bool:
 	return visible and monitoring and overlaps_body(body)
 
 
-func _glow_material(alpha: float) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.no_depth_test = false
-	m.albedo_color = Color(color, alpha)
-	return m
+## Anillo como cinta de triángulos; cada vértice a la altura del terreno en su punto.
+func _build_ring() -> void:
+	const SEGMENTS := 56
+	var verts := PackedVector3Array()
+	var idx := PackedInt32Array()
+	var c := global_position
+	for i in SEGMENTS + 1:
+		var a := TAU * i / SEGMENTS
+		var dir := Vector3(cos(a), 0.0, sin(a))
+		for r: float in [radius - ring_width, radius]:
+			var p := dir * r
+			var y := ring_lift
+			if terrain:
+				y += terrain.get_height(c.x + p.x, c.z + p.z) - c.y
+			verts.append(Vector3(p.x, y, p.z))
+		if i > 0:
+			var v := i * 2
+			idx.append_array([v - 2, v - 1, v, v - 1, v + 1, v])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_INDEX] = idx
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_ring.mesh = m

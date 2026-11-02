@@ -1,8 +1,8 @@
 class_name RaceHUD
 extends CanvasLayer
 ## HUD de la carrera: velocidad, estado, objetivo y distancia, temporizador, marcador
-## (soles), vida de la mototaxi, ánimo del pasajero y lo que dice, flecha que sigue la
-## ruta recomendada, avisos (atrapado, borde del mapa) y anuncios grandes.
+## (soles), vida de la mototaxi, ánimo del pasajero y lo que dice, minimapa con la ruta
+## recomendada (estilo GTA), avisos (atrapado, borde del mapa) y anuncios grandes.
 ## Los controles se crean por código para no depender de editar la escena.
 
 const COLOR_PICKUP := Color(1.0, 0.85, 0.25)
@@ -19,7 +19,7 @@ var _timer: Label
 var _score: Label
 var _banner: Label
 var _sub_banner: Label
-var _arrow: _Arrow
+var minimap: Minimap
 var _banner_tween: Tween
 var _health_bar: ProgressBar
 var _health_fill: StyleBoxFlat
@@ -70,13 +70,15 @@ func _ready() -> void:
 	_timer.offset_right = 150
 	_timer.offset_top = 8
 
-	_arrow = _Arrow.new()
-	_arrow.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_arrow.offset_left = -30
-	_arrow.offset_right = 30
-	_arrow.offset_top = 80
-	_arrow.offset_bottom = 140
-	add_child(_arrow)
+	# Minimapa abajo a la izquierda, sobre la línea de velocidad y controles.
+	minimap = Minimap.new()
+	minimap.name = "Minimap"
+	minimap.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	minimap.offset_left = 16
+	minimap.offset_right = 16 + 280
+	minimap.offset_top = -100 - 200
+	minimap.offset_bottom = -100
+	add_child(minimap)
 
 	_banner = _label(56, Control.PRESET_CENTER, HORIZONTAL_ALIGNMENT_CENTER)
 	_banner.offset_left = -600
@@ -140,6 +142,8 @@ func _ready() -> void:
 func bind(r: RaceManager, m: Mototaxi) -> void:
 	race = r
 	moto = m
+	if r.world:
+		minimap.setup(r.world, r, m)
 	race.ride_started.connect(_on_ride_started)
 	race.ride_finished.connect(_on_ride_finished)
 	race.state_changed.connect(_on_state_changed)
@@ -184,7 +188,7 @@ W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: 
 			_objective.modulate = COLOR_PICKUP
 			_timer.text = ""
 		RaceManager.State.CON_PASAJERO:
-			_objective.text = "Lleva al pasajero al destino (zona verde)\n%d m" % roundi(dist)
+			_objective.text = "Lleva al pasajero al destino (punto verde del mapa)\n%d m" % roundi(dist)
 			_objective.modulate = COLOR_DROPOFF
 			_timer.text = _fmt_time(race.time_left)
 			var urgent := race.time_left < 10.0
@@ -195,19 +199,9 @@ W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: 
 			_objective.text = "Esperando nuevo pasajero..."
 			_objective.modulate = Color.WHITE
 
-	# Flecha: arriba = hacia donde mira la mototaxi; gira hacia la ruta recomendada.
-	var target := race.get_guide_point()
-	_arrow.visible = target != Vector3.INF and moto != null
-	if _arrow.visible:
-		_arrow.color = COLOR_PICKUP if race.state == RaceManager.State.LIBRE else COLOR_DROPOFF
-		var fwd := moto.global_basis.z
-		var to := target - moto.global_position
-		fwd.y = 0.0
-		to.y = 0.0
-		if fwd.length() > 0.01 and to.length() > 0.01:
-			# Ángulo positivo = objetivo a la izquierda; en pantalla se rota en sentido antihorario.
-			var ang := atan2(fwd.cross(to).y, fwd.dot(to))
-			_arrow.rotation = -ang
+	var c := COLOR_PICKUP if race.state == RaceManager.State.LIBRE else COLOR_DROPOFF
+	minimap.route_color = c
+	minimap.target_color = c
 
 
 func _on_state_changed(s: RaceManager.State) -> void:
@@ -317,30 +311,3 @@ func _label(size: int, preset: Control.LayoutPreset, align: HorizontalAlignment)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(l)
 	return l
-
-
-## Flecha triangular simple dibujada a mano; gira alrededor de su centro.
-class _Arrow:
-	extends Control
-
-	var color := Color.WHITE:
-		set(v):
-			color = v
-			queue_redraw()
-
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		resized.connect(func(): pivot_offset = size * 0.5)
-		pivot_offset = size * 0.5
-
-	func _draw() -> void:
-		var c := size * 0.5
-		var r := minf(size.x, size.y) * 0.5
-		var pts := PackedVector2Array([
-			c + Vector2(0, -r),
-			c + Vector2(r * 0.7, r * 0.8),
-			c + Vector2(0, r * 0.4),
-			c + Vector2(-r * 0.7, r * 0.8),
-		])
-		draw_colored_polygon(pts, color)
-		draw_polyline(pts + PackedVector2Array([pts[0]]), Color.BLACK, 2.0, true)
