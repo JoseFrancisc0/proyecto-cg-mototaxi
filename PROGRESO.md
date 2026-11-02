@@ -69,6 +69,7 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 | J-B | Pantalla final con puntaje | ✅ `GameOverScreen` |
 | CG/J | Vegetación con modelos reales, troncos sólidos que dañan al chocar | ✅ `VegetationModels`, `NearVegetation`, `TreeColliders` |
 | CG | Impostores octaédricos para los árboles lejanos (horneado propio + shader) | ✅ `VegetationImpostors`, `tools/bake_impostors.gd` |
+| J | Menú de pausa: continuar, reiniciar turno, volver al menú sin perder, volumen | ✅ `PauseMenu` (Esc / P / Start) |
 
 ---
 
@@ -238,3 +239,7 @@ para que Godot registre la clase.
   triángulos (versión simplificada anterior: 60–69 FPS, 12–14 M). Si se cambian los modelos, volver a
   hornear: `Godot --path project -s res://tools/bake_impostors.gd` (con ventana). Comparar con
   `benchmark_vegetation.gd -- --editor --noimpostor`.
+- **2026-11-02** — Menú de pausa (`PauseMenu`): Esc, P o Start del mando abre Continuar / Reiniciar turno /
+  Menú principal y un control de volumen general (bus Master). Carrera, sesión y cámara pasan a modo
+  pausable (antes heredaban `ALWAYS` de `Main`), así la pausa congela también el reloj del pasajero.
+  Prueba: `tests/test_pause_menu.gd`; captura con ventana: `tests/capture_pause_menu.gd -- --editor`.

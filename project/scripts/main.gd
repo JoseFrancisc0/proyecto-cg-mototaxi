@@ -10,6 +10,8 @@ extends Node3D
 ##
 ## La partida termina por vida, por salir del mapa, por quedar atrapada o por perder
 ## pasajeros (GameSession); la pantalla final permite reintentar en el mismo mapa.
+## Durante la partida, Esc / P / Start abre el menú de pausa (PauseMenu): continuar,
+## reiniciar el turno o volver al menú principal sin tener que perder.
 
 const REGION_NAMES := ["mixta", "costa", "sierra", "selva"]
 
@@ -25,6 +27,7 @@ const REGION_NAMES := ["mixta", "costa", "sierra", "selva"]
 var loading: LoadingScreen
 var session: GameSession
 var game_over_screen: GameOverScreen
+var pause_menu: PauseMenu
 ## Región elegida: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva.
 var region := 0
 
@@ -120,6 +123,16 @@ func _start_game() -> void:
 	add_child(game_over_screen)
 	game_over_screen.retry_requested.connect(restart)
 	game_over_screen.menu_requested.connect(_back_to_menu)
+	pause_menu = PauseMenu.new()
+	pause_menu.name = "PauseMenu"
+	add_child(pause_menu)
+	pause_menu.resume_requested.connect(resume)
+	pause_menu.restart_requested.connect(restart)
+	pause_menu.menu_requested.connect(_back_to_menu)
+	# Main sigue activo en pausa (pantalla de carga, menús); la partida en sí se detiene:
+	# así la pausa congela también el reloj del pasajero y los avisos de la sesión.
+	for n: Node in [race, session, cam]:
+		n.process_mode = Node.PROCESS_MODE_PAUSABLE
 
 	race.start()
 	_face_route()
@@ -131,6 +144,7 @@ func _start_game() -> void:
 ## Nueva partida en el mismo mapa: vida llena, de vuelta al inicio, marcador en cero.
 func restart() -> void:
 	game_over_screen.hide_result()
+	pause_menu.close()
 	hud.visible = true
 	hud.reset_view()
 	moto.repair()
@@ -151,6 +165,26 @@ func _face_route() -> void:
 		return
 	moto.place_at(Vector3(p.x, world.get_height(p.x, p.z), p.z), atan2(d.x, d.z))
 	cam.snap()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if pause_menu == null or not event.is_action_pressed(PauseMenu.ACTION):
+		return
+	if pause_menu.visible:
+		resume()
+	elif not game_over_screen.visible and not get_tree().paused:
+		pause()
+	get_viewport().set_input_as_handled()
+
+
+func pause() -> void:
+	get_tree().paused = true
+	pause_menu.open()
+
+
+func resume() -> void:
+	pause_menu.close()
+	get_tree().paused = false
 
 
 func _on_game_over(reason: String, stats: Dictionary) -> void:

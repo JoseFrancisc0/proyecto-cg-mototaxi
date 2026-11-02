@@ -159,7 +159,7 @@ func _process(_delta: float) -> void:
 		_turbo_label.text = "TURBO ACTIVO" if moto.turbo_active else "TURBO · SHIFT / X"
 		_turbo_label.modulate = Color("ffdb38") if moto.turbo_active else Color.WHITE
 		_info.text = "%d km/h
-W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: turbo   R: enderezar (volcada cuesta vida)" 			% roundi(moto.get_speed_kmh())
+W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: turbo   R: enderezar (volcada cuesta vida)   Esc: pausa" 			% roundi(moto.get_speed_kmh())
 		if moto.offroad_amount > 0.45:
 			_info.text = "TIERRA · MENOR AGARRE   " + _info.text
 		var hp := moto.get_health_ratio()
