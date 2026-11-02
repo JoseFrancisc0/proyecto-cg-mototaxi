@@ -179,7 +179,7 @@ W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: 
 	var dist := race.get_target_distance()
 	match race.state:
 		RaceManager.State.LIBRE:
-			_objective.text = "Busca al pasajero (zona amarilla)\n%d m  ·  entra despacio (< %d km/h)" \
+			_objective.text = "Recoge al pasajero que te hace señas\n%d m  ·  detente a su lado (< %d km/h)" \
 				% [roundi(dist), roundi(race.board_speed_kmh)]
 			_objective.modulate = COLOR_PICKUP
 			_timer.text = ""

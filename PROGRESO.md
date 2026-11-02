@@ -52,21 +52,22 @@ Los parámetros (distancias, velocidad de abordaje, tiempo base, colores) son `@
 
 | Rol | Tarea | Estado |
 |---|---|---|
-| J-A | Integrar con la API real; ajustar suspensión y agarre en terreno erosionado | ⬜ |
-| J-B | Integrar con la API real | ⬜ |
+| J-A | Integrar con la API real; ajustar suspensión y agarre en terreno erosionado | ✅ (ver "Integración terreno de CG + juego") |
+| J-B | Integrar con la API real | ✅ |
 | J-B | Pasajero que se enoja (golpes, vuelcos, tiempo), propina y puntaje en soles | ✅ `RaceManager` (ánimo, `paid`), HUD |
 | CG/J | Región elegida en el menú: mayoría o solo costa/sierra/selva (`biome_bias` en C++) y empezar en ella | ✅ |
-| J-B | Pasajeros reales (modelo/personaje) en lugar de zonas brillantes | ⬜ |
-| CG-B | Landmarks automáticos por tipo (picos, confluencias, costa) | ⬜ (hoy son los POI de la red de caminos, tipo `"poi"`) |
+| J-B | Pasajeros reales (modelo/personaje) en lugar de zonas brillantes | ✅ `Passenger`: 6 personas animadas (Quaternius, CC0) que esperan, hacen señas, suben, pagan o reclaman y se van |
+| CG-B | Landmarks automáticos por tipo (picos, confluencias, costa) | ✅ `find_landmark_features` (ver `docs/s12_s14_cg.md`) |
 
 ### S14 — Pulido
 
 | Rol | Tarea | Estado |
 |---|---|---|
 | J-A | Sonido de motor y choques; balance de vida y daño | 🟡 sonido ✅ motor por vehículo (`VehicleEngineAudio`, garaje) + golpes y rodadura (`MototaxiAudio`); falta balance |
-| J-B | Menú con semilla | ⬜ |
+| J-B | Menú con semilla | ✅ menú previo (terreno guardado o semilla, calidad, región, garaje) |
 | J-B | Minimapa a partir del heightmap | ⬜ |
 | J-B | Pantalla final con puntaje | ✅ `GameOverScreen` |
+| CG/J | Vegetación con modelos reales, troncos sólidos que dañan al chocar | ✅ `VegetationModels`, `NearVegetation`, `TreeColliders` |
 
 ---
 
@@ -143,17 +144,17 @@ con el `road_max_grade` del juego.
 
 ## Computación Gráfica (rama `main`)
 
-Estado según el PDF de la semana 10; revisar la rama `main` para el detalle actualizado.
+Todo lo del PDF de la semana 10 está hecho; el detalle de cada tarea está en `docs/s11_cgb.md` y `docs/s12_s14_cg.md`.
 
 | Sem. | Tarea (CG-A / CG-B) | Estado |
 |---|---|---|
-| S11 | Heightfield C++, flow routing, erosión fluvial y térmica a una resolución | ⬜ |
-| S11 | T0 con gradiente costa–sierra–selva; mapas ρ y s₀ por región | ⬜ |
-| S12 | Bucle multiescala 256 → 512 → 1024, upsampling bicúbico, deposición | ⬜ |
-| S12 | Chunks 128×128, `HeightMapShape3D`, shader de splatting | ⬜ |
-| S13 | Retargeting por difusión, pantalla de carga, breaching (opcional) | ⬜ |
-| S13 | Ríos desde el drenaje en el shader, landmarks automáticos, caminos sobre terreno erosionado | ⬜ |
-| S14 | Figuras del pipeline y tabla de tiempos; niebla, cielo, agua | ⬜ |
+| S11 | Heightfield C++, flow routing, erosión fluvial y térmica a una resolución | ✅ |
+| S11 | T0 con gradiente costa–sierra–selva; mapas ρ y s₀ por región | ✅ |
+| S12 | Bucle multiescala 256 → 512 → 1024, upsampling bicúbico, deposición | ✅ |
+| S12 | Chunks 128×128, `HeightMapShape3D`, shader de splatting | ✅ |
+| S13 | Retargeting por difusión, pantalla de carga, breaching (opcional) | ✅ |
+| S13 | Ríos desde el drenaje en el shader, landmarks automáticos, caminos sobre terreno erosionado | ✅ |
+| S14 | Figuras del pipeline y tabla de tiempos; niebla, cielo, agua | ✅ |
 
 ---
 
@@ -165,6 +166,8 @@ Desde la raíz del repo (ajustar la ruta del ejecutable de Godot 4.7):
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_terrain_world.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_mototaxi.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_race.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_passenger.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_vegetation.gd -- --editor
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/render_engine_audio.gd   # graba output/audio/mototaxi_demo.wav
 ```
 
@@ -206,3 +209,19 @@ para que Godot registre la clase.
   (región y vehículo en el menú). El motor lo pone `VehicleEngineAudio`; `MototaxiAudio` queda con golpes y
   rodadura (`engine_enabled = false`). Con el chasis redondeado la mototaxi se endereza sola: ahora pasar de
   90° y volver también cuesta `flip_damage`. Barra de turbo sobre la de vida.
+- **2026-11-02** — Pasajeros con modelo: `Passenger` (6 personajes CC0 de Quaternius en
+  `project/assets/characters/`, fuente en `SOURCE.md`). Espera en la vereda derecha del punto de recogida,
+  mira y hace señas a la mototaxi a < 45 m, camina hacia ella al subir, baja junto a la mototaxi
+  (paga con Interact si llegó a tiempo y ánimo ≥ 0.5; si no, reclama con HitRecieve) y se va caminando.
+  La zona de recogida ya no tiene columna de luz. Prueba: `tests/test_passenger.gd` (capturas con ventana).
+- **2026-11-02** — Vegetación con modelos reales (`VegetationModels`, fuentes en
+  `project/assets/vegetation/SOURCE.md`): árboles comunes y retorcidos, arbustos, helecho y pasto del
+  *Stylized Nature MegaKit* de Quaternius (CC0), dos palmeras de Quaternius (CC0) y un cactus órgano
+  (Poly by Google, CC-BY 3.0, acreditado en Créditos). Shader `vegetation_textured.gdshader` con la misma
+  luz que el terreno; sin desvanecido transparente (las plantas lejanas se veían como fantasmas).
+  LOD por planta: modelo completo a < 130 m (`NearVegetation`), versión simplificada más lejos, árboles
+  hasta 900 m. Troncos sólidos cerca de la mototaxi (`TreeColliders`, 96 cuerpos reutilizados): chocar un
+  árbol a ~43 km/h quita ~11 de vida. Las rutas a campo traviesa esquivan los troncos
+  (`TerrainWorld._routing_heights`). Rendimiento (RTX 3050 Laptop, Compatibility): 59–72 FPS (antes 60–109).
+  Piloto automático en el terreno del editor: 8/8. En mapas generados (semilla 2026) falla 3/6 por
+  pendientes de 0.42; ya fallaba igual sin la vegetación nueva.

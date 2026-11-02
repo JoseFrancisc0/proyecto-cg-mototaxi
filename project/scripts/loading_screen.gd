@@ -339,10 +339,10 @@ func _close_dialog() -> void:
 	_navigation.get_child(0).grab_focus()
 
 func _show_controls() -> void:
-	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nShift / X del mando — Turbo (7 s, recarga automática)\nFuera de pista — Menos velocidad y agarre\nR — Enderezar la mototaxi\n\nRecoge al pasajero en la zona amarilla y llévalo a la zona verde.")
+	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nShift / X del mando — Turbo (7 s, recarga automática)\nFuera de pista — Menos velocidad y agarre\nR — Enderezar la mototaxi\n\nRecoge al pasajero que te hace señas (detente a su lado, despacio) y llévalo a la zona verde.")
 
 func _show_credits() -> void:
-	_show_dialog("Créditos","Rodrigo Felix Meza Gavilan\nJosep Ratzinger Castro Ferrer\nJose Francisco Wong Orrillo\nJose Joaquin Osnayo Matos\n\nComputación Gráfica · UTEC · 2026-II\n\nMenú: Maaack's Menus Template\nMarek Belski · MIT\nFotografía: referencia aportada al proyecto.\nMúsica: Cumbieton vs Reggaeton Old School (2020)\nDJ Pirata, Maxi Gen, El Kaio y DJ Juanchii\nDescarga publicada por DJ Juanchii en su canal.\nTipografía Bangers: Vernon Adams · SIL OFL\nTexturas: ambientCG · CC0\n\nTerreno: Schott et al. (2024), Terrain Amplification using Multi-scale Erosion.")
+	_show_dialog("Créditos","Rodrigo Felix Meza Gavilan\nJosep Ratzinger Castro Ferrer\nJose Francisco Wong Orrillo\nJose Joaquin Osnayo Matos\n\nComputación Gráfica · UTEC · 2026-II\n\nMenú: Maaack's Menus Template\nMarek Belski · MIT\nFotografía: referencia aportada al proyecto.\nMúsica: Cumbieton vs Reggaeton Old School (2020)\nDJ Pirata, Maxi Gen, El Kaio y DJ Juanchii\nDescarga publicada por DJ Juanchii en su canal.\nTipografía Bangers: Vernon Adams · SIL OFL\nTexturas: ambientCG · CC0\nPasajeros, árboles, palmeras y plantas: Quaternius · CC0\n\"Pipe organ cactus\" by Poly by Google · CC-BY 3.0\n\nTerreno: Schott et al. (2024), Terrain Amplification using Multi-scale Erosion.")
 
 func _responsive() -> void:
 	if not is_instance_valid(_root): return

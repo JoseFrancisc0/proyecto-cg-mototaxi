@@ -76,6 +76,8 @@ var tips_total := 0.0
 var mood := 1.0           ## Ánimo del pasajero a bordo (0..1).
 var route_line: RouteLine
 
+## Persona que espera, sube y baja (modelo animado).
+var passenger: Passenger
 var pickup_zone: GlowZone
 var dropoff_zone: GlowZone
 
@@ -198,9 +200,12 @@ func _new_passenger() -> void:
 		push_warning("RaceManager: no hay landmarks para recoger pasajeros")
 		pickup_zone.activate(false)
 		return
-	pickup_zone.place(_landmark_pos(_pickup_id))
+	var pickup := _landmark_pos(_pickup_id)
+	pickup_zone.place(pickup)
 	_set_state(State.LIBRE)
-	_show_route(world.find_road_route(moto.global_position, _landmark_pos(_pickup_id)))
+	var path := world.find_road_route(moto.global_position, pickup)
+	_show_route(path)
+	passenger.wait_at(pickup + _roadside_offset(path, pickup))
 
 
 func _board() -> void:
@@ -222,6 +227,7 @@ func _board() -> void:
 	_impatient_said = false
 
 	pickup_zone.activate(false)
+	passenger.board()
 	dropoff_zone.place(to)
 	_set_state(State.CON_PASAJERO)
 	_show_route(route)
@@ -242,6 +248,12 @@ func _finish(success: bool) -> void:
 	else:
 		failures += 1
 		mood = 0.0
+	# Baja por la derecha y se aleja de la vía; contento si llegó a tiempo y de buen ánimo.
+	# El que baja sigue su camino solo; el siguiente pasajero es otra persona.
+	var right := -moto.global_basis.x
+	var leaving := passenger
+	passenger = _make_passenger()
+	leaving.get_off(moto.global_position + right * 2.0, right, success and mood >= 0.5)
 	_result_timer = result_time
 	_set_state(State.ENTREGADO if success else State.FALLADO)
 	ride_finished.emit(success, time_left)
@@ -251,6 +263,7 @@ func _finish(success: bool) -> void:
 
 ## Detiene el ciclo (fin de partida): sin zonas ni ruta.
 func stop() -> void:
+	passenger.hide_now()
 	pickup_zone.activate(false)
 	dropoff_zone.activate(false)
 	_show_route(PackedVector3Array())
@@ -342,6 +355,20 @@ func _pick_landmark(origin: Vector3, min_d: float, max_d: float, exclude: int) -
 	return far_id
 
 
+## Desplazamiento desde el centro de la vía hasta la vereda derecha, según cómo se llega
+## (último tramo de la ruta). Queda dentro de la zona de recogida.
+func _roadside_offset(path: PackedVector3Array, at: Vector3) -> Vector3:
+	var dir := Vector3.FORWARD
+	if path.size() >= 2:
+		dir = path[path.size() - 1] - path[maxi(path.size() - 4, 0)]
+	elif moto:
+		dir = at - moto.global_position
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		dir = Vector3.FORWARD
+	return dir.normalized().cross(Vector3.UP) * minf(zone_radius * 0.7, 3.0)
+
+
 func _landmark_pos(id: int) -> Vector3:
 	for lm in world.get_landmarks():
 		if lm["id"] == id:
@@ -351,13 +378,27 @@ func _landmark_pos(id: int) -> Vector3:
 
 func _ensure_zones() -> void:
 	if pickup_zone == null:
-		pickup_zone = _make_zone("PickupZone", pickup_color)
+		pickup_zone = _make_zone("PickupZone", pickup_color, false)  # la persona ya marca el lugar
 		dropoff_zone = _make_zone("DropoffZone", dropoff_color)
+	if passenger == null:
+		passenger = _make_passenger()
+	passenger.world = world
+	passenger.moto = moto
 
 
-func _make_zone(zone_name: String, c: Color) -> GlowZone:
+func _make_passenger() -> Passenger:
+	var p := Passenger.new()
+	p.name = "Passenger"
+	p.world = world
+	p.moto = moto
+	add_child(p, true)
+	return p
+
+
+func _make_zone(zone_name: String, c: Color, beam := true) -> GlowZone:
 	var z := GlowZone.new()
 	z.name = zone_name
+	z.beam_enabled = beam
 	z.radius = zone_radius
 	z.color = c
 	add_child(z)

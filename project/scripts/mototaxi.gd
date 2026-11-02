@@ -89,6 +89,7 @@ var engine_audio: VehicleEngineAudio
 
 func _ready() -> void:
 	_ensure_input_actions()
+	add_to_group("mototaxi")  # TreeColliders vuelve sólidos los troncos alrededor
 	# Escala física explícita: RigidBody3D conserva su transform sin escalar.
 	var visual_scale := VehicleCatalog.MODEL_SCALE
 	center_of_mass *= visual_scale

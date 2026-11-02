@@ -10,6 +10,8 @@ extends Area3D
 @export var color := Color(1.0, 0.85, 0.2)
 @export var beam_height := 60.0
 @export var pulse_speed := 3.0
+## Columna de luz alta; en la recogida se apaga porque la persona ya marca el lugar.
+@export var beam_enabled := true
 
 var _disc_mat: StandardMaterial3D
 var _beam_mat: StandardMaterial3D
@@ -56,6 +58,7 @@ func _ready() -> void:
 	beam.mesh = beam_mesh
 	beam.position.y = beam_height * 0.5
 	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	beam.visible = beam_enabled
 	add_child(beam)
 
 	_light = OmniLight3D.new()

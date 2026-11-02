@@ -99,6 +99,11 @@ var _sign_root: Node3D
 var _generated_ok := false
 var _editor_t0 := 0
 var _router: RoadRouter  # Grafo de vías para find_road_route (se arma la primera vez).
+## Copia de _heights para el A* a campo traviesa, con los troncos de los árboles marcados como
+## intransitables (vértices muy altos): las rutas esquivan los árboles sólidos (TreeColliders).
+var _route_heights := PackedFloat32Array()
+## Margen (m) entre el tronco y la ruta: medio ancho de la mototaxi y algo más.
+const TRUNK_CLEARANCE := 2.4
 ## Tamaño de la vista previa del terreno en la pantalla de carga (0 = sin vista previa).
 var preview_size := 0
 
@@ -168,6 +173,7 @@ func _prepare_generator(new_seed: int) -> bool:
 	if new_seed >= 0:
 		world_seed = new_seed
 	_router = null
+	_route_heights = PackedFloat32Array()
 	_generated_ok = false
 	_n = grid_size + 1
 	_half = grid_size * cell_size * 0.5
@@ -362,12 +368,51 @@ func find_route(a: Vector3, b: Vector3) -> PackedVector3Array:
 	if generator == null or generator.last_roads == null or _heights.is_empty():
 		return PackedVector3Array()
 	var path: PackedVector3Array = generator.last_roads.find_drivable_path(
-		_heights, _n, cell_size, Vector2(a.x, a.z), Vector2(b.x, b.z), max_drive_slope)
+		_routing_heights(a, b), _n, cell_size, Vector2(a.x, a.z), Vector2(b.x, b.z), max_drive_slope)
 	for i in path.size():
 		var p := path[i]
 		p.y = get_height(p.x, p.z)
 		path[i] = p
 	return path
+
+
+## Alturas para el A* a campo traviesa: con troncos bloqueados, salvo alrededor de a y b
+## (si la mototaxi o el destino están junto a un árbol, la ruta igual puede salir/llegar).
+func _routing_heights(a: Vector3, b: Vector3) -> PackedFloat32Array:
+	if _route_heights.is_empty():
+		_route_heights = _build_route_heights()
+	var h := _route_heights
+	for q in [a, b]:
+		var cx := roundi((q.x + _half) / cell_size)
+		var cz := roundi((q.z + _half) / cell_size)
+		for dz in range(-2, 3):
+			for dx in range(-2, 3):
+				var ix := cx + dx
+				var iz := cz + dz
+				if ix >= 0 and iz >= 0 and ix < _n and iz < _n:
+					h[iz * _n + ix] = _heights[iz * _n + ix]
+	return h
+
+
+func _build_route_heights() -> PackedFloat32Array:
+	var h := _heights.duplicate()
+	var veg = generator.get("vegetation") if generator else null
+	if veg == null or not is_instance_valid(veg) or veg.colliders == null:
+		return h
+	for arr: PackedFloat32Array in veg.colliders.trunk_cells():
+		for i in range(0, arr.size(), 5):
+			var r := arr[i + 3] + TRUNK_CLEARANCE
+			var x0 := ceili((arr[i] - r + _half) / cell_size)
+			var x1 := floori((arr[i] + r + _half) / cell_size)
+			var z0 := ceili((arr[i + 2] - r + _half) / cell_size)
+			var z1 := floori((arr[i + 2] + r + _half) / cell_size)
+			for iz in range(maxi(z0, 0), mini(z1, _n - 1) + 1):
+				for ix in range(maxi(x0, 0), mini(x1, _n - 1) + 1):
+					var dx := ix * cell_size - _half - arr[i]
+					var dz := iz * cell_size - _half - arr[i + 2]
+					if dx * dx + dz * dz <= r * r:
+						h[iz * _n + ix] = _heights[iz * _n + ix] + 1000.0
+	return h
 
 
 ## Ruta recomendada por las vías (lo que se dibuja en el mundo): A* sobre el grafo de
