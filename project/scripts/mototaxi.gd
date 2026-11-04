@@ -85,6 +85,9 @@ var _hit_grace := 0.0  # segundos sin daño tras aparecer o tras un golpe
 
 var wheel_visuals := VehicleWheelVisuals.new()
 var engine_audio: VehicleEngineAudio
+# Profundidad del frontal de cada carrocería a la altura del faro (espacio del GLB).
+const HEADLIGHT_DEPTHS := [0.91, 0.92, 1.04, 0.79, 0.92, 0.87]
+@onready var _headlight := get_node_or_null("Faro") as SpotLight3D
 
 
 func _ready() -> void:
@@ -137,11 +140,42 @@ func select_vehicle(index: int) -> void:
 		model.position.y = -0.08 * VehicleCatalog.MODEL_SCALE
 		add_child(model)
 		wheel_visuals.bind_model(model)
+		var body := model.find_child("Body", true, false) as MeshInstance3D
+		if body and body.mesh and body.mesh.get_surface_count() > 0:
+			var source := body.get_active_material(0) as StandardMaterial3D
+			if source:
+				var paint := source.duplicate() as StandardMaterial3D
+				# Reduce el metal del GLB para que la pintura reciba algo de luz difusa.
+				paint.metallic *= 0.55
+				body.set_surface_override_material(0, paint)
+	if _headlight:
+		_headlight.position = Vector3(0.0, 0.82 - 0.08, HEADLIGHT_DEPTHS[vehicle_index] + 0.095) * VehicleCatalog.MODEL_SCALE
 	if engine_audio == null:
 		engine_audio = VehicleEngineAudio.new()
 		engine_audio.name = "EngineAudio"
 		add_child(engine_audio)
 	engine_audio.configure(vehicle_index)
+
+
+func _process(_delta: float) -> void:
+	if _headlight == null or terrain == null or terrain.generator == null:
+		return
+	var generator := terrain.generator
+	var material := generator.material_override as ShaderMaterial
+	if material == null:
+		return
+	material.set_shader_parameter("headlight_enabled", _headlight.visible)
+	if _headlight.visible:
+		var direction := generator.global_basis.inverse() * -_headlight.global_basis.z
+		material.set_shader_parameter("headlight_origin", generator.to_local(_headlight.global_position))
+		material.set_shader_parameter("headlight_direction", direction.normalized())
+		material.set_shader_parameter("headlight_range", _headlight.spot_range)
+		material.set_shader_parameter("headlight_cone", cos(deg_to_rad(_headlight.spot_angle)))
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if use_input and _headlight and event.is_action_pressed("moto_headlights", false):
+		_headlight.visible = not _headlight.visible
 
 
 func _physics_process(delta: float) -> void:
@@ -369,6 +403,7 @@ static func _ensure_input_actions() -> void:
 	_add_action("moto_left", [KEY_A, KEY_LEFT], [[JOY_AXIS_LEFT_X, -1.0]], [])
 	_add_action("moto_right", [KEY_D, KEY_RIGHT], [[JOY_AXIS_LEFT_X, 1.0]], [])
 	_add_action("moto_handbrake", [KEY_SPACE], [], [JOY_BUTTON_A])
+	_add_action("moto_headlights", [KEY_L], [], [])
 	_add_action("moto_reset", [KEY_R], [], [JOY_BUTTON_Y])
 	_add_action("moto_turbo", [KEY_SHIFT], [], [JOY_BUTTON_X])
 

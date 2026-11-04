@@ -64,6 +64,14 @@ var _file_dialog: FileDialog
 var _bus_name := ""
 var _garage: VehicleGarage
 
+var _head_picker: FileDialog
+var _head_status: Label
+var _head_remove: Button
+var _portrait_picker: FileDialog
+var _portrait_preview: TextureRect
+var _portrait_status: Label
+var _portrait_remove: Button
+
 func _ready() -> void:
 	layer = 50
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -156,6 +164,22 @@ func _build_ui() -> void:
 	_file_dialog.filters = PackedStringArray(["*.mp3,*.ogg,*.wav ; Audio"])
 	_file_dialog.file_selected.connect(_load_custom_music)
 	add_child(_file_dialog)
+	_portrait_picker = FileDialog.new()
+	_portrait_picker.access = FileDialog.ACCESS_FILESYSTEM
+	_portrait_picker.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_portrait_picker.use_native_dialog = true
+	_portrait_picker.filters = PackedStringArray(["*.png,*.jpg,*.jpeg ; Foto PNG o JPG"])
+	_portrait_picker.file_selected.connect(_import_portrait)
+	add_child(_portrait_picker)
+	_refresh_portrait()
+	_head_picker = FileDialog.new()
+	_head_picker.access = FileDialog.ACCESS_FILESYSTEM
+	_head_picker.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_head_picker.use_native_dialog = true
+	_head_picker.filters = PackedStringArray(["*.glb ; Cabeza 3D (GLB)"])
+	_head_picker.file_selected.connect(_import_head)
+	add_child(_head_picker)
+	_refresh_head()
 
 func _build_dialog() -> void:
 	_dialog = Control.new()
@@ -237,6 +261,30 @@ func _build_dialog() -> void:
 	_options = VBoxContainer.new()
 	_options.add_theme_constant_override("separation",12)
 	contents.add_child(_options)
+	_options.add_child(_label("Cabeza 3D del pasajero", 22, YELLOW))
+	_head_status = _label("", 15, MUTED)
+	_head_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_options.add_child(_head_status)
+	_options.add_child(_button("Importar cabeza GLB…", func(): _head_picker.popup_centered_ratio(0.8)))
+	_head_remove = _button("Quitar cabeza 3D", _remove_head)
+	_options.add_child(_head_remove)
+	_options.add_child(HSeparator.new())
+	_options.add_child(_label("Retrato plano opcional", 20, YELLOW))
+	var portrait_row := HBoxContainer.new()
+	_options.add_child(portrait_row)
+	_portrait_preview = TextureRect.new()
+	_portrait_preview.custom_minimum_size = Vector2(88, 88)
+	_portrait_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait_row.add_child(_portrait_preview)
+	_portrait_status = _label("", 15, MUTED)
+	_portrait_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_portrait_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_row.add_child(_portrait_status)
+	_options.add_child(_button("Elegir foto…", func(): _portrait_picker.popup_centered_ratio(0.8)))
+	_portrait_remove = _button("Quitar foto", _remove_portrait)
+	_options.add_child(_portrait_remove)
+	_options.add_child(HSeparator.new())
 	_options.add_child(_label("Volumen de la música"))
 	_music_slider = HSlider.new()
 	_music_slider.min_value = 0
@@ -271,6 +319,80 @@ func _build_dialog() -> void:
 	_dialog_close = _button("Volver",_close_dialog)
 	layout.add_child(_dialog_close)
 	_dialog.hide()
+
+func _refresh_head() -> void:
+	var exists := FileAccess.file_exists(Passenger.HeadModel.PATH)
+	_head_remove.visible = exists
+	_head_status.text = "Cabeza 3D lista para el primer pasajero." if exists else \
+		"Importa un GLB con solo la cabeza y el cabello, de pie y mirando hacia +Z. Se guarda en esta computadora."
+
+
+func _import_head(path: String) -> void:
+	var model := Passenger.HeadModel.load_model(path)
+	if model == null:
+		_head_status.text = "Elige un GLB válido con una cabeza 3D de hasta 32 MB."
+		return
+	model.free()
+	var bytes := FileAccess.get_file_as_bytes(path)
+	var temporary := Passenger.HeadModel.PATH + ".tmp"
+	var file := FileAccess.open(temporary, FileAccess.WRITE)
+	if file == null:
+		_head_status.text = "No se pudo guardar la cabeza 3D."
+		return
+	file.store_buffer(bytes)
+	var error := file.get_error()
+	file.close()
+	if error != OK or DirAccess.rename_absolute(temporary, Passenger.HeadModel.PATH) != OK:
+		DirAccess.remove_absolute(temporary)
+		_head_status.text = "No se pudo guardar la cabeza 3D."
+		return
+	_refresh_head()
+
+
+func _remove_head() -> void:
+	if DirAccess.remove_absolute(Passenger.HeadModel.PATH) != OK:
+		_head_status.text = "No se pudo quitar la cabeza 3D."
+		return
+	_refresh_head()
+
+
+func _refresh_portrait() -> void:
+	var texture := Passenger.load_portrait()
+	_portrait_preview.texture = texture
+	_portrait_preview.visible = texture != null
+	_portrait_remove.visible = FileAccess.file_exists(Passenger.PORTRAIT_PATH)
+	_portrait_status.text = "Tu rostro aparecerá en el primer pasajero." if texture else \
+		"Usa una foto de frente, con el rostro centrado y cerca. Solo se guarda en esta computadora."
+
+
+func _import_portrait(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null or file.get_length() > 12 * 1024 * 1024:
+		_portrait_status.text = "Elige una foto de hasta 12 MB."
+		return
+	var photo := Image.new()
+	if photo.load(path) != OK or photo.is_empty():
+		_portrait_status.text = "No se pudo abrir la foto. Prueba con un JPG o PNG."
+		return
+	var side := mini(photo.get_width(), photo.get_height())
+	if side < 80:
+		_portrait_status.text = "La foto debe medir al menos 80 × 80 píxeles."
+		return
+	var offset := (photo.get_size() - Vector2i(side, side)) / 2
+	photo = photo.get_region(Rect2i(offset, Vector2i(side, side)))
+	photo.convert(Image.FORMAT_RGB8)
+	photo.resize(384, 384, Image.INTERPOLATE_LANCZOS)
+	if photo.save_png(Passenger.PORTRAIT_PATH) != OK:
+		_portrait_status.text = "No se pudo guardar la foto."
+		return
+	_refresh_portrait()
+
+
+func _remove_portrait() -> void:
+	if DirAccess.remove_absolute(Passenger.PORTRAIT_PATH) != OK:
+		_portrait_status.text = "No se pudo quitar la foto."
+		return
+	_refresh_portrait()
 
 func _build_progress() -> void:
 	_progress_box = PanelContainer.new()
@@ -339,7 +461,7 @@ func _close_dialog() -> void:
 	_navigation.get_child(0).grab_focus()
 
 func _show_controls() -> void:
-	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nShift / X del mando — Turbo (7 s, recarga automática)\nFuera de pista — Menos velocidad y agarre\nR — Enderezar la mototaxi\n\nRecoge al pasajero que te hace señas (detente a su lado, despacio) y llévalo a la zona verde.")
+	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nShift / X del mando — Turbo (7 s, recarga automática)\nFuera de pista — Menos velocidad y agarre\nR — Enderezar la mototaxi\nL — Encender o apagar el faro\n\nRecoge al pasajero que te hace señas (detente a su lado, despacio) y llévalo a la zona verde.")
 
 func _show_credits() -> void:
 	_show_dialog("Créditos","Rodrigo Felix Meza Gavilan\nJosep Ratzinger Castro Ferrer\nJose Francisco Wong Orrillo\nJose Joaquin Osnayo Matos\n\nComputación Gráfica · UTEC · 2026-II\n\nMenú: Maaack's Menus Template\nMarek Belski · MIT\nFotografía: referencia aportada al proyecto.\nMúsica: Cumbieton vs Reggaeton Old School (2020)\nDJ Pirata, Maxi Gen, El Kaio y DJ Juanchii\nDescarga publicada por DJ Juanchii en su canal.\nTipografía Bangers: Vernon Adams · SIL OFL\nTexturas: ambientCG · CC0\nPasajeros, árboles, palmeras y plantas: Quaternius · CC0\n\"Pipe organ cactus\" by Poly by Google · CC-BY 3.0\n\nTerreno: Schott et al. (2024), Terrain Amplification using Multi-scale Erosion.")

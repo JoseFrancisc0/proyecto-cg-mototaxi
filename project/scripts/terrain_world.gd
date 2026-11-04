@@ -80,7 +80,7 @@ const Generator = preload("res://scripts/chunk_mesh.gd")
 @export var max_drive_slope := 0.45
 ## Pendiente máxima de las vías generadas (más baja que max_drive_slope para que
 ## las vías sean siempre manejables, incluso arrancando en plena subida).
-@export var road_max_grade := 0.25
+@export var road_max_grade := 0.16
 ## Separación de los landmarks a lo largo de las vías (m).
 @export var landmark_spacing := 60.0
 
@@ -417,7 +417,7 @@ func _build_route_heights() -> PackedFloat32Array:
 
 ## Ruta recomendada por las vías (lo que se dibuja en el mundo): A* sobre el grafo de
 ## get_roads(). Si a o b quedan lejos de una vía, se agrega un tramo con find_route().
-## Si por las vías el rodeo es absurdo (> detour_limit veces la línea recta), usa find_route().
+## Los atajos de campo traviesa se reservan para orígenes o destinos fuera de la vía.
 func find_road_route(a: Vector3, b: Vector3, detour_limit: float = 3.0) -> PackedVector3Array:
 	if _router == null:
 		_router = RoadRouter.new()
@@ -430,20 +430,28 @@ func find_road_route(a: Vector3, b: Vector3, detour_limit: float = 3.0) -> Packe
 	if mid.is_empty():
 		return find_route(a, b)
 	var out := PackedVector3Array()
-	if _flat_dist(a, mid[0]) > 12.0:
-		out.append_array(find_route(a, mid[0]))
+	var snap_distance := maxf(2.0, cell_size * 1.25)
+	if _flat_dist(a, mid[0]) > snap_distance:
+		var approach := find_route(a, mid[0])
+		if approach.size() < 2:
+			return find_route(a, b)
+		out.append_array(approach)
 	else:
 		out.append(a)
 	out.append_array(mid)
-	if _flat_dist(mid[-1], b) > 12.0:
-		out.append_array(find_route(mid[-1], b))
+	if _flat_dist(mid[-1], b) > snap_distance:
+		var exit_path := find_route(mid[-1], b)
+		if exit_path.size() < 2:
+			return find_route(a, b)
+		out.append_array(exit_path)
 	else:
 		out.append(b)
 	for i in out.size():
 		var p := out[i]
 		p.y = maxf(p.y, get_height(p.x, p.z))
 		out[i] = p
-	if route_length(out) > detour_limit * _flat_dist(a, b) + 150.0:
+	var offroad_endpoint := get_offroad_amount(a.x, a.z) > 0.5 or get_offroad_amount(b.x, b.z) > 0.5
+	if offroad_endpoint and route_length(out) > detour_limit * _flat_dist(a, b) + 150.0:
 		var direct := find_route(a, b)
 		if direct.size() >= 2:
 			return direct
@@ -536,7 +544,7 @@ func _build_chunks() -> void:
 		mi.name = "Chunk_%d_%d" % [origin.x / chunk_cells, origin.y / chunk_cells]
 		mi.mesh = c["mesh"]
 		mi.material_override = generator.material_override
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		_chunk_root.add_child(mi)
 	# La malla entera ya no hace falta: los chunks la reemplazan (menos memoria de video).
 	generator.mesh = null
@@ -685,10 +693,19 @@ func _build_landmarks() -> void:
 			types.append(f["type"])
 			extra.append({"label": f["label"], "feature": f["position"]})
 	if generator.last_roads:
+		var town_index := 0
 		for c in generator.last_roads.get_town_centers():
-			points.append(c)
-			types.append("pueblo")
-			extra.append({})
+			var biome := get_biome(c.x, c.z)
+			var region := biome.max_axis_index()
+			var names: Array = [
+				["Mercado San Martín", "Paradero La Caleta", "Plaza del Sol"],
+				["Plaza de Armas", "Mercado de Abastos", "Paradero Mirador"],
+				["Mercado Amazónico", "Paradero El Aguajal", "Embarcadero del Puerto"],
+			][region]
+			points.push_front(c)
+			types.push_front("pueblo")
+			extra.push_front({"label": names[town_index % names.size()]})
+			town_index += 1
 	for road in roads:
 		var path: PackedVector3Array = road["path"]
 		var acc := landmark_spacing  # Incluye el primer punto de cada vía.
@@ -739,14 +756,14 @@ func _nearest_road_point(p: Vector3, roads: Array) -> Vector3:
 	return best
 
 
-## Carteles provisionales (poste + tablero de color + nombre) en los landmarks tipados.
+## Señalización de miradores y paraderos al costado de la vía.
 func _build_signs() -> void:
 	if _sign_root != null:
 		_sign_root.queue_free()
 	_sign_root = Node3D.new()
 	_sign_root.name = "Carteles"
 	add_child(_sign_root)
-	var colors := {"pico": Color(0.85, 0.45, 0.15), "confluencia": Color(0.15, 0.45, 0.85), "costa": Color(0.95, 0.80, 0.30)}
+	var colors := {"pico": Color(0.85, 0.45, 0.15), "confluencia": Color(0.15, 0.45, 0.85), "costa": Color(0.95, 0.80, 0.30), "pueblo": Color("175442")}
 	for lm in _landmarks:
 		if not colors.has(lm["type"]):
 			continue
@@ -759,24 +776,48 @@ func _build_signs() -> void:
 		if toward.length() < 0.5:
 			toward = Vector3.FORWARD
 		toward = toward.normalized()
-		var spot := p + toward.cross(Vector3.UP).normalized() * 6.0
+		var side := toward.cross(Vector3.UP).normalized()
+		var spot := p + side * 8.0
+		var is_town: bool = lm["type"] == "pueblo"
+		if is_town:
+			spot = Vector3.INF
+			# Deja el tablero fuera de la calzada incluso en un cruce.
+			for direction in [side, -side, toward, -toward]:
+				var candidate: Vector3 = p + direction * 12.0
+				if is_inside(candidate.x, candidate.z) and get_offroad_amount(candidate.x, candidate.z) > 0.95 \
+						and get_normal(candidate.x, candidate.z).y > 0.96:
+					spot = candidate
+					break
+		if not spot.is_finite() or not is_inside(spot.x, spot.z):
+			sign.free()
+			continue
 		spot.y = get_height(spot.x, spot.z)
 		sign.position = spot
-		sign.add_child(_sign_part(BoxMesh.new(), Vector3(0.12, 2.6, 0.12), Vector3(0, 1.3, 0), Color(0.35, 0.25, 0.15)))
-		sign.add_child(_sign_part(BoxMesh.new(), Vector3(1.8, 0.8, 0.08), Vector3(0, 2.5, 0), colors[lm["type"]]))
+		var support := Color("514941")
+		if is_town:
+			var roof_colors := [Color("ab4531"), Color("985c37"), Color("47705d")]
+			var roof: Color = roof_colors[get_biome(p.x, p.z).max_axis_index()]
+			for x in [-1.45, 1.45]:
+				sign.add_child(_sign_part(BoxMesh.new(), Vector3(0.12, 3.15, 0.12), Vector3(x, 1.30, -0.42), support))
+				sign.add_child(_sign_part(BoxMesh.new(), Vector3(0.15, 0.74, 0.35), Vector3(x * 0.72, 0.15, -0.36), support))
+			sign.add_child(_sign_part(BoxMesh.new(), Vector3(3.6, 0.12, 1.4), Vector3(0, 2.9, -0.42), roof))
+			sign.add_child(_sign_part(BoxMesh.new(), Vector3(2.7, 0.10, 0.42), Vector3(0, 0.50, -0.36), Color("91664b")))
+		else:
+			sign.add_child(_sign_part(BoxMesh.new(), Vector3(0.12, 2.6, 0.12), Vector3(0, 1.3, 0), support))
+		sign.add_child(_sign_part(BoxMesh.new(), Vector3(3.2 if is_town else 1.8, 0.8, 0.08), Vector3(0, 2.5, 0), colors[lm["type"]]))
 		var label := Label3D.new()
 		label.text = lm.get("label", lm["type"])
-		label.position = Vector3(0, 3.4, 0)
-		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.position = Vector3(0, 2.5, 0.05) if is_town else Vector3(0, 3.4, 0)
+		label.billboard = BaseMaterial3D.BILLBOARD_DISABLED if is_town else BaseMaterial3D.BILLBOARD_ENABLED
 		label.font_size = 48
 		label.outline_size = 12
-		label.pixel_size = 0.01
+		label.pixel_size = 0.005 if is_town else 0.01
 		# No cubrir la cámara de persecución cuando aparece junto al cartel.
 		label.visibility_range_begin = 2.5
 		label.visibility_range_end = 140.0
 		sign.add_child(label)
 		# Mirando hacia el rasgo (sin look_at: el nodo puede no estar en el arbol todavia).
-		sign.basis = Basis.looking_at(toward, Vector3.UP)
+		sign.basis = Basis.looking_at(Vector3(spot.x - p.x, 0, spot.z - p.z).normalized() if is_town else toward, Vector3.UP)
 		_sign_root.add_child(sign)
 
 

@@ -531,6 +531,7 @@ void TerrainMesh::release_arrays() {
 	kept_normals = PackedVector3Array();
 	kept_colors = PackedColorArray();
 	kept_uvs = PackedVector2Array();
+	kept_road_uv = PackedVector2Array();
 	kept_regions = PackedFloat32Array();
 	kept_ao = PackedFloat32Array();
 }
@@ -550,6 +551,7 @@ Array TerrainMesh::build_chunks(int chunk_cells, int lod_levels, double skirt_de
 	const Vector3 *Nr = kept_normals.ptr();
 	const Color *C = kept_colors.ptr();
 	const Vector2 *UV = kept_uvs.ptr();
+	const Vector2 *road_uv = kept_road_uv.ptr();
 	const float *R = kept_regions.ptr();
 	const float *AO = kept_ao.ptr();
 	for (int cz = 0; cz < per_side; cz++)
@@ -559,8 +561,9 @@ Array TerrainMesh::build_chunks(int chunk_cells, int lod_levels, double skirt_de
 			const int w = x1 - x0 + 1, h = z1 - z0 + 1;
 			PackedVector3Array verts, norms;
 			PackedColorArray cols;
-			PackedVector2Array uvs;
+			PackedVector2Array uvs, road_coords;
 			PackedFloat32Array regions, ao;
+			bool has_road = false;
 			auto add_vertex = [&](int gx, int gz, double drop) {
 				size_t src = size_t(gz) * n + gx;
 				Vector3 p = V[src];
@@ -568,7 +571,9 @@ Array TerrainMesh::build_chunks(int chunk_cells, int lod_levels, double skirt_de
 				verts.push_back(p);
 				norms.push_back(Nr[src]);
 				cols.push_back(C[src]);
+				has_road = has_road || C[src].a > 0.5f;
 				uvs.push_back(UV[src]);
+				road_coords.push_back(road_uv[src]);
 				for (int k = 0; k < 4; k++)
 					regions.push_back(R[src * 4 + k]);
 				ao.push_back(AO[src]);
@@ -655,6 +660,7 @@ Array TerrainMesh::build_chunks(int chunk_cells, int lod_levels, double skirt_de
 			arrays[Mesh::ARRAY_NORMAL] = norms;
 			arrays[Mesh::ARRAY_COLOR] = cols;
 			arrays[Mesh::ARRAY_TEX_UV] = uvs;
+			arrays[Mesh::ARRAY_TEX_UV2] = road_coords;
 			arrays[Mesh::ARRAY_CUSTOM0] = regions;
 			arrays[Mesh::ARRAY_CUSTOM1] = ao;
 			arrays[Mesh::ARRAY_INDEX] = grid_indices(1);
@@ -666,6 +672,9 @@ Array TerrainMesh::build_chunks(int chunk_cells, int lod_levels, double skirt_de
 				if (stride >= std::min(w, h))
 					break;
 				double e = std::max(lod_error(stride), previous + 0.01);
+				// A flat chunk can still have visible edges that disappear on a coarse grid.
+				if (has_road)
+					e = std::max(e, .45 * stride * final_cell);
 				previous = e;
 				lods[e] = grid_indices(stride);
 				lod_info.push_back(e);

@@ -157,14 +157,6 @@ struct RibbonMesh {
 		triangle(a, b, c);
 		triangle(a, c, d);
 	}
-	void ribbon(Vector3 a, Vector3 b, double half_width) {
-		Vector3 v = b - a;
-		v.y = 0;
-		if (v.length() < .001)
-			return;
-		Vector3 side = Vector3(-v.z, 0, v.x).normalized() * half_width;
-		quad(a + side, b + side, b - side, a - side);
-	}
 	Ref<ArrayMesh> mesh() {
 		Ref<ArrayMesh> result;
 		result.instantiate();
@@ -774,10 +766,10 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 						distance += road.pts[b].distance_to(road.pts[b + 1]);
 						++b;
 					}
-					double top = -std::numeric_limits<double>::infinity();
-					for (int t = a; t <= b; t++) {
+					double top = std::max(road.h[a], road.h[b]);
+					for (int t = first; t <= last; t++) {
 						auto p = road.pts[t];
-						top = std::max(top, std::max(grid_sample(H, n, cell_size, p.x, p.z), grid_sample(drainage.level, n, cell_size, p.x, p.z)) + 1.2);
+						top = std::max(top, std::max(grid_sample(H, n, cell_size, p.x, p.z), grid_sample(drainage.level, n, cell_size, p.x, p.z)) + .65);
 					}
 					for (int t = a; t <= b; t++) {
 						road.h[t] = std::max(road.h[t], top);
@@ -786,10 +778,14 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 					for (int direction : { -1, 1 }) {
 						int t = direction < 0 ? a : b;
 						double run = 0;
-						while (t + direction >= 0 && t + direction < count && run < 24) {
+						while (t + direction >= 0 && t + direction < count && (road_max_grade > 0 || run < 24)) {
 							int next = t + direction;
 							run += road.pts[t].distance_to(road.pts[next]);
-							road.h[next] = std::max(road.h[next], lerp_d(top, grid_sample(H, n, cell_size, road.pts[next].x, road.pts[next].z), std::min(1.0, run / 24.0)));
+							double target = road_max_grade > 0 ? top - road_max_grade * run
+								 : lerp_d(top, grid_sample(H, n, cell_size, road.pts[next].x, road.pts[next].z), std::min(1.0, run / 24.0));
+							if (road_max_grade > 0 && target <= road.h[next])
+								break;
+							road.h[next] = std::max(road.h[next], target);
 							deck[next] = 1;
 							t = next;
 						}
@@ -826,13 +822,16 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 				int t = start;
 				road.h[t] = top;
 				road.elevated[t] = 1;
-				while (t + direction >= 0 && t + direction < count && distance < 24) {
+				while (t + direction >= 0 && t + direction < count && (road_max_grade > 0 || distance < 24)) {
 					int next = t + direction;
 					// Do not raise the opposite shared junction while shaping this approach.
 					if (next == 0 || next == count - 1)
 						break;
 					distance += road.pts[next].distance_to(road.pts[t]);
-					double target = lerp_d(top, road.h[next], std::min(1.0, distance / 24));
+					double target = road_max_grade > 0 ? top - road_max_grade * distance
+						 : lerp_d(top, road.h[next], std::min(1.0, distance / 24));
+					if (road_max_grade > 0 && target <= road.h[next])
+						break;
 					if (target > road.h[next] + .001) {
 						road.h[next] = target;
 						road.elevated[next] = 1;
@@ -841,15 +840,7 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 				}
 			}
 		}
-		for (const auto &road : network)
-			for (size_t k = 0; k + 1 < road.pts.size(); k++)
-				if (road.elevated[k] || road.elevated[k + 1]) {
-					auto a = road.pts[k], b = road.pts[k + 1];
-					a.y = road.h[k] + .04;
-					b.y = road.h[k + 1] + .04;
-					bridge_geometry.ribbon(a, b, road.half_width > 0 ? road.half_width : road_width);
-				}
-		bridge_mesh = bridge_geometry.mesh();
+
 	} else if (roads.is_valid()) {
 		limit_network_grade(roads->get_roads_mutable(), road_max_grade, road_width);
 	}
@@ -861,19 +852,31 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	// sin comparar cada vertice del mapa con todos los segmentos de caminos.
 	std::vector<double> road_distance(H.size(), std::numeric_limits<double>::infinity());
 	std::vector<double> road_height(H.size(), 0.0);
+	const bool shaped_roads = bool(road_cfg.get("hierarchical_roads", false));
+	std::vector<float> ground_delta(shaped_roads ? H.size() : 0, 0.0f);
+	std::vector<float> ground_weight(shaped_roads ? H.size() : 0, 0.0f);
 	std::vector<double> influence(H.size(), 0.0);
 	std::vector<int> kinds(H.size(), 0);
+	PackedVector2Array road_uv;
+	road_uv.resize(H.size());
+	road_uv.fill(Vector2(4, -1));
+	size_t road_id = 0;
 	if (roads_ptr)
 		for (const RoadSegment &road : *roads_ptr) {
+			++road_id;
+			double run = 0.0, total = 0.0;
+			for (size_t i = 1; i < road.pts.size(); i++)
+				total += std::hypot(road.pts[i].x - road.pts[i - 1].x, road.pts[i].z - road.pts[i - 1].z);
 			for (size_t segment = 0; segment + 1 < road.pts.size(); segment++) {
 				const Vector3 &a = road.pts[segment], &b = road.pts[segment + 1];
 				double width = road.half_width > 0 ? road.half_width : road_width;
-				double radius = width + road_fade;
+				double radius = width + (shaped_roads ? std::max(road_fade, 21.0) : road_fade);
 				int x0 = std::clamp(int(std::floor((std::min(a.x, b.x) - radius + offset) / cell_size)), 0, n - 1);
 				int x1 = std::clamp(int(std::ceil((std::max(a.x, b.x) + radius + offset) / cell_size)), 0, n - 1);
 				int z0 = std::clamp(int(std::floor((std::min(a.z, b.z) - radius + offset) / cell_size)), 0, n - 1);
 				int z1 = std::clamp(int(std::ceil((std::max(a.z, b.z) + radius + offset) / cell_size)), 0, n - 1);
 				double abx = b.x - a.x, abz = b.z - a.z, len2 = abx * abx + abz * abz;
+				double length = std::sqrt(len2);
 				for (int z = z0; z <= z1; z++)
 					for (int x = x0; x <= x1; x++) {
 						double wx = x * cell_size - offset, wz = z * cell_size - offset;
@@ -881,13 +884,30 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 						double distance = std::hypot(wx - a.x - t * abx, wz - a.z - t * abz);
 						size_t i = size_t(z) * n + x;
 						double weight = 1.0 - smoothstep_d(width, width + road_fade, distance);
+						const double level = lerp_d(road.h[segment], road.h[segment + 1], t);
+						const bool elevated = !road.elevated.empty() && (road.elevated[segment] || road.elevated[segment + 1]);
+						if (shaped_roads && distance < radius) {
+							const double delta = std::clamp(level - H[i], -5.0, 5.0);
+							const double shoulder = std::max(road_fade, 2.0 * cell_size + 2.4 * std::abs(delta));
+							const double blend = 1.0 - smoothstep_d(width, width + shoulder, distance);
+							const double near = blend * std::exp(-2.6 * distance * distance / (width * width));
+							ground_delta[i] += float(near * delta);
+							ground_weight[i] += float(near);
+						}
+						if (weight <= 0.0)
+							continue;
 						if (weight > influence[i] || (weight == influence[i] && distance < road_distance[i])) {
 							influence[i] = weight;
 							kinds[i] = road.kind;
 							road_distance[i] = distance;
-							road_height[i] = lerp_d(road.h[segment], road.h[segment + 1], t);
+							road_height[i] = level;
+							const double along = run + t * length;
+							const bool paint = (road.kind == 1 || road.kind == 2) && length > .001
+									&& !elevated && along > width * 2 && along < total - width * 2;
+							road_uv.set(i, paint ? Vector2((abx * (wz - a.z) - abz * (wx - a.x)) / (length * width), along + road_id * 65536.0) : Vector2(4, -1));
 						}
 					}
+				run += length;
 			}
 		}
 
@@ -903,8 +923,14 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 			double w = influence[i];
 			if (hydrology && drainage.protected_water[i])
 				w = 0;
+			if (shaped_roads && ground_weight[i] > 0.0f && !(hydrology && drainage.protected_water[i])) {
+				// Smoothly combine competing profiles in junctions and hairpins. Away
+				// from the lane the accumulated weight fades into the existing slope.
+				base_h += ground_delta[i] / std::max(0.11f, ground_weight[i]);
+			}
 			if (w > 0.0) {
-				base_h = lerp_d(base_h, road_height[i], w);
+				if (!shaped_roads)
+					base_h = lerp_d(base_h, road_height[i], w);
 				col = col.lerp(kinds[i] == 0 ? Color(0.40, 0.28, 0.16) : (kinds[i] == 3 ? Color(0.27, 0.28, 0.29) : Color(0.13, 0.14, 0.16)), w);
 			}
 
@@ -915,6 +941,39 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 			H[(size_t)iz * n + ix] = base_h;
 			Cv[(size_t)iz * n + ix] = col;
 		}
+	}
+
+	// Build only the exposed deck over the graded ground. A dry approach that
+	// already meets the road profile doesn't need a second surface on top.
+	if (roads_ptr) {
+		for (const auto &road : *roads_ptr) {
+			if (road.elevated.empty())
+				continue;
+			const double width = road.half_width > 0 ? road.half_width : road_width;
+			auto side_at = [&](size_t k) {
+				const Vector3 tangent = road.pts[std::min(k + 1, road.pts.size() - 1)] - road.pts[k > 0 ? k - 1 : 0];
+				return Vector3(-tangent.z, 0, tangent.x).normalized() * width;
+			};
+			for (size_t k = 0; k + 1 < road.pts.size(); k++) {
+				if (!road.elevated[k] && !road.elevated[k + 1])
+					continue;
+				auto a = road.pts[k], b = road.pts[k + 1];
+				const auto sa = side_at(k), sb = side_at(k + 1);
+				a.y = road.h[k] + .04;
+				b.y = road.h[k + 1] + .04;
+				auto exposed = [&](Vector3 p, Vector3 side) {
+					for (double offset : { -.75, 0.0, .75 }) {
+						const auto q = p + side * offset;
+						if (p.y - grid_sample(H, n, cell_size, q.x, q.z) > .18)
+							return true;
+					}
+					return false;
+				};
+				if (exposed(a, sa) || exposed(b, sb))
+					bridge_geometry.quad(a + sa, b + sb, b - sb, a - sa);
+			}
+		}
+		bridge_mesh = bridge_geometry.mesh();
 	}
 
 	timings["road_raster"] = seconds_since(t_raster);
@@ -1002,6 +1061,7 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	arrays[Mesh::ARRAY_NORMAL] = norms;
 	arrays[Mesh::ARRAY_COLOR] = cols;
 	arrays[Mesh::ARRAY_TEX_UV] = uvs;
+	arrays[Mesh::ARRAY_TEX_UV2] = road_uv;
 	arrays[Mesh::ARRAY_CUSTOM0] = regions;
 	arrays[Mesh::ARRAY_CUSTOM1] = ao;
 	arrays[Mesh::ARRAY_INDEX] = idx;
@@ -1017,6 +1077,7 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 		kept_normals = norms;
 		kept_colors = cols;
 		kept_uvs = uvs;
+		kept_road_uv = road_uv;
 		kept_regions = regions;
 		kept_ao = ao;
 	} else {

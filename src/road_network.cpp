@@ -136,6 +136,20 @@ PackedVector3Array RoadNetwork::_find_path(Ref<TerrainNoise> terrain, Vector2 st
 			}
 		}
 
+	// When designing a carriageway, measure the surrounding ground as well as the axis.
+	const bool design = field == nullptr && max_slope > 0;
+	std::vector<float> roughness;
+	if (design) {
+		roughness.resize(count);
+		const int reach = std::max(1, int(std::ceil(6.0 / spacing)));
+		for (int z = 0; z < W; z++)
+			for (int x = 0; x < W; x++) {
+				const double dx = height[z * W + cl(x + reach)] - height[z * W + cl(x - reach)];
+				const double dz = height[cl(z + reach) * W + x] - height[cl(z - reach) * W + x];
+				roughness[z * W + x] = float(std::hypot(dx, dz) / (2 * reach * spacing));
+			}
+	}
+
 	std::vector<double> g(count, std::numeric_limits<double>::infinity());
 	std::vector<int> came(count, -1);
 	std::vector<bool> closed(count, false);
@@ -147,8 +161,9 @@ PackedVector3Array RoadNetwork::_find_path(Ref<TerrainNoise> terrain, Vector2 st
 	std::priority_queue<Item, std::vector<Item>, std::greater<Item>> open;
 	g[start_i] = 0.0;
 	open.push({ heur(start_i), start_i });
-	const int dxs[8] = { 1, -1, 0, 0, 1, 1, -1, -1 };
-	const int dzs[8] = { 0, 0, 1, -1, 1, -1, 1, -1 };
+	const int dxs[] = { 1, -1, 0, 0, 1, 1, -1, -1, 2, 2, -2, -2, 1, 1, -1, -1, 3, 3, -3, -3, 1, 1, -1, -1 };
+	const int dzs[] = { 0, 0, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 2, -2, 2, -2, 1, -1, 1, -1, 3, -3, 3, -3 };
+	const int directions = design ? 24 : 8;
 
 	while (!open.empty()) {
 		int cur = open.top().second;
@@ -159,18 +174,47 @@ PackedVector3Array RoadNetwork::_find_path(Ref<TerrainNoise> terrain, Vector2 st
 			break;
 		closed[cur] = true;
 		int cix = cur % W, ciz = cur / W;
-		for (int d = 0; d < 8; d++) {
+		for (int d = 0; d < directions; d++) {
 			int nix = cix + dxs[d], niz = ciz + dzs[d];
 			if (nix < 0 || nix >= W || niz < 0 || niz >= W)
 				continue;
 			int ni = niz * W + nix;
 			if (closed[ni])
 				continue;
-			double horiz = (dxs[d] && dzs[d]) ? spacing * 1.41421356 : spacing;
+			double horiz = spacing * std::hypot(dxs[d], dzs[d]);
 			double dh = std::fabs(height[ni] - height[cur]);
 			double slope = dh / horiz;
-			double tent = g[cur] + horiz * (1.0 + 8 * slope * slope + 18 * std::max(wet[cur], wet[ni])) + SLOPE_WEIGHT * dh;
-			if (max_slope > 0.0 && slope > max_slope)
+			double water_cost = std::max(wet[cur], wet[ni]);
+			if (design && d >= 8) {
+				const int intervals = std::max(std::abs(dxs[d]), std::abs(dzs[d]));
+				double previous = height[cur];
+				for (int step = 1; step <= intervals; step++) {
+					const double t = double(step) / intervals;
+					const double x = nx(cix) + dxs[d] * spacing * t;
+					const double z = nz(ciz) + dzs[d] * spacing * t;
+					const double sample = step == intervals ? height[ni] : sample_height(terrain, x, z);
+					slope = std::max(slope, std::abs(sample - previous) * intervals / horiz);
+					water_cost = std::max(water_cost, sample_water(x, z));
+					previous = sample;
+				}
+			}
+			double tent = g[cur] + horiz * (1.0 + 8 * slope * slope + 18 * water_cost) + SLOPE_WEIGHT * dh;
+			if (design) {
+				const double flank = std::max(0.0, double(std::max(roughness[cur], roughness[ni])) - .24);
+				tent += horiz * 14.0 * flank * flank;
+				// In steep terrain, favor a traversing alignment over climbing directly
+				// uphill. A longer alignment is cheaper than a series of large cuts.
+				const double target = std::min(max_slope, .10);
+				const double excess = std::max(0.0, slope - target);
+				tent += horiz * (30.0 * excess + 120.0 * excess * excess);
+				if (came[cur] >= 0) {
+					const Vector2 incoming(cix - came[cur] % W, ciz - came[cur] / W);
+					const Vector2 outgoing(dxs[d], dzs[d]);
+					const double bend = 1.0 - incoming.normalized().dot(outgoing.normalized());
+					tent += 8.0 * bend + 12.0 * bend * bend;
+				}
+			}
+			if (field != nullptr && max_slope > 0.0 && slope > max_slope)
 				tent += horiz * 1000.0;
 			if (tent < g[ni]) {
 				g[ni] = tent;
@@ -187,7 +231,18 @@ PackedVector3Array RoadNetwork::_find_path(Ref<TerrainNoise> terrain, Vector2 st
 		rev.push_back(c);
 	for (int k = (int)rev.size() - 1; k >= 0; k--) {
 		int i = rev[k];
-		path.push_back(Vector3(nx(i % W), height[i], nz(i / W)));
+		const Vector3 point(nx(i % W), height[i], nz(i / W));
+		if (design && !path.is_empty()) {
+			const Vector3 previous = path[path.size() - 1];
+			const double distance = std::hypot(point.x - previous.x, point.z - previous.z);
+			const int intervals = std::max(1, int(std::round(distance / spacing)));
+			for (int step = 1; step < intervals; step++) {
+				Vector3 sample = previous.lerp(point, double(step) / intervals);
+				sample.y = sample_height(terrain, sample.x, sample.z);
+				path.push_back(sample);
+			}
+		}
+		path.push_back(point);
 	}
 	return path;
 }
@@ -313,37 +368,45 @@ void RoadNetwork::_generate_hierarchy(Ref<TerrainNoise> terrain, double half, Di
 	double spacing = std::max(PATH_SPACING, 2.0 * half / 512.0);
 	double limit = half - block - 12;
 	std::mt19937 rng(unsigned(terrain->get_seed()) ^ 0x51a7u);
-	std::uniform_real_distribution<double> random(-limit, limit);
+	constexpr double tau = 6.283185307179586;
+	std::uniform_real_distribution<double> unit(0.0, 1.0);
+	const double rotation = unit(rng) * tau;
 	std::vector<Vector2> centers;
+	// One search per sector: gently favor buildable ground without clustering all towns in one valley.
 	for (int town = 0; town < count; town++) {
+		const double angle = rotation + tau * town / count;
+		const Vector2 direction(std::cos(angle), std::sin(angle));
+		const Vector2 target = direction * (limit * .76 / std::max(std::abs(direction.x), std::abs(direction.y)));
 		Vector2 best;
 		double score = std::numeric_limits<double>::infinity();
-		bool found = false;
-		for (int attempt = 0; attempt < 180; attempt++) {
-			Vector2 p(-half + std::round((random(rng) + half) / spacing) * spacing, -half + std::round((random(rng) + half) / spacing) * spacing);
-			bool valid = true;
-			for (auto c : centers)
-				if (p.distance_to(c) < std::max(block * 3, half * .40))
-					valid = false;
-			if (!valid)
-				continue;
-			double slope = 0;
+		for (int attempt = 0; attempt < 220; attempt++) {
+			const double bearing = angle + (unit(rng) - .5) * tau / count * .96;
+			const Vector2 ray(std::cos(bearing), std::sin(bearing));
+			const double radius = limit * (.40 + .58 * unit(rng)) / std::max(std::abs(ray.x), std::abs(ray.y));
+			Vector2 p = ray * radius;
+			p.x = -half + std::round((p.x + half) / spacing) * spacing;
+			p.y = -half + std::round((p.y + half) / spacing) * spacing;
 			if (sample_water(p.x, p.y) > 0)
 				continue;
+			if (std::any_of(centers.begin(), centers.end(), [&](Vector2 c) {
+					return p.distance_to(c) < std::min(block * 1.5, half * .25);
+				}))
+				continue;
+			double grade = 0.0;
 			for (int x = -1; x <= 1; x++)
 				for (int z = -1; z <= 1; z++) {
-					double wx = p.x + x * block, wz = p.y + z * block;
-					if (sample_water(wx, wz) > 0)
-						slope += 100;
-					slope = std::max(slope, std::hypot(sample_height(terrain, wx + 2, wz) - sample_height(terrain, wx - 2, wz), sample_height(terrain, wx, wz + 2) - sample_height(terrain, wx, wz - 2)) / 4);
+					const double wx = p.x + x * block * .5, wz = p.y + z * block * .5;
+					const double dx = sample_height(terrain, wx + 2, wz) - sample_height(terrain, wx - 2, wz);
+					const double dz = sample_height(terrain, wx, wz + 2) - sample_height(terrain, wx, wz - 2);
+					grade += std::hypot(dx, dz) / 36.0 + sample_water(wx, wz) * .12;
 				}
-			if (slope < score) {
+			const double cost = grade + 1.2 * p.distance_to(target) / half;
+			if (cost < score) {
 				best = p;
-				score = slope;
-				found = true;
+				score = cost;
 			}
 		}
-		if (found) {
+		if (std::isfinite(score)) {
 			centers.push_back(best);
 			_town_centers.push_back(Vector3(best.x, sample_height(terrain, best.x, best.y), best.y));
 		}
@@ -353,11 +416,9 @@ void RoadNetwork::_generate_hierarchy(Ref<TerrainNoise> terrain, double half, Di
 			return;
 		RoadSegment r;
 		r.kind = kind;
-		const char *key = kind == 1 ? "highway_width" : kind == 2 ? "avenue_width"
-																  : "street_width";
-		r.half_width = std::max(2.0, double(cfg.get(key, kind == 1 ? 14.0 : kind == 2 ? 10.0
-																					  : 6.0))) *
-				.5;
+		const char *key = kind == 1 ? "highway_width" : kind == 2 ? "avenue_width" : "street_width";
+		const double default_width = kind == 1 ? 9.5 : kind == 2 ? 7.5 : 5.5;
+		r.half_width = std::max(2.0, double(cfg.get(key, default_width))) * .5;
 		for (int i = 0; i < path.size(); i++) {
 			r.pts.push_back(path[i]);
 			r.h.push_back(path[i].y);
@@ -389,65 +450,98 @@ void RoadNetwork::_generate_hierarchy(Ref<TerrainNoise> terrain, double half, Di
 		}
 	}
 	if (centers.size() > 2) {
-		double best = std::numeric_limits<double>::infinity();
+		const int towns = int(centers.size());
+		const double inf = std::numeric_limits<double>::infinity();
+		std::vector<std::vector<double>> network_dist(towns, std::vector<double>(towns, inf));
+		for (int i = 0; i < towns; i++)
+			network_dist[i][i] = 0;
+		for (const auto &[i, j] : links)
+			network_dist[i][j] = network_dist[j][i] = centers[i].distance_to(centers[j]);
+		for (int k = 0; k < towns; k++)
+			for (int i = 0; i < towns; i++)
+				for (int j = 0; j < towns; j++)
+					network_dist[i][j] = std::min(network_dist[i][j], network_dist[i][k] + network_dist[k][j]);
+		double best = -inf;
 		std::pair<int, int> extra(-1, -1);
-		for (int i = 0; i < int(centers.size()); i++)
-			for (int j = i + 1; j < int(centers.size()); j++)
+		for (int i = 0; i < towns; i++)
+			for (int j = i + 1; j < towns; j++)
 				if (!links.count({ i, j })) {
-					double d = centers[i].distance_to(centers[j]);
-					if (d < best) {
-						best = d;
+					const double direct = centers[i].distance_to(centers[j]);
+					const double saved = network_dist[i][j] - direct;
+					if (saved > best) {
+						best = saved;
 						extra = { i, j };
 					}
 				}
 		if (extra.first >= 0)
 			links.insert(extra);
 	}
-	for (auto link : links)
-		add(find_path(terrain, centers[link.first], centers[link.second], half), 1);
-	// Poblados con orientacion, proporciones y nodos compartidos variables.
-	// La deformacion desplaza intersecciones, no extremos de calles por separado.
-	std::uniform_real_distribution<double> unit(0.0, 1.0);
-	for (auto c : centers) {
-		int blocks = unit(rng) < .5 ? 2 : 4;
-		double extent = block * (.75 + .45 * unit(rng));
-		double angle = unit(rng) * 6.28318530718;
-		double sx = .75 + .5 * unit(rng), sz = .75 + .5 * unit(rng);
-		// Orientar el eje principal siguiendo aproximadamente las curvas de nivel.
-		double hx = sample_height(terrain, c.x + 2, c.y) - sample_height(terrain, c.x - 2, c.y);
-		double hz = sample_height(terrain, c.x, c.y + 2) - sample_height(terrain, c.x, c.y - 2);
-		if (std::hypot(hx, hz) > .2)
-			angle = std::atan2(hx, -hz) + (unit(rng) - .5) * .35;
-		std::vector<Vector2> nodes((blocks + 1) * (blocks + 1));
-		for (int z = 0; z <= blocks; z++)
-			for (int x = 0; x <= blocks; x++) {
-				double lx = (double(x) / blocks * 2 - 1) * extent * sx;
-				double lz = (double(z) / blocks * 2 - 1) * extent * sz;
-				if (x != blocks / 2 || z != blocks / 2) {
-					lx += (unit(rng) - .5) * extent * .18;
-					lz += (unit(rng) - .5) * extent * .18;
-				}
-				Vector2 p(c.x + lx * std::cos(angle) - lz * std::sin(angle), c.y + lx * std::sin(angle) + lz * std::cos(angle));
-				if (x == blocks / 2 && z == blocks / 2)
-					p = c;
-				p.x = std::clamp(double(p.x), -half + 2, half - 2);
-				p.y = std::clamp(double(p.y), -half + 2, half - 2);
-				nodes[z * (blocks + 1) + x] = p;
+	const double grade = double(cfg.get("road_max_grade", .16));
+	for (auto link : links) {
+		auto path = _find_path(terrain, centers[link.first], centers[link.second], half, grade > 0.0 ? grade : .16, nullptr, 0, 1.0);
+		// Round the staircase from A* without moving junctions or introducing water crossings.
+		const PackedVector3Array raw = path;
+		// Extend the rounding over several samples; a bend is an arc rather than
+		// a collection of grid corners. Bound the lateral and vertical adjustment.
+		for (int pass = 0; pass < 9; pass++) {
+			const PackedVector3Array previous = path;
+			for (int i = 1; i + 1 < path.size(); i++) {
+				const Vector3 old = previous[i];
+				Vector3 p = old * .5 + (previous[i - 1] + previous[i + 1]) * .25;
+				if (sample_water(p.x, p.z) != sample_water(old.x, old.z))
+					continue;
+				p.y = sample_height(terrain, p.x, p.z);
+				const Vector3 offset = p - raw[i];
+				if (std::hypot(offset.x, offset.z) <= spacing * 1.6 && std::abs(offset.y) <= spacing * .35)
+					path.set(i, p);
 			}
-		for (int axis = 0; axis < 2; axis++)
-			for (int row = 0; row <= blocks; row++)
-				for (int edge = 0; edge < blocks; edge++) {
-					int i = axis == 0 ? row * (blocks + 1) + edge : edge * (blocks + 1) + row;
-					int j = i + (axis == 0 ? 1 : blocks + 1);
-					Vector2 a = nodes[i], b = nodes[j];
-					PackedVector3Array path;
-					int samples = std::max(2, int(std::ceil(a.distance_to(b) / 2)));
-					// Shared junctions preserve connectivity while roads follow the final relief.
-					for (int k = 0; k <= samples; k++) {
-						Vector2 p = a.lerp(b, double(k) / samples);
-						path.push_back(Vector3(p.x, sample_height(terrain, p.x, p.y), p.y));
-					}
-					add(path, row == blocks / 2 ? 2 : 3);
+		}
+		add(path, 1);
+	}
+	// Only add a local street if it connects two roads through buildable ground.
+	// Mountain junctions keep their through routes instead of gaining dead-end spurs.
+	const size_t trunk_count = _roads.size();
+	for (const auto &c : centers) {
+		std::vector<Vector3> entrances;
+		for (size_t r = 0; r < trunk_count; r++) {
+			const auto &points = _roads[r].pts;
+			const bool forward = Vector2(points.front().x, points.front().z).distance_to(c) < .05;
+			if (!forward && Vector2(points.back().x, points.back().z).distance_to(c) >= .05)
+				continue;
+			for (size_t i = 1; i + 1 < points.size(); i++) {
+				const auto &p = points[forward ? i : points.size() - 1 - i];
+				if (Vector2(p.x, p.z).distance_to(c) >= block * 1.5) {
+					entrances.push_back(p);
+					break;
 				}
+			}
+		}
+		bool built = false;
+		for (size_t i = 0; i < entrances.size() && !built; i++)
+			for (size_t j = i + 1; j < entrances.size() && !built; j++) {
+				const auto a = entrances[i], b = entrances[j];
+				const Vector2 start(a.x, a.z), end(b.x, b.z);
+				const double length = start.distance_to(end);
+				if (length < block || length > block * 2.6 || start.lerp(end, .5).distance_to(c) < block * .75)
+					continue;
+				const int count = std::max(2, int(std::ceil(length / spacing)));
+				const Vector2 direction = (end - start).normalized();
+				const Vector2 cross = Vector2(-direction.y, direction.x) * 4.0;
+				PackedVector3Array local;
+				for (int k = 0; k <= count; k++) {
+					const Vector2 p = start.lerp(end, double(k) / count);
+					const double h = sample_height(terrain, p.x, p.y);
+					const Vector2 left = p + cross, right = p - cross;
+					const double flank = std::abs(sample_height(terrain, left.x, left.y) - sample_height(terrain, right.x, right.y));
+					if (sample_water(p.x, p.y) > 0 || flank > 2.2 ||
+							(k > 0 && std::abs(h - local[k - 1].y) > .18 * length / count))
+						break;
+					local.push_back(Vector3(p.x, h, p.y));
+				}
+				if (local.size() == count + 1) {
+					add(local, 3);
+					built = true;
+				}
+			}
 	}
 }

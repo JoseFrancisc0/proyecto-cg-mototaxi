@@ -33,9 +33,9 @@ signal job_progress(stage: String, fraction: float)
 @export var hierarchical_roads := true
 @export_range(2, 8) var town_count := 4
 @export var block_size := 32.0
-@export var highway_width := 14.0
-@export var avenue_width := 10.0
-@export var street_width := 6.0
+@export var highway_width := 9.5
+@export var avenue_width := 7.5
+@export var street_width := 5.5
 @export var road_width := 4.0
 @export var road_fade := 3.0
 @export var road_smooth := 3

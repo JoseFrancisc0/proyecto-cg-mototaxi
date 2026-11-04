@@ -85,6 +85,8 @@ var pickup_zone: GlowZone
 var dropoff_zone: GlowZone
 
 var _pickup_id := -1
+var _next_portrait: Texture2D
+var _first_passenger := false
 var _dropoff_id := -1
 var _result_timer := 0.0
 var _rng := RandomNumberGenerator.new()
@@ -117,6 +119,8 @@ func start(rng_seed: int = -1) -> void:
 	earnings = 0.0
 	tips_total = 0.0
 	_result_timer = 0.0
+	_next_portrait = Passenger.load_portrait()
+	_first_passenger = true
 	_new_passenger()
 
 
@@ -211,7 +215,10 @@ func _new_passenger() -> void:
 	_set_state(State.LIBRE)
 	var path := world.find_road_route(moto.global_position, pickup)
 	_show_route(path)
-	passenger.wait_at(pickup + _roadside_offset(path, pickup))
+	var head_model := Passenger.HeadModel.load_model() if _first_passenger else null
+	_first_passenger = false
+	passenger.wait_at(pickup + _roadside_offset(path, pickup), -1, _next_portrait, head_model)
+	_next_portrait = null
 
 
 func _board() -> void:
@@ -238,6 +245,9 @@ func _board() -> void:
 	_set_state(State.CON_PASAJERO)
 	_show_route(route)
 	ride_started.emit(time_limit, route_length)
+	var destination := get_target_label()
+	if not destination.is_empty():
+		passenger_said.emit("Hasta %s, por favor." % destination)
 
 
 func _finish(success: bool) -> void:
@@ -373,6 +383,14 @@ func _roadside_offset(path: PackedVector3Array, at: Vector3) -> Vector3:
 	if dir.length() < 0.01:
 		dir = Vector3.FORWARD
 	return dir.normalized().cross(Vector3.UP) * minf(zone_radius * 0.7, 3.0)
+
+
+func get_target_label() -> String:
+	var id := _dropoff_id if state == State.CON_PASAJERO else _pickup_id
+	for lm in world.get_landmarks():
+		if lm["id"] == id:
+			return str(lm.get("label", ""))
+	return ""
 
 
 func _landmark_pos(id: int) -> Vector3:

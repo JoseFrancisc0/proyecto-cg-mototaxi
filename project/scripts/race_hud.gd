@@ -188,7 +188,9 @@ W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: 
 			_objective.modulate = COLOR_PICKUP
 			_timer.text = ""
 		RaceManager.State.CON_PASAJERO:
-			_objective.text = "Lleva al pasajero al destino (punto verde del mapa)\n%d m" % roundi(dist)
+			var destination := race.get_target_label()
+			_objective.text = "Destino: %s\n%d m" % [destination, roundi(dist)] if not destination.is_empty() \
+				else "Lleva al pasajero al punto verde del mapa\n%d m" % roundi(dist)
 			_objective.modulate = COLOR_DROPOFF
 			_timer.text = _fmt_time(race.time_left)
 			var urgent := race.time_left < 10.0

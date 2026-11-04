@@ -82,7 +82,7 @@ private:
 	bool keep_arrays = false;
 	PackedVector3Array kept_vertices, kept_normals;
 	PackedColorArray kept_colors;
-	PackedVector2Array kept_uvs;
+	PackedVector2Array kept_uvs, kept_road_uv;
 	PackedFloat32Array kept_regions, kept_ao;
 
 	void begin_run();

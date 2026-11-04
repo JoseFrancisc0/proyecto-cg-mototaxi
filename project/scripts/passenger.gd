@@ -12,7 +12,18 @@ extends Node3D
 ##                 se borra (RaceManager crea otro Passenger para el siguiente viaje).
 ## No tiene colisión: la recogida se detecta con la zona de RaceManager.
 
+const HeadModel := preload("res://scripts/passenger_head.gd")
+const PORTRAIT_PATH := "user://passenger_portrait.png"
+const PORTRAIT_SHADER := preload("res://shaders/passenger_portrait.gdshader")
+const PORTRAIT_MODEL := 0  # Casual2: coordenadas de rostro en el espacio de la malla.
 const MODELS := ["casual", "business", "woman", "worker", "dress", "casual_w"]
+# Tonos de ropa por clima. Se conserva la variedad de piel y pelo de los modelos.
+const CLOTHING := ["Suit", "Red_Dark", "Pink", "Worker_Vest", "Red", "Orange"]
+const REGIONAL_CLOTHING := [
+	[Color("4d7486"), Color("c06443"), Color("bf5a62")],
+	[Color("593a57"), Color("8a3d42"), Color("4d6364")],
+	[Color("3d7760"), Color("39727d"), Color("b2853e")],
+]
 const ANIM := "CharacterArmature|"
 
 enum Mode { HIDDEN, WAITING, BOARDING, GETTING_OFF, LEAVING }
@@ -28,6 +39,9 @@ var mode := Mode.HIDDEN
 var model_index := -1
 
 var _model: Node3D
+var _outfit := Color.WHITE
+var _portrait: Texture2D
+var _custom_head := false
 var _anim: AnimationPlayer
 var _timer := 0.0
 var _walk_dir := Vector3.ZERO
@@ -41,8 +55,11 @@ func _ready() -> void:
 
 
 ## Nuevo pasajero de pie en pos (sobre el suelo), con un modelo al azar (o el indicado).
-func wait_at(pos: Vector3, index := -1) -> void:
-	_set_model(index if index >= 0 else _rng.randi() % MODELS.size())
+func wait_at(pos: Vector3, index := -1, portrait: Texture2D = null, head_model: Node3D = null) -> void:
+	var region := world.get_biome(pos.x, pos.z).max_axis_index() if world else 0
+	var palette: Array = REGIONAL_CLOTHING[region]
+	var chosen := index if index >= 0 else _rng.randi() % MODELS.size()
+	_set_model(PORTRAIT_MODEL if portrait or head_model else chosen, palette[_rng.randi_range(0, palette.size() - 1)], portrait, head_model)
 	_place(pos)
 	if moto:
 		_face(moto.global_position, 1.0)
@@ -118,13 +135,15 @@ func _process(delta: float) -> void:
 				hide_now()
 
 
-func _set_model(index: int) -> void:
+func _set_model(index: int, outfit := Color.WHITE, portrait: Texture2D = null, head_model: Node3D = null) -> void:
 	index = clampi(index, 0, MODELS.size() - 1)
-	if index == model_index and _model:
+	if index == model_index and outfit == _outfit and portrait == _portrait and _model and not _custom_head and head_model == null:
 		return
 	if _model:
 		_model.queue_free()
 	model_index = index
+	_outfit = outfit
+	_portrait = portrait
 	var scene: PackedScene = load("res://assets/characters/passenger_%s.glb" % MODELS[index])
 	_model = scene.instantiate()
 	_model.name = "Model"
@@ -135,8 +154,69 @@ func _set_model(index: int) -> void:
 		for loop_name in ["Idle", "Wave", "Walk"]:
 			if _anim.has_animation(ANIM + loop_name):
 				_anim.get_animation(ANIM + loop_name).loop_mode = Animation.LOOP_LINEAR
-	for m in _model.find_children("*", "MeshInstance3D", true, false):
-		(m as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	for node in _model.find_children("*", "MeshInstance3D", true, false):
+		var part := node as MeshInstance3D
+		part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		for surface in part.get_surface_override_material_count():
+			var source := part.get_active_material(surface) as StandardMaterial3D
+			if source and source.resource_name == CLOTHING[index] and outfit != Color.WHITE:
+				var cloth := source.duplicate() as StandardMaterial3D
+				cloth.albedo_color = outfit
+				part.set_surface_override_material(surface, cloth)
+
+	_custom_head = false
+	if head_model:
+		_custom_head = HeadModel.attach(_model, head_model)
+		if not _custom_head:
+			head_model.free()
+	if portrait and not _custom_head:
+		_apply_portrait(portrait)
+
+
+static func load_portrait() -> Texture2D:
+	if not FileAccess.file_exists(PORTRAIT_PATH):
+		return null
+	var photo := Image.new()
+	if photo.load(PORTRAIT_PATH) != OK:
+		return null
+	photo.generate_mipmaps()
+	return ImageTexture.create_from_image(photo)
+
+
+func _apply_portrait(portrait: Texture2D) -> void:
+	var head := _model.find_child("Casual2_Head", true, false) as MeshInstance3D
+	if head == null or head.mesh == null:
+		return
+	var original := head.mesh as ArrayMesh
+	if original == null:
+		return
+	var personalized := ArrayMesh.new()
+	for surface in original.get_surface_count():
+		var source := original.surface_get_material(surface) as StandardMaterial3D
+		var part := source.resource_name if source else ""
+		if part == "Eye" or part == "Eyebrows":
+			continue
+		var arrays := original.surface_get_arrays(surface)
+		var material: Material = source
+		if part == "Skin" or part == "Skin_Darker":
+			# UV frontal en reposo. Se conservan índices, huesos y pesos de la cabeza.
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var uv := PackedVector2Array()
+			var mask := PackedColorArray()
+			for v in vertices:
+				uv.append(Vector2(0.5 + v.x / 0.00205, 0.5 - (v.z - 0.01681) / 0.00247))
+				mask.append(Color(1, 1, 1, smoothstep(0.00074, 0.00139, -v.y)))
+			arrays[Mesh.ARRAY_TEX_UV] = uv
+			arrays[Mesh.ARRAY_COLOR] = mask
+			var projection := ShaderMaterial.new()
+			projection.shader = PORTRAIT_SHADER
+			projection.set_shader_parameter("portrait", portrait)
+			projection.set_shader_parameter("skin_tone", source.albedo_color)
+			material = projection
+		var flags: int = original.surface_get_format(surface) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+		personalized.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
+		personalized.surface_set_material(personalized.get_surface_count() - 1, material)
+	head.mesh = personalized
 
 
 func _play(anim_name: String, blend := true) -> void:

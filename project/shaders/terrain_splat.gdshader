@@ -134,6 +134,13 @@ group_uniforms Atmosfera;
 uniform vec3 fog_color : source_color = vec3(0.62, 0.72, 0.86);
 uniform float fog_density : hint_range(0.0, 0.005, 0.00001) = 0.00008;
 
+group_uniforms Faros;
+uniform bool headlight_enabled = false;
+uniform vec3 headlight_origin;
+uniform vec3 headlight_direction = vec3(0.0, 0.0, 1.0);
+uniform float headlight_range = 36.0;
+uniform float headlight_cone = 0.8988;
+
 group_uniforms Depuracion;
 /** 0 = final, 1 = color por material, 2 = regiones, 3 = ajedrez de UV,
     4 = solo sombras del sol, 5 = solo oclusion ambiental, 6 = texturas sin luz,
@@ -147,6 +154,7 @@ varying vec3 local_pos;
 varying vec3 world_normal;
 varying vec4 regions;
 varying float sky_visibility;
+varying vec2 road_coords;
 
 const int LAYERS = 7;
 
@@ -156,6 +164,7 @@ void vertex() {
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	regions = CUSTOM0;
 	sky_visibility = CUSTOM1.r;
+	road_coords = UV2;
 }
 
 // Normal del mapa (formato OpenGL, verde = +v) en [-1, 1].
@@ -354,7 +363,30 @@ void fragment() {
 
 	// Caminos: alfa del color de vertice = mascara del camino.
 	float road = COLOR.a;
-	albedo = mix(albedo, COLOR.rgb, road);
+	// Fine aggregate and shoulder edges give the asphalt a readable width.
+	float aggregate = value_noise(local_pos.xz * 6.0);
+	vec3 pavement = COLOR.rgb * mix(0.78, 1.20, aggregate);
+	vec3 dx_surface = dFdx(local_pos);
+	vec3 dy_surface = dFdy(local_pos);
+	vec3 face_normal = normalize(cross(dx_surface, dy_surface));
+	road *= smoothstep(0.68, 0.89, abs(face_normal.y));
+	vec2 dx_road = dFdx(road_coords);
+	vec2 dy_road = dFdy(road_coords);
+	float along_stretch = max(abs(dx_road.y) / max(length(dx_surface.xz), 0.001),
+		abs(dy_road.y) / max(length(dy_surface.xz), 0.001));
+	// Interpolating the chainage between two roads creates false loops and lines.
+	float coherent = (1.0 - smoothstep(1.15, 2.3, along_stretch)) * smoothstep(0.92, 0.98, abs(face_normal.y));
+	if (road_coords.y > 0.0 && road > 0.70 && dist < 160.0 && coherent > 0.0) {
+		float lateral = abs(road_coords.x);
+		float aa = clamp(abs(dx_road.x) + abs(dy_road.x), 0.008, 0.09);
+		float edge = 1.0 - smoothstep(0.018, 0.018 + aa, abs(lateral - 0.72));
+		float center = 1.0 - smoothstep(0.021, 0.021 + aa, lateral);
+		float dash = 1.0 - smoothstep(3.1, 3.4, mod(road_coords.y, 8.0));
+		float paint = coherent * (1.0 - smoothstep(75.0, 160.0, dist)) * smoothstep(0.70, 0.90, road) * mix(0.7, 0.93, aggregate);
+		pavement = mix(pavement, vec3(0.82, 0.80, 0.72), edge * paint);
+		pavement = mix(pavement, vec3(0.97, 0.70, 0.19), center * dash * paint);
+	}
+	albedo = mix(albedo, pavement, road);
 	rough = mix(rough, 0.9, road);
 	normal = normalize(mix(normal, N, road));
 
@@ -417,7 +449,7 @@ void fragment() {
 	float shininess = mix(4.0, 96.0, gloss * gloss);
 	float spec = specular_strength * gloss * pow(max(dot(normal, H), 0.0), shininess) * ndl;
 	// Ambiente hemisferico: cielo arriba, rebote del suelo abajo, tapado por el AO.
-	vec3 ambient = mix(ground_color, sky_color, normal.y * 0.5 + 0.5) * ambient_intensity * ao;
+	vec3 ambient = mix(ground_color, sky_color, normal.y * 0.5 + 0.5) * ambient_intensity * mix(0.22, 1.0, ao);
 	vec3 sun = sun_color * sun_intensity * shadow;
 	vec3 color = albedo * (ambient + sun * ndl) + sun * spec;
 	if (water > 0.001) {
@@ -435,9 +467,31 @@ void fragment() {
 		wcolor = mix(wcolor, vec3(0.92, 0.95, 0.97) * (ambient + sun * 0.8), clamp(foam, 0.0, 1.0));
 		color = mix(color, wcolor, water);
 	}
+	// This material is unshaded, so the gameplay spotlight needs its own terrain contribution.
+	if (headlight_enabled) {
+		vec3 beam = local_pos - headlight_origin;
+		float d = length(beam);
+		float cone = dot(beam / max(d, 0.001), headlight_direction);
+		if (d < headlight_range && cone > headlight_cone) {
+			float visibility = 1.0;
+			for (int i = 1; i <= 8; i++) {
+				vec3 q = mix(local_pos + vec3(0.0, 0.10, 0.0), headlight_origin, float(i) / 9.0);
+				if (terrain_height(q.xz) > q.y) {
+					visibility = 0.0;
+					break;
+				}
+			}
+			float falloff = 1.0 - smoothstep(2.0, headlight_range, d);
+			float spread = smoothstep(headlight_cone, min(headlight_cone + 0.055, 0.99), cone);
+			float facing = max(dot(normal, normalize((MODEL_MATRIX * vec4(-beam, 0.0)).xyz)), 0.0);
+			color += albedo * vec3(1.0, 0.91, 0.72) * visibility * spread * falloff * (0.45 + 1.8 * facing);
+		}
+	}
 	// Perspectiva aerea: lo lejano se funde con el color del cielo.
 	color = mix(color, fog_color, 1.0 - exp(-dist * fog_density));
 	color = tonemap(color);
+	// Difusa de rebote: conserva algo de textura en zonas totalmente tapadas.
+	color = max(color, albedo * vec3(0.12, 0.14, 0.17) * (1.0 - shadow));
 
 	if (debug_view == 4) {
 		color = vec3(shadow);
