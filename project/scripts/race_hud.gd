@@ -178,7 +178,8 @@ W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: 
 
 	if session and session.playing:
 		var met := race.earnings + 0.001 >= session.quota
-		var clock := "termina este viaje" if session.overtime else _fmt_time(session.day_time_left)
+		# Reloj del juego acelerado (como en GTA): la jornada va de 7:00 a 19:00 en 6 min reales.
+		var clock := "%s  ·  termina este viaje" % session.get_clock_text() if session.overtime else "%s  (cierra %s)" % [session.get_clock_text(), session.get_closing_text()]
 		_score.text = "Día %d  ·  %s\nS/ %.2f / cuota S/ %.2f%s\nEntregas: %d   Perdidos: %d" % [
 			session.day, clock, race.earnings, session.quota, "  ✓" if met else "",
 			race.deliveries, race.failures]

@@ -111,6 +111,12 @@ Elegido: **1 + 3** (2026-11-04). Las reparaciones pagadas (opción 2) quedan com
   pasajeros perdidos (`max_failures = 0`); siguen el fin por vida, borde y atrapado.
 - **Garaje con precios.** `user://carrera.cfg` guarda ahorros, mototaxis compradas y mejor jornada. Se
   empieza con Neon Shadow; las demás cuestan S/ 30–85 (`price` en `VehicleCatalog`) y se compran en el menú.
+- **Reloj acelerado.** Los 6 min reales van de 07:00 a 19:00 en el reloj del juego (`day_start_hour`,
+  `day_end_hour`; 1 s real = 2 min). El HUD muestra la hora y la de cierre. La luz del sol todavía no sigue la
+  hora (queda para la parte gráfica).
+- **Guardar y cargar.** "Guardar partida" en la pausa y autoguardado al completar cada día
+  (`CareerSave.save_game`): mundo elegido, día, hora, lo ganado, vida y posición. "Continuar · Día N" en el
+  menú principal regenera ese mundo y sigue; el viaje en curso no se guarda (empieza con pasajero nuevo).
 
 ---
 
@@ -211,6 +217,7 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/t
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_race.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_passenger.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_jornada.gd    # cuota, ahorros, garaje, mapa
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_partida.gd    # guardar/cargar, reloj
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_vegetation.gd -- --editor
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/render_engine_audio.gd   # graba output/audio/mototaxi_demo.wav
 ```
@@ -298,3 +305,7 @@ para que Godot registre la clase.
   (`CareerSave`, `VehicleGarage`). Mapa completo con M (`FullMap`). HUD: día, reloj, cuota y "TARDE +m:ss".
   Pruebas: `tests/test_jornada.gd` (nueva), `test_race`, `test_s13_juego`, `test_pregame_ui`, `test_passenger`,
   `test_pause_menu`; capturas con `tests/capture_jornada.gd`.
+- **2026-11-05** — Guardar partida (pausa) y "Continuar" en el menú principal, con autoguardado al completar
+  cada día; antes solo se guardaban los ahorros al terminar un día, así que cerrar el juego a mitad perdía
+  todo. Reloj del juego acelerado: la jornada va de 07:00 a 19:00 en 6 min reales. Prueba nueva
+  `tests/test_partida.gd`.

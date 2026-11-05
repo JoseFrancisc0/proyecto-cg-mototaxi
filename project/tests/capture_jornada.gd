@@ -41,6 +41,17 @@ func _capture() -> void:
 	race.state = RaceManager.State.ENTREGADO
 	for i in 10: await physics_frame
 	await save_frame("8_dia_completo")
+	main.next_day()
+	for i in 10: await physics_frame
+	main.pause()
+	main._on_save_requested()
+	await save_frame("9_pausa_guardada")
+	main.resume()
+	main.queue_free()
+	await process_frame
+	main = load("res://main.tscn").instantiate()
+	root.add_child(main)
+	await save_frame("10_menu_continuar")
 	CareerSave.reset()
 	print("Capturas de la jornada guardadas")
 	quit()

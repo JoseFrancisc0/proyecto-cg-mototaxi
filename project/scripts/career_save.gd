@@ -1,7 +1,8 @@
 class_name CareerSave
 extends RefCounted
 ## Progreso entre partidas: ahorros (lo que sobra de cada jornada después de pagar la cuota),
-## mototaxis compradas en el garaje y mejor jornada. Se guarda en user://carrera.cfg.
+## mototaxis compradas en el garaje, mejor jornada y la partida guardada. Se guarda en
+## user://carrera.cfg (en Windows: %APPDATA%/Godot/app_userdata/<proyecto>/).
 
 const PATH := "user://carrera.cfg"
 ## Mototaxi con la que se empieza (gratis).
@@ -81,3 +82,27 @@ static func record_day(day: int) -> bool:
 static func reset() -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+## Partida guardada (menú de pausa "Guardar partida" y al completar cada día): el mundo
+## elegido, el día, el reloj, lo ganado y dónde estaba la mototaxi. {} si no hay.
+static func load_game() -> Dictionary:
+	var data: Variant = _load().get_value("partida", "estado", {})
+	return data if data is Dictionary else {}
+
+
+static func has_game() -> bool:
+	return not load_game().is_empty()
+
+
+static func save_game(data: Dictionary) -> void:
+	var cfg := _load()
+	cfg.set_value("partida", "estado", data)
+	_save(cfg)
+
+
+static func clear_game() -> void:
+	var cfg := _load()
+	if cfg.has_section("partida"):
+		cfg.erase_section("partida")
+		_save(cfg)

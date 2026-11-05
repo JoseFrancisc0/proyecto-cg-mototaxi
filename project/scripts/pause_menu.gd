@@ -1,12 +1,14 @@
 class_name PauseMenu
 extends CanvasLayer
-## Menú de pausa (Esc, P o Start del mando): continuar, reiniciar el turno en el mismo mapa,
-## volver al menú principal sin tener que perder, y volumen general del juego.
+## Menú de pausa (Esc, P o Start del mando): continuar, guardar la partida (se sigue desde el
+## menú principal con "Continuar"), reiniciar el turno en el mismo mapa, volver al menú
+## principal sin tener que perder, y volumen general del juego.
 ## Main abre y cierra el menú y pausa el árbol; este nodo sigue activo durante la pausa.
 
 signal resume_requested
 signal restart_requested
 signal menu_requested
+signal save_requested
 
 const ACTION := &"game_pause"
 const YELLOW := Color(1.0, 0.85, 0.2)
@@ -15,6 +17,7 @@ const FONT_PATH := "res://ui/fonts/Bangers-Regular.ttf"
 var _continue: Button
 var _volume: HSlider
 var _volume_label: Label
+var _save_status: Label
 
 
 ## Registra la acción de pausa (si no está ya en el Mapa de entrada del proyecto).
@@ -54,6 +57,12 @@ func _ready() -> void:
 	box.add_child(title)
 
 	_continue = _button(box, "Continuar", font, func(): resume_requested.emit())
+	_button(box, "Guardar partida", font, func(): save_requested.emit())
+	_save_status = Label.new()
+	_save_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_status.add_theme_font_size_override("font_size", 18)
+	_save_status.add_theme_color_override("font_color", YELLOW)
+	box.add_child(_save_status)
 	_button(box, "Reiniciar turno", font, func(): restart_requested.emit())
 	_button(box, "Menú principal", font, func(): menu_requested.emit())
 
@@ -85,11 +94,17 @@ func _ready() -> void:
 
 func open() -> void:
 	visible = true
+	_save_status.text = ""
 	_continue.grab_focus()
 
 
 func close() -> void:
 	visible = false
+
+
+## Mensaje bajo "Guardar partida" (p. ej. "Partida guardada: día 2, 10:24").
+func set_save_status(text: String) -> void:
+	_save_status.text = text
 
 
 ## Volumen general (bus Master) en %; 0 = silencio.

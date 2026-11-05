@@ -76,7 +76,7 @@ func show_result(reason: String, stats: Dictionary) -> void:
 func show_day_complete(stats: Dictionary) -> void:
 	_day_complete = true
 	_title.text = "¡DÍA %d COMPLETO!" % stats.get("day", 1)
-	_reason.text = "Récord: tu mejor jornada" if stats.get("record", false) else ""
+	_reason.text = "Partida guardada" + ("  ·  Récord: tu mejor jornada" if stats.get("record", false) else "")
 	_score.text = "+ S/ %.2f a tus ahorros" % stats.get("saved", 0.0)
 	_details.text = "Ganado: S/ %.2f     Cuota pagada al dueño: S/ %.2f\nPasajeros entregados: %d     Perdidos: %d\nAhorros para el garaje: S/ %.2f" % [
 		stats.get("earnings", 0.0), stats.get("quota", 0.0),

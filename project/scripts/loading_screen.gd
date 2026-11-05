@@ -14,6 +14,8 @@ var _root: Control
 var _home: Control
 var _hero: Control
 var _navigation: BoxContainer
+var _continue_game: Button   ## "Continuar · Día N": solo si hay partida guardada.
+var _new_game: Button
 var _title: Label
 var _paper: Label
 var _dialog: Control
@@ -146,6 +148,13 @@ func _build_ui() -> void:
 		button.pressed.connect(actions[i])
 	_help = _navigation.get_child(2)
 	_credits = _navigation.get_child(3)
+	_new_game = _navigation.get_child(0)
+	_continue_game = Button.new()
+	_continue_game.name = "ContinueButton"
+	_continue_game.pressed.connect(_on_continue)
+	_navigation.add_child(_continue_game)
+	_navigation.move_child(_continue_game, 0)
+	_refresh_continue()
 	_paper = _root.get_node("VersionMargin/VersionContainer/VersionLabel")
 	_paper.text = "Schott et al. (2024) · Terrain Amplification using Multi-scale Erosion"
 	_paper.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -458,7 +467,7 @@ func _show_dialog(title: String, text: String) -> void:
 func _close_dialog() -> void:
 	_dialog.hide()
 	_home.show()
-	_navigation.get_child(0).grab_focus()
+	_focus_first()
 
 func _show_controls() -> void:
 	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nShift / X del mando — Turbo (7 s, recarga automática)\nFuera de pista — Menos velocidad y agarre\nR — Enderezar la mototaxi\nL — Encender o apagar el faro\n\nRecoge al pasajero que te hace señas (detente a su lado, despacio) y llévalo a la zona verde.")
@@ -478,12 +487,14 @@ func _responsive() -> void:
 	_home.get_node("MenuButtonsMargin").add_theme_constant_override("margin_bottom",40)
 	_navigation.add_theme_constant_override("separation",4 if short else 10)
 	var row_height := 36 if short else 48
+	var rows := 0
 	for button in _navigation.get_children():
+		rows += 1 if button.visible else 0
 		button.custom_minimum_size = Vector2(210,row_height)
 		button.add_theme_font_size_override("font_size",17 if short else 21)
 	_navigation.offset_left = -110
 	_navigation.offset_right = 110
-	_navigation.offset_top = -(row_height*5 + (4 if short else 10)*4)/2.0
+	_navigation.offset_top = -(row_height*rows + (4 if short else 10)*(rows-1))/2.0
 	_navigation.offset_bottom = -_navigation.offset_top
 	_paper.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_paper.offset_left = 8
@@ -535,9 +546,34 @@ func show_menu(choice: Dictionary) -> void:
 		_garage.select_vehicle(int(choice.vehicle))
 	_notice.hide()
 	_play.disabled = false
+	_refresh_continue()
 	_update_mode()
 	_responsive()
-	_navigation.get_child(0).grab_focus()
+	_focus_first()
+
+func _focus_first() -> void:
+	(_continue_game if _continue_game.visible else _new_game).grab_focus()
+
+## Muestra "Continuar" si hay partida guardada (y "Nueva partida" en vez de "Jugar").
+func _refresh_continue() -> void:
+	var save := CareerSave.load_game()
+	_continue_game.visible = not save.is_empty()
+	_continue_game.text = "Continuar · Día %d" % int(save.get("day", 1))
+	_new_game.text = "Nueva partida" if _continue_game.visible else "Jugar"
+
+## Sigue la partida guardada: el mismo mundo (semilla o terreno del editor) y la misma mototaxi.
+func _on_continue() -> void:
+	if _starting: return
+	var save := CareerSave.load_game()
+	if save.is_empty():
+		_refresh_continue()
+		return
+	var choice := {"mode":"editor","seed":67,"erosion_scale":.1}
+	choice.merge(save.get("choice",{}),true)
+	choice["vehicle"] = int(save.get("vehicle",choice.get("vehicle",CareerSave.STARTER)))
+	choice["load"] = save
+	_starting = true
+	start_requested.emit(choice)
 
 func _on_play() -> void:
 	if _starting: return

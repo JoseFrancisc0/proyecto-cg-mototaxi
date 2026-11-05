@@ -12,8 +12,13 @@ extends Node3D
 ## sobra va a los ahorros del garaje y sigue el día siguiente; termina si no se junta, por
 ## vida, por salir del mapa o por quedar atrapada. La pantalla final permite reintentar en el
 ## mismo mapa. M (o Back del mando) abre el mapa completo (FullMap) y pausa el juego.
-## Durante la partida, Esc / P / Start abre el menú de pausa (PauseMenu): continuar,
+## Durante la partida, Esc / P / Start abre el menú de pausa (PauseMenu): continuar, guardar,
 ## reiniciar el turno o volver al menú principal sin tener que perder.
+##
+## Guardar partida (CareerSave.save_game) guarda el mundo elegido (semilla o terreno del
+## editor), el día, el reloj, lo ganado, la vida y dónde está la mototaxi; también se guarda
+## solo al completar cada día. "Continuar" en el menú principal regenera ese mismo mundo y
+## sigue desde ahí (el viaje en curso no se guarda: se empieza con un pasajero nuevo).
 
 const REGION_NAMES := ["mixta", "costa", "sierra", "selva"]
 
@@ -33,6 +38,8 @@ var pause_menu: PauseMenu
 var full_map: FullMap
 ## Región elegida: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva.
 var region := 0
+## Lo elegido en el menú para este mundo (se guarda con la partida).
+var _choice := {}
 
 
 func _ready() -> void:
@@ -54,6 +61,8 @@ func _ready() -> void:
 		world.use_editor_scene = choice["mode"] == "editor"
 		world.erosion_scale = choice["erosion_scale"]
 		region = int(choice.get("region", 0))
+		_choice = choice.duplicate()
+		_choice.erase("load")
 		_apply_region_bias(region, bool(choice.get("region_only", false)))
 		world.preview_size = 768
 		loading.show_progress()
@@ -62,7 +71,7 @@ func _ready() -> void:
 		if ok and world.is_generated():
 			moto.select_vehicle(int(choice.get("vehicle", 2)))
 			print("Mundo listo en %.1f s (%s)" % [(Time.get_ticks_msec() - t0) / 1000.0, "terreno del editor" if world.use_editor_scene else "semilla %d" % world.world_seed])
-			_start_game()
+			_start_game(choice.get("load", {}))
 			break
 		push_error("No se pudo generar el mundo.")
 		loading.show_error()
@@ -101,7 +110,8 @@ func _apply_region_bias(r: int, only: bool) -> void:
 	world.generator_overrides["biome_bias"] = bias
 
 
-func _start_game() -> void:
+## save: partida guardada a seguir ({} = partida nueva).
+func _start_game(save: Dictionary = {}) -> void:
 	_align_sun()
 	moto.terrain = world
 	cam.terrain = world
@@ -140,16 +150,28 @@ func _start_game() -> void:
 	pause_menu.resume_requested.connect(resume)
 	pause_menu.restart_requested.connect(restart)
 	pause_menu.menu_requested.connect(_back_to_menu)
+	pause_menu.save_requested.connect(_on_save_requested)
 	# Main sigue activo en pausa (pantalla de carga, menús); la partida en sí se detiene:
 	# así la pausa congela también el reloj del pasajero y los avisos de la sesión.
 	for n: Node in [race, session, cam]:
 		n.process_mode = Node.PROCESS_MODE_PAUSABLE
 
-	race.start()
-	_face_route()
-	session.start()
+	if save.is_empty():
+		race.start()
+		_face_route()
+		session.start()
+	else:
+		var pos: Variant = save.get("pos")
+		if pos is Vector3:
+			moto.place_at(Vector3(pos.x, world.get_height(pos.x, pos.z), pos.z), float(save.get("yaw", 0.0)))
+			cam.snap()
+		race.start()
+		session.load_save_data(save)
 	get_tree().paused = false
 	loading.finish()
+	if not save.is_empty():
+		hud.show_banner("DÍA %d · %s" % [session.day, session.get_clock_text()],
+			"Partida cargada · cuota de hoy: S/ %.2f" % session.quota, Color(1.0, 0.85, 0.25))
 
 
 ## Nueva partida en el mismo mapa: vida llena, de vuelta al inicio, marcador en cero.
@@ -179,7 +201,8 @@ func next_day() -> void:
 	_face_route()
 	session.next_day()
 	get_tree().paused = false
-	hud.show_banner("DÍA %d" % session.day, "Cuota de hoy: S/ %.2f" % session.quota, Color(1.0, 0.85, 0.25))
+	hud.show_banner("DÍA %d · %s" % [session.day, session.get_clock_text()],
+		"Cuota de hoy: S/ %.2f · hasta las %s" % [session.quota, session.get_closing_text()], Color(1.0, 0.85, 0.25))
 
 
 ## Gira la mototaxi (en su lugar) hacia donde sale la ruta al primer pasajero.
@@ -233,9 +256,33 @@ func _on_game_over(reason: String, stats: Dictionary) -> void:
 
 func _on_day_completed(stats: Dictionary) -> void:
 	print("Día completo: %s" % stats)
+	save_game(true)  # Autoguardado: se sigue desde el inicio del día siguiente.
 	get_tree().paused = true
 	hud.visible = false
 	game_over_screen.show_day_complete(stats)
+
+
+## Guarda la partida. Con fresh_day, como el inicio del día siguiente.
+func save_game(fresh_day := false) -> Dictionary:
+	var data := session.get_save_data(fresh_day)
+	data["choice"] = _choice
+	data["vehicle"] = moto.vehicle_index
+	data["pos"] = moto.global_position
+	data["yaw"] = moto.rotation.y
+	data["saved_at"] = Time.get_datetime_string_from_system(false, true)
+	CareerSave.save_game(data)
+	return data
+
+
+func _on_save_requested() -> void:
+	if session == null or not session.playing:
+		pause_menu.set_save_status("Ahora no se puede guardar")
+		return
+	save_game()
+	var text := "Partida guardada: día %d, %s" % [session.day, session.get_clock_text()]
+	if race.state == RaceManager.State.CON_PASAJERO:
+		text += "\n(el viaje en curso no se guarda)"
+	pause_menu.set_save_status(text)
 
 
 func _back_to_menu() -> void:

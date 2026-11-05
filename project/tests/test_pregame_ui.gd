@@ -81,7 +81,7 @@ func _run() -> void:
 	check(not screen._dialog.visible,"Ayuda cerrable")
 	root.size=Vector2i(720,900)
 	screen._responsive()
-	check(screen._navigation.vertical and screen._navigation.get_child_count()==5,"La lista original de la plantilla conserva su distribución")
+	check(screen._navigation.vertical and screen._navigation.get_child_count()==6,"La lista original de la plantilla conserva su distribución")
 	for viewport_size in [Vector2i(1440,900),Vector2i(960,640),Vector2i(720,900),Vector2i(390,844),Vector2i(640,360)]:
 		root.size=viewport_size
 		screen.show_menu({"mode":"seed","seed":42})

@@ -2,7 +2,8 @@ class_name GameSession
 extends Node
 ## Jornadas y fin de partida (S12-S14, J-A/J-B).
 ##
-## La partida es una serie de jornadas. Cada jornada dura day_length segundos; al final se
+## La partida es una serie de jornadas. Cada jornada dura day_length segundos reales, que en el
+## reloj del juego van de day_start_hour a day_end_hour (como en GTA: 6 min = 7:00 a 19:00); al final se
 ## paga la cuota del día al dueño de la mototaxi (sube cada día). Si se juntó, lo que sobra
 ## va a los ahorros (CareerSave, para el garaje) y sigue el día siguiente (day_completed);
 ## si no, fin de partida. Si el reloj llega a 0 con un pasajero a bordo, se termina ese viaje.
@@ -20,7 +21,9 @@ signal game_over(reason: String, stats: Dictionary)
 signal day_completed(stats: Dictionary)
 
 @export_group("Jornada")
-@export var day_length := 360.0      ## Segundos de cada jornada.
+@export var day_length := 360.0      ## Segundos reales de cada jornada.
+@export var day_start_hour := 7.0    ## Hora del reloj del juego al empezar la jornada.
+@export var day_end_hour := 19.0     ## Hora en que termina (se paga la cuota).
 @export var quota_base := 10.0       ## Cuota (soles) del primer día.
 @export var quota_per_day := 4.0     ## Lo que sube la cuota cada día.
 @export var max_failures := 0
@@ -42,6 +45,8 @@ var quota := 0.0
 var day_time_left := 0.0
 ## true cuando el reloj llegó a 0 y se espera que termine el viaje en curso.
 var overtime := false
+## Segundos pasados después de la hora de cierre (terminando el último viaje).
+var overtime_time := 0.0
 var play_time := 0.0
 var damage_taken := 0.0
 var flips := 0
@@ -73,6 +78,7 @@ func start_day() -> void:
 	quota = quota_for(day)
 	day_time_left = day_length
 	overtime = false
+	overtime_time = 0.0
 	playing = true
 	_reset_stuck()
 
@@ -85,6 +91,8 @@ func _physics_process(delta: float) -> void:
 	if not playing or moto == null or world == null:
 		return
 	play_time += delta
+	if day_time_left <= 0.0:
+		overtime_time += delta
 	day_time_left = maxf(day_time_left - delta, 0.0)
 	if day_time_left <= 0.0:
 		if race.state == RaceManager.State.CON_PASAJERO:
@@ -114,6 +122,50 @@ func _physics_process(delta: float) -> void:
 			return
 		if left <= stuck_warning:
 			warning.emit("¡Atrapado! Sal de aquí", left)
+
+
+## Minutos del reloj del juego desde la medianoche (sigue corriendo tras el cierre).
+func get_clock_minutes() -> float:
+	var span := (day_end_hour - day_start_hour) * 60.0
+	var elapsed := day_length - day_time_left + overtime_time
+	return day_start_hour * 60.0 + elapsed / maxf(day_length, 0.001) * span
+
+
+## Hora del reloj del juego, "HH:MM".
+func get_clock_text(minutes := -1.0) -> String:
+	var m := int(get_clock_minutes() if minutes < 0.0 else minutes) % (24 * 60)
+	return "%02d:%02d" % [m / 60, m % 60]
+
+
+func get_closing_text() -> String:
+	return get_clock_text(day_end_hour * 60.0)
+
+
+## Estado de la jornada para guardar la partida. Con fresh_day, el inicio del día siguiente
+## (se guarda así al completar un día).
+func get_save_data(fresh_day := false) -> Dictionary:
+	if fresh_day:
+		return {"day": day + 1, "day_time_left": day_length, "earnings": 0.0, "deliveries": 0,
+			"failures": 0, "health": moto.max_health, "play_time": play_time,
+			"damage": damage_taken, "flips": flips}
+	return {"day": day, "day_time_left": day_time_left, "earnings": race.earnings,
+		"deliveries": race.deliveries, "failures": race.failures, "health": moto.health,
+		"play_time": play_time, "damage": damage_taken, "flips": flips}
+
+
+## Sigue una partida guardada. Main ya generó el mismo mundo, colocó la mototaxi y llamó a
+## race.start() (el viaje que iba en curso no se guarda: empieza con un pasajero nuevo).
+func load_save_data(d: Dictionary) -> void:
+	day = maxi(int(d.get("day", 1)), 1)
+	play_time = float(d.get("play_time", 0.0))
+	damage_taken = float(d.get("damage", 0.0))
+	flips = int(d.get("flips", 0))
+	start_day()
+	day_time_left = clampf(float(d.get("day_time_left", day_length)), 0.0, day_length)
+	race.earnings = float(d.get("earnings", 0.0))
+	race.deliveries = int(d.get("deliveries", 0))
+	race.failures = int(d.get("failures", 0))
+	moto.health = clampf(float(d.get("health", moto.max_health)), 1.0, moto.max_health)
 
 
 ## Datos para la pantalla final.
