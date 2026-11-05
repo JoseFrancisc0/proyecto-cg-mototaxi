@@ -50,6 +50,16 @@ func setup(w: TerrainWorld, r: RaceManager, m: Mototaxi) -> void:
 	_index_roads()
 
 
+## Fondo horneado del mundo entero (también lo usa FullMap).
+func get_background() -> Texture2D:
+	return _tex
+
+
+## Vías en tramos cortos: [{ "pts", "box", "w" }] (también las usa FullMap).
+func get_road_pieces() -> Array:
+	return _roads
+
+
 func _process(delta: float) -> void:
 	if moto:
 		var k := clampf(moto.get_speed_kmh() / far_speed_kmh, 0.0, 1.0)

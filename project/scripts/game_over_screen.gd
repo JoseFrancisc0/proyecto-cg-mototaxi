@@ -1,10 +1,12 @@
 class_name GameOverScreen
 extends CanvasLayer
-## Pantalla final (S14, J-B): motivo del fin, puntaje (soles ganados) y estadísticas.
-## Reintentar = misma mapa, de nuevo desde el inicio. Menú = vuelve a la portada.
+## Pantalla final (S14, J-B): motivo del fin, lo ganado en la jornada, cuota y ahorros.
+## Reintentar = mismo mapa, de nuevo desde el día 1. Menú = vuelve a la portada (garaje).
+## Con show_day_complete hace de resumen de una jornada cumplida: "Siguiente día".
 
 signal retry_requested
 signal menu_requested
+signal next_day_requested
 
 const YELLOW := Color(1.0, 0.85, 0.2)
 const FONT_PATH := "res://ui/fonts/Bangers-Regular.ttf"
@@ -14,6 +16,7 @@ var _reason: Label
 var _score: Label
 var _details: Label
 var _retry: Button
+var _day_complete := false
 
 
 func _ready() -> void:
@@ -45,17 +48,40 @@ func _ready() -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 24)
 	box.add_child(buttons)
-	_retry = _button(buttons, "Reintentar", font, func(): retry_requested.emit())
+	_retry = _button(buttons, "Reintentar", font, func():
+		if _day_complete:
+			next_day_requested.emit()
+		else:
+			retry_requested.emit())
 	_button(buttons, "Menú principal", font, func(): menu_requested.emit())
 
 
 func show_result(reason: String, stats: Dictionary) -> void:
+	_day_complete = false
+	_title.text = "FIN DE LA PARTIDA"
+	_title.modulate = Color.WHITE
 	_reason.text = reason
-	_score.text = "S/ %.2f" % stats.get("earnings", 0.0)
+	_score.text = "Llegaste al día %d" % stats.get("day", 1)
 	var t := int(stats.get("time", 0.0))
-	_details.text = "Pasajeros entregados: %d     Perdidos: %d\nPropinas: S/ %.2f     Vuelcos: %d\nTiempo de juego: %d:%02d" % [
-		stats.get("deliveries", 0), stats.get("failures", 0), stats.get("tips", 0.0),
-		stats.get("flips", 0), t / 60, t % 60]
+	_details.text = "Ganado hoy: S/ %.2f de S/ %.2f de cuota\nPasajeros entregados: %d     Perdidos: %d     Vuelcos: %d\nTiempo de juego: %d:%02d     Ahorros para el garaje: S/ %.2f" % [
+		stats.get("earnings", 0.0), stats.get("quota", 0.0),
+		stats.get("deliveries", 0), stats.get("failures", 0), stats.get("flips", 0),
+		t / 60, t % 60, stats.get("savings", 0.0)]
+	_retry.text = "Reintentar"
+	visible = true
+	_retry.grab_focus()
+
+
+## Resumen de una jornada cumplida: cuota pagada y lo que pasó a los ahorros.
+func show_day_complete(stats: Dictionary) -> void:
+	_day_complete = true
+	_title.text = "¡DÍA %d COMPLETO!" % stats.get("day", 1)
+	_reason.text = "Récord: tu mejor jornada" if stats.get("record", false) else ""
+	_score.text = "+ S/ %.2f a tus ahorros" % stats.get("saved", 0.0)
+	_details.text = "Ganado: S/ %.2f     Cuota pagada al dueño: S/ %.2f\nPasajeros entregados: %d     Perdidos: %d\nAhorros para el garaje: S/ %.2f" % [
+		stats.get("earnings", 0.0), stats.get("quota", 0.0),
+		stats.get("deliveries", 0), stats.get("failures", 0), stats.get("savings", 0.0)]
+	_retry.text = "Siguiente día"
 	visible = true
 	_retry.grab_focus()
 

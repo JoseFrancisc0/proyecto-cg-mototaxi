@@ -8,8 +8,10 @@ extends Node3D
 ## "--region=costa|sierra|selva" elige la región (mayoría en un mundo nuevo, y donde se empieza)
 ## y "--solo" deja solo esa región.
 ##
-## La partida termina por vida, por salir del mapa, por quedar atrapada o por perder
-## pasajeros (GameSession); la pantalla final permite reintentar en el mismo mapa.
+## La partida es una serie de jornadas con cuota (GameSession): si se junta la cuota, lo que
+## sobra va a los ahorros del garaje y sigue el día siguiente; termina si no se junta, por
+## vida, por salir del mapa o por quedar atrapada. La pantalla final permite reintentar en el
+## mismo mapa. M (o Back del mando) abre el mapa completo (FullMap) y pausa el juego.
 ## Durante la partida, Esc / P / Start abre el menú de pausa (PauseMenu): continuar,
 ## reiniciar el turno o volver al menú principal sin tener que perder.
 
@@ -28,6 +30,7 @@ var loading: LoadingScreen
 var session: GameSession
 var game_over_screen: GameOverScreen
 var pause_menu: PauseMenu
+var full_map: FullMap
 ## Región elegida: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva.
 var region := 0
 
@@ -118,11 +121,19 @@ func _start_game() -> void:
 	session.race = race
 	add_child(session)
 	session.game_over.connect(_on_game_over)
+	session.day_completed.connect(_on_day_completed)
 	hud.bind_session(session)
 	game_over_screen = GameOverScreen.new()
 	add_child(game_over_screen)
 	game_over_screen.retry_requested.connect(restart)
 	game_over_screen.menu_requested.connect(_back_to_menu)
+	game_over_screen.next_day_requested.connect(next_day)
+	full_map = FullMap.new()
+	full_map.name = "FullMap"
+	full_map.minimap = hud.minimap
+	full_map.race = race
+	full_map.moto = moto
+	add_child(full_map)
 	pause_menu = PauseMenu.new()
 	pause_menu.name = "PauseMenu"
 	add_child(pause_menu)
@@ -156,6 +167,21 @@ func restart() -> void:
 	get_tree().paused = false
 
 
+## Jornada siguiente en el mismo mapa: mototaxi reparada, cuota más alta.
+func next_day() -> void:
+	game_over_screen.hide_result()
+	hud.visible = true
+	hud.reset_view()
+	moto.repair()
+	moto.use_input = true
+	spawn()
+	race.start()
+	_face_route()
+	session.next_day()
+	get_tree().paused = false
+	hud.show_banner("DÍA %d" % session.day, "Cuota de hoy: S/ %.2f" % session.quota, Color(1.0, 0.85, 0.25))
+
+
 ## Gira la mototaxi (en su lugar) hacia donde sale la ruta al primer pasajero.
 func _face_route() -> void:
 	var ahead := race.route_line.point_ahead(12.0)
@@ -168,6 +194,17 @@ func _face_route() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if full_map and full_map.visible and (event.is_action_pressed(FullMap.ACTION) or event.is_action_pressed(PauseMenu.ACTION)):
+		full_map.close()
+		get_tree().paused = false
+		get_viewport().set_input_as_handled()
+		return
+	if full_map and event.is_action_pressed(FullMap.ACTION) and not get_tree().paused and not game_over_screen.visible and session and session.playing:
+		get_tree().paused = true
+		full_map.route_color = hud.minimap.route_color
+		full_map.open()
+		get_viewport().set_input_as_handled()
+		return
 	if pause_menu == null or not event.is_action_pressed(PauseMenu.ACTION):
 		return
 	if pause_menu.visible:
@@ -192,6 +229,13 @@ func _on_game_over(reason: String, stats: Dictionary) -> void:
 	get_tree().paused = true
 	hud.visible = false
 	game_over_screen.show_result(reason, stats)
+
+
+func _on_day_completed(stats: Dictionary) -> void:
+	print("Día completo: %s" % stats)
+	get_tree().paused = true
+	hud.visible = false
+	game_over_screen.show_day_complete(stats)
 
 
 func _back_to_menu() -> void:

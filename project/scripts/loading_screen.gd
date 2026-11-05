@@ -546,6 +546,10 @@ func _on_play() -> void:
 		_notice.text = "Ingresa una semilla entre 0 y 2147483647."
 		_notice.show()
 		return
+	if not _garage.is_selected_owned():
+		_notice.text = "Esa mototaxi aún no es tuya: cómprala con tus ahorros o elige otra."
+		_notice.show()
+		return
 	_starting = true
 	_play.disabled = true
 	start_requested.emit(_current_choice())

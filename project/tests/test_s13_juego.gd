@@ -172,13 +172,16 @@ func _initialize() -> void:
 	moto.place_at(start, 0.0)
 	race.start(1)
 	session.start()
+	session.max_failures = 3
 	race.failures = session.max_failures - 1
 	race.state = RaceManager.State.CON_PASAJERO
 	race.time_limit = 10.0
 	race.time_left = 0.01
+	race.late_time = 999.0
 	await _frames(3)
 	_check(ends.size() == 1 and ends[0].contains("pasajeros"), "termina al perder %d pasajeros: %s" % [session.max_failures, ends])
 
+	session.max_failures = 0
 	print("-- Pago con ánimo")
 	moto.place_at(start, 0.0)
 	moto.use_input = false
@@ -197,10 +200,14 @@ func _initialize() -> void:
 	await _frames(10)
 	_check(paid.size() == 1, "paga al entregar")
 	if paid.size() == 1:
-		var fare: float = paid[0][0]
-		var tip: float = paid[0][1]
-		_check(tip < fare * race.max_tip_ratio * 0.6, "propina baja por los golpes: S/ %.2f de S/ %.2f" % [tip, fare * race.max_tip_ratio])
-		_check(is_equal_approx(race.earnings, fare + tip), "ganancias = pasaje + propina (S/ %.2f)" % race.earnings)
+		var amount: float = paid[0][0]
+		var fare: float = paid[0][1]
+		_check(amount < fare and amount > 0.0, "los golpes rebajan el pago: S/ %.2f de S/ %.2f" % [amount, fare])
+		_check(is_equal_approx(race.earnings, amount), "ganancias = lo pagado, sin propina (S/ %.2f)" % race.earnings)
+	var f := 5.0
+	_check(is_equal_approx(race.compute_payment(f, 0.0, 1.0), f), "a tiempo y suave = pasaje completo")
+	_check(race.compute_payment(f, 0.5, 1.0) < f * race.late_pay_start, "tarde paga menos")
+	_check(race.compute_payment(f, 1.0, 1.0) == 0.0, "al final del margen no paga")
 
 	print("RESULTADO: %s" % ("OK" if _fails == 0 else "%d fallas" % _fails))
 	quit(1 if _fails > 0 else 0)

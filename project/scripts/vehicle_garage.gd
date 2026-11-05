@@ -1,5 +1,9 @@
 class_name VehicleGarage
 extends VBoxContainer
+## Garaje del menú: elegir mototaxi y comprar las que faltan con los ahorros de las
+## jornadas (CareerSave). Solo se puede jugar con una mototaxi propia.
+
+signal ownership_changed
 
 var selected := 2
 var _model_root: Node3D
@@ -13,6 +17,8 @@ var _description: Label
 var _stats: VBoxContainer
 var _dragging := false
 var _yaw := -0.6
+var _wallet: Label
+var _buy: Button
 
 func _ready() -> void:
 	add_theme_constant_override("separation", 12)
@@ -98,6 +104,17 @@ func _ready() -> void:
 	next.custom_minimum_size = Vector2(48,44)
 	next.pressed.connect(func(): select_vehicle(posmod(selected+1,6)))
 	nav.add_child(next)
+	var shop := HBoxContainer.new()
+	shop.add_theme_constant_override("separation", 12)
+	add_child(shop)
+	_wallet = Label.new()
+	_wallet.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_wallet.add_theme_font_size_override("font_size", 16)
+	shop.add_child(_wallet)
+	_buy = Button.new()
+	_buy.custom_minimum_size = Vector2(190, 40)
+	_buy.pressed.connect(_on_buy)
+	shop.add_child(_buy)
 	var hint := Label.new()
 	hint.text = "Arrastra para girar · Rueda para acercar · Shift / X del mando: turbo"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -119,7 +136,9 @@ func select_vehicle(index: int) -> void:
 		_model_root.add_child(model)
 		_frame_model(model)
 	var v := VehicleCatalog.entry(selected)
-	_name_label.text = "%02d / %s" % [selected+1,v.name]
+	var owned := CareerSave.is_owned(selected)
+	_name_label.text = ("%02d / %s" if owned else "🔒 %02d / %s") % [selected+1,v.name]
+	_update_shop()
 	_name_label.add_theme_color_override("font_color",v.color)
 	for child in _stats.get_children():
 		_stats.remove_child(child)
@@ -158,6 +177,29 @@ func select_vehicle(index: int) -> void:
 		back.bg_color = Color("303342")
 		bar.add_theme_stylebox_override("background",back)
 		_stats.add_child(bar)
+
+func is_selected_owned() -> bool:
+	return CareerSave.is_owned(selected)
+
+
+func _update_shop() -> void:
+	if _wallet == null:
+		return
+	var savings := CareerSave.get_savings()
+	var best := CareerSave.get_best_day()
+	_wallet.text = "Ahorros: S/ %.2f%s" % [savings, ("   ·   Mejor jornada: día %d" % best) if best > 0 else ""]
+	var owned := CareerSave.is_owned(selected)
+	var price := float(VehicleCatalog.entry(selected).get("price", 0.0))
+	_buy.visible = not owned
+	_buy.text = "Comprar · S/ %.2f" % price
+	_buy.disabled = savings < price
+
+
+func _on_buy() -> void:
+	if CareerSave.buy(selected):
+		select_vehicle(selected)
+		ownership_changed.emit()
+
 
 func _responsive() -> void:
 	_hero.vertical = size.x < 650

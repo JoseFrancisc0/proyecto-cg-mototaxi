@@ -40,7 +40,15 @@ func _run() -> void:
 	check(screen._dialog.visible and screen._menu.visible,"Jugar abre la configuración en una pantalla aparte")
 	screen._mode.select(0)
 	screen._mode.item_selected.emit(0)
+	# Una mototaxi sin comprar no deja jugar; comprada sí (carrera de prueba aparte).
+	CareerSave.path = "user://test_pregame.cfg"
+	CareerSave.reset()
 	screen._garage.select_vehicle(4)
+	screen._on_play()
+	check(choices.is_empty() and screen._notice.visible,"Una mototaxi sin comprar no deja jugar")
+	CareerSave.add_savings(1000.0)
+	screen._garage._on_buy()
+	check(CareerSave.is_owned(4),"Comprar con ahorros la desbloquea")
 	screen._on_play()
 	screen._on_play()
 	check(choices.size()==1 and choices[0].mode=="editor","Arranque único, modo guardado conservado")
@@ -90,6 +98,7 @@ func _run() -> void:
 	screen.queue_free()
 	await process_frame
 	check(AudioServer.get_bus_index(removed_bus)==-1,"El efecto se retira al terminar el menú")
+	CareerSave.reset()
 	print("Interfaz previa: %d errores" % failures)
 	quit(0 if failures==0 else 1)
 func get_tree_pause_test(screen) -> void:

@@ -87,7 +87,10 @@ func _initialize() -> void:
 	_check(race.state == RaceManager.State.CON_PASAJERO, "recoge al segundo pasajero")
 	race.time_left = 0.5
 	await _sim(1.0)
-	_check(race.state == RaceManager.State.FALLADO and race.failures == 1, "sin tiempo = Fallado")
+	_check(race.state == RaceManager.State.CON_PASAJERO and race.late_time > 0.0, "sin tiempo sigue a bordo, pero tarde")
+	race.late_time = race.get_late_limit() - 0.2
+	await _sim(1.0)
+	_check(race.state == RaceManager.State.FALLADO and race.failures == 1, "sin margen de retraso = Fallado")
 	_check(finished == [true, false], "se emite ride_finished(false)")
 	await _drive_into(race.dropoff_zone)
 	_check(race.deliveries == 1, "llegar tarde al destino no cuenta")

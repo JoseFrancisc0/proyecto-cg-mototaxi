@@ -1,16 +1,29 @@
 class_name GameSession
 extends Node
-## Fin de partida y reinicio (S12, J-A/J-B). La partida termina cuando:
+## Jornadas y fin de partida (S12-S14, J-A/J-B).
+##
+## La partida es una serie de jornadas. Cada jornada dura day_length segundos; al final se
+## paga la cuota del día al dueño de la mototaxi (sube cada día). Si se juntó, lo que sobra
+## va a los ahorros (CareerSave, para el garaje) y sigue el día siguiente (day_completed);
+## si no, fin de partida. Si el reloj llega a 0 con un pasajero a bordo, se termina ese viaje.
+##
+## También termina la partida (game_over) cuando:
 ##   - la vida de la mototaxi llega a 0 (choques fuertes y vuelcos),
 ##   - la mototaxi sale de los límites del mapa,
 ##   - queda atrapada: el jugador acelera pero no logra moverse (un hueco, una quebrada),
-##   - se pierden max_failures pasajeros.
+##   - se pierden max_failures pasajeros en una jornada (0 = sin límite).
 ## Avisa con warning(texto, segundos) antes de terminar por atrapado o por salir del mapa.
 
 signal warning(text: String, seconds_left: float)
 signal game_over(reason: String, stats: Dictionary)
+## Jornada cumplida: stats trae además "quota", "saved" y "savings".
+signal day_completed(stats: Dictionary)
 
-@export var max_failures := 3
+@export_group("Jornada")
+@export var day_length := 360.0      ## Segundos de cada jornada.
+@export var quota_base := 10.0       ## Cuota (soles) del primer día.
+@export var quota_per_day := 4.0     ## Lo que sube la cuota cada día.
+@export var max_failures := 0
 @export_group("Atrapado")
 @export var stuck_radius := 8.0      ## Moverse menos que esto (m) ...
 @export var stuck_time := 12.0       ## ... durante tanto tiempo acelerando = atrapado.
@@ -24,6 +37,11 @@ var moto: Mototaxi
 var race: RaceManager
 
 var playing := false
+var day := 1
+var quota := 0.0
+var day_time_left := 0.0
+## true cuando el reloj llegó a 0 y se espera que termine el viaje en curso.
+var overtime := false
 var play_time := 0.0
 var damage_taken := 0.0
 var flips := 0
@@ -32,22 +50,48 @@ var _anchor := Vector3.ZERO
 var _stuck_timer := 0.0
 
 
+## Partida nueva desde el día 1.
 func start() -> void:
+	day = 1
+	play_time = 0.0
+	damage_taken = 0.0
+	flips = 0
+	start_day()
+
+
+## Siguiente jornada (tras day_completed). Main repara la mototaxi y reinicia la carrera.
+func next_day() -> void:
+	day += 1
+	start_day()
+
+
+func start_day() -> void:
 	if not moto.destroyed.is_connected(_on_destroyed):
 		moto.destroyed.connect(_on_destroyed)
 		moto.damaged.connect(_on_damaged)
 		race.ride_finished.connect(_on_ride_finished)
+	quota = quota_for(day)
+	day_time_left = day_length
+	overtime = false
 	playing = true
-	play_time = 0.0
-	damage_taken = 0.0
-	flips = 0
 	_reset_stuck()
+
+
+func quota_for(d: int) -> float:
+	return quota_base + quota_per_day * (d - 1)
 
 
 func _physics_process(delta: float) -> void:
 	if not playing or moto == null or world == null:
 		return
 	play_time += delta
+	day_time_left = maxf(day_time_left - delta, 0.0)
+	if day_time_left <= 0.0:
+		if race.state == RaceManager.State.CON_PASAJERO:
+			overtime = true  # Termina el viaje en curso.
+		else:
+			_end_day()
+			return
 	var p := moto.global_position
 
 	# Fuera del mapa: pasó el borde o cayó muy por debajo del suelo.
@@ -75,10 +119,11 @@ func _physics_process(delta: float) -> void:
 ## Datos para la pantalla final.
 func get_stats() -> Dictionary:
 	return {
+		"day": day,
+		"quota": quota,
 		"deliveries": race.deliveries,
 		"failures": race.failures,
 		"earnings": race.earnings,
-		"tips": race.tips_total,
 		"time": play_time,
 		"damage": damage_taken,
 		"flips": flips,
@@ -103,16 +148,42 @@ func _on_destroyed() -> void:
 
 
 func _on_ride_finished(success: bool, _time_left: float) -> void:
-	if not success and race.failures >= max_failures:
+	if not success and max_failures > 0 and race.failures >= max_failures:
 		_end("Perdiste %d pasajeros" % max_failures)
+	elif overtime:
+		_end_day.call_deferred()
+
+
+## Fin de la jornada: paga la cuota y guarda lo que sobra, o fin de partida.
+func _end_day() -> void:
+	if not playing:
+		return
+	playing = false
+	_stop_play()
+	var stats := get_stats()
+	if race.earnings + 0.001 < quota:
+		stats["savings"] = CareerSave.get_savings()
+		game_over.emit("No juntaste la cuota del día %d: S/ %.2f de S/ %.2f" % [day, race.earnings, quota], stats)
+		return
+	var saved := race.earnings - quota
+	stats["saved"] = saved
+	stats["savings"] = CareerSave.add_savings(saved)
+	stats["record"] = CareerSave.record_day(day)
+	day_completed.emit(stats)
+
+
+func _stop_play() -> void:
+	race.stop()
+	moto.use_input = false
+	moto.throttle = 0.0
+	moto.steer_input = 0.0
 
 
 func _end(reason: String) -> void:
 	if not playing:
 		return
 	playing = false
-	race.stop()
-	moto.use_input = false
-	moto.throttle = 0.0
-	moto.steer_input = 0.0
-	game_over.emit(reason, get_stats())
+	_stop_play()
+	var stats := get_stats()
+	stats["savings"] = CareerSave.get_savings()
+	game_over.emit(reason, stats)

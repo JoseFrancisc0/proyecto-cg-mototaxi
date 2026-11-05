@@ -4,6 +4,8 @@ Seguimiento de lo pedido en `Crazy_Mototaxi_Semana10.pdf` (cronograma S11–S15)
 Actualizar este archivo cada vez que se cierre una tarea.
 
 **Ramas**
+- Desde el 2026-11-04 la jugabilidad se trabaja en `juego` (avanzada hasta `main` 036c432); `main` queda para
+  el entorno y la parte gráfica de los demás integrantes.
 - `main`: terreno y realismo (erosión multiescala del paper *Terrain Amplification using Multi-scale Erosion*).
 - `juego`: jugabilidad (vehículo, carreras, HUD). Desde el 2026-10-19 incluye `origin/main` (merge) y el juego
   corre sobre el terreno de CG (regiones, erosión, drenaje/ríos, red vial, texturas e iluminación).
@@ -79,8 +81,8 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
 |---|---|---|
 | 1 | Quitar las guías en el mundo: cinta con flechas (a veces al revés) y columnas/discos de luz que seguían junto al cliente | ✅ cinta oculta (`RaceManager.show_route_in_world = false`), recogida sin marcador, destino = anillo plano sobre el suelo, sin luz |
 | 2 | Minimapa estilo GTA como guía principal (ruta por las vías + punto del objetivo) | ✅ `Minimap` en `RaceHUD`; se quitó la flecha flotante |
-| 3 | Mapa completo (tecla M o en la pausa), estilo GTA, con el destino y la ruta | ⬜ |
-| 4 | Darle sentido al dinero (ver opciones abajo) y un fin de partida que no dependa solo de la vida | ⬜ elegir opción |
+| 3 | Mapa completo (tecla M o en la pausa), estilo GTA, con el destino y la ruta | ✅ `FullMap` (M / Back): norte arriba, zoom y arrastre, lugares con nombre; pausa el juego |
+| 4 | Darle sentido al dinero (ver opciones abajo) y un fin de partida que no dependa solo de la vida | ✅ opciones 1 + 3: jornadas con cuota (`GameSession`) y ahorros para el garaje (`CareerSave`); sin propinas |
 | 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ⬜ |
 | 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | ⬜ |
 
@@ -96,8 +98,19 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
 4. **Deuda de la mototaxi.** Empiezas debiendo S/ X; cada jornada pagas una cuota; saldarla es "ganar" el
    juego (modo historia corto).
 
-Recomendación: **1 + 3** (cuota diaria como fin de partida y lo que sobra para el garaje), con las reparaciones
-pagadas de la opción 2 si hace falta más tensión.
+Elegido: **1 + 3** (2026-11-04). Las reparaciones pagadas (opción 2) quedan como idea si hace falta más tensión.
+
+**Cómo funciona el dinero ahora**
+- **Pago sin propina.** Tarifa = base + por km de la ruta. A tiempo y sin golpes paga completo; los golpes y
+  vuelcos rebajan hasta 60 % (`rough_pay_min`). Si se acaba el tiempo, el pasajero sigue a bordo pero
+  *tarde*: paga desde 70 % (`late_pay_start`) bajando hasta nada al final del margen (`late_grace`, 60 % del
+  tiempo límite, mínimo 15 s); pasado el margen se baja sin pagar. Se redondea a 10 céntimos.
+- **Jornada con cuota.** Cada día dura 6 min (`day_length`); la cuota es S/ 10 el día 1 y sube S/ 4 por día.
+  Si el reloj llega a 0 con pasajero a bordo, se termina ese viaje. Con la cuota juntada, lo que sobra va a
+  los ahorros y sigue el día siguiente (mototaxi reparada); si no, fin de partida. Ya no se pierde por
+  pasajeros perdidos (`max_failures = 0`); siguen el fin por vida, borde y atrapado.
+- **Garaje con precios.** `user://carrera.cfg` guarda ahorros, mototaxis compradas y mejor jornada. Se
+  empieza con Neon Shadow; las demás cuestan S/ 30–85 (`price` en `VehicleCatalog`) y se compran en el menú.
 
 ---
 
@@ -197,6 +210,7 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/t
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_mototaxi.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_race.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_passenger.gd
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_jornada.gd    # cuota, ahorros, garaje, mapa
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_vegetation.gd -- --editor
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/render_engine_audio.gd   # graba output/audio/mototaxi_demo.wav
 ```
@@ -277,3 +291,10 @@ para que Godot registre la clase.
   mototaxi, fondo horneado una vez (región, sombreado del relieve, ríos y lagos; ~0.2–0.8 s al empezar),
   vías y ruta como líneas, objetivo pegado al borde si queda fuera, zoom según la velocidad. Se quitó la
   flecha flotante del HUD. Se anotaron los "Pendientes de jugabilidad" y las opciones para el dinero.
+- **2026-11-04** — `juego` avanzada hasta `main` (incluye 036c432: carreteras, iluminación y pasajeros); la
+  jugabilidad sigue en `juego`. Dinero con sentido (opciones 1 + 3): pago según el servicio sin propinas
+  (`RaceManager.compute_payment`, retraso con margen en vez de fallo inmediato), jornadas con cuota creciente
+  (`GameSession`: `day_completed`, "Siguiente día" en `GameOverScreen`), ahorros y compra de mototaxis
+  (`CareerSave`, `VehicleGarage`). Mapa completo con M (`FullMap`). HUD: día, reloj, cuota y "TARDE +m:ss".
+  Pruebas: `tests/test_jornada.gd` (nueva), `test_race`, `test_s13_juego`, `test_pregame_ui`, `test_passenger`,
+  `test_pause_menu`; capturas con `tests/capture_jornada.gd`.

@@ -3,8 +3,8 @@ extends Node3D
 ## Ciclo de carrera (S11, J-B): estados, zonas de recogida/destino y temporizador.
 ##
 ##   LIBRE ──(entra a la zona amarilla despacio)──> CON_PASAJERO
-##   CON_PASAJERO ──(llega a la zona verde a tiempo)──> ENTREGADO
-##   CON_PASAJERO ──(se acaba el tiempo)──> FALLADO
+##   CON_PASAJERO ──(llega a la zona verde, a tiempo o con algo de retraso)──> ENTREGADO
+##   CON_PASAJERO ──(se acaba el tiempo y también el margen de retraso)──> FALLADO
 ##   ENTREGADO / FALLADO ──(tras result_time segundos)──> LIBRE (nuevo pasajero)
 ##
 ## Los puntos salen de TerrainWorld.get_landmarks(). La ruta recomendada va por las vías
@@ -13,16 +13,18 @@ extends Node3D
 ## de su largo y su pendiente (S12).
 ##
 ## S13: el pasajero tiene ánimo (1 = contento, 0 = furioso). Baja con los golpes, los
-## vuelcos y cuando se acaba el tiempo. Al entregar paga la tarifa (según el largo de la
-## ruta) más una propina proporcional a su ánimo; las ganancias son el puntaje.
+## vuelcos y cuando se acaba el tiempo. Sin propinas: la tarifa sale del largo de la ruta y
+## el pasajero paga menos si el servicio fue malo (compute_payment): llegar tarde rebaja el
+## pago hasta nada al final del margen de retraso (late_grace), y los golpes y vuelcos lo
+## rebajan hasta rough_pay_min. Pasado el margen se baja sin pagar (FALLADO).
 
 enum State { LIBRE, CON_PASAJERO, ENTREGADO, FALLADO }
 
 signal state_changed(state: State)
 signal ride_started(time_limit: float, route_length: float)
 signal ride_finished(success: bool, time_left: float)
-## Al entregar: tarifa y propina (en soles).
-signal paid(fare: float, tip: float)
+## Al entregar: lo que pagó y la tarifa completa (en soles).
+signal paid(amount: float, fare: float)
 ## El pasajero reacciona (texto corto para el HUD).
 signal passenger_said(text: String)
 
@@ -47,7 +49,11 @@ signal passenger_said(text: String)
 @export_group("Pago y ánimo (S13)")
 @export var fare_base := 3.0           ## Soles por carrera.
 @export var fare_per_km := 4.0         ## Soles por km de ruta recomendada.
-@export var max_tip_ratio := 0.5       ## Propina máxima, como fracción de la tarifa.
+## Margen de retraso, como fracción del tiempo límite (con un mínimo en segundos).
+@export var late_grace := 0.6
+@export var late_grace_min := 15.0
+@export var late_pay_start := 0.7      ## Fracción de la tarifa que paga apenas se pasa del tiempo.
+@export var rough_pay_min := 0.6       ## Fracción que paga si el viaje fue a puro golpe.
 @export var mood_hit_factor := 0.02    ## Ánimo perdido por punto de daño a la mototaxi.
 @export var mood_flip_loss := 0.35     ## Ánimo perdido por cada vuelco.
 @export var mood_time_start := 0.5     ## Fracción de tiempo restante desde la que se impacienta.
@@ -75,7 +81,8 @@ var route_length := 0.0
 var deliveries := 0
 var failures := 0
 var earnings := 0.0       ## Puntaje: soles ganados en la partida.
-var tips_total := 0.0
+## Segundos de retraso del viaje actual (cuenta cuando time_left llega a 0).
+var late_time := 0.0
 var mood := 1.0           ## Ánimo del pasajero a bordo (0..1).
 var route_line: RouteLine
 
@@ -93,6 +100,7 @@ var _rng := RandomNumberGenerator.new()
 var _comfort := 1.0       # parte del ánimo que depende de cómo maneja (golpes, vuelcos)
 var _off_route_timer := 0.0
 var _impatient_said := false
+var _late_said := false
 
 
 func _ready() -> void:
@@ -117,7 +125,6 @@ func start(rng_seed: int = -1) -> void:
 	deliveries = 0
 	failures = 0
 	earnings = 0.0
-	tips_total = 0.0
 	_result_timer = 0.0
 	_next_portrait = Passenger.load_portrait()
 	_first_passenger = true
@@ -132,11 +139,14 @@ func _physics_process(delta: float) -> void:
 			if pickup_zone.contains(moto) and moto.get_speed_kmh() <= board_speed_kmh:
 				_board()
 		State.CON_PASAJERO:
-			time_left = maxf(time_left - delta, 0.0)
+			if time_left > 0.0:
+				time_left = maxf(time_left - delta, 0.0)
+			else:
+				late_time += delta
 			_update_mood()
 			if dropoff_zone.contains(moto):
 				_finish(true)
-			elif time_left <= 0.0:
+			elif time_left <= 0.0 and late_time >= get_late_limit():
 				_finish(false)
 		State.ENTREGADO, State.FALLADO:
 			_result_timer -= delta
@@ -192,6 +202,26 @@ func compute_fare(length: float) -> float:
 	return fare_base + fare_per_km * length / 1000.0
 
 
+## Lo que paga el pasajero: la tarifa rebajada por el retraso (late_fraction: 0 = a tiempo,
+## 1 = al final del margen) y por el maltrato (comfort: 1 = viaje suave, 0 = a puro golpe).
+## Se redondea a 10 céntimos; menos de 50 céntimos es no pagar.
+func compute_payment(fare: float, late_fraction: float, comfort: float) -> float:
+	var punctual := 1.0 if late_fraction <= 0.0 else lerpf(late_pay_start, 0.0, clampf(late_fraction, 0.0, 1.0))
+	var treat := lerpf(rough_pay_min, 1.0, clampf(comfort, 0.0, 1.0))
+	var pay := snappedf(fare * punctual * treat, 0.1)
+	return pay if pay >= 0.5 else 0.0
+
+
+## Segundos de retraso que aguanta el pasajero antes de bajarse sin pagar.
+func get_late_limit() -> float:
+	return maxf(time_limit * late_grace, late_grace_min)
+
+
+## 0 = a tiempo, 1 = se acabó el margen de retraso.
+func get_late_fraction() -> float:
+	return clampf(late_time / maxf(get_late_limit(), 0.001), 0.0, 1.0)
+
+
 ## Punto hacia el que debe apuntar la flecha: sobre la ruta, un poco por delante.
 func get_guide_point(ahead: float = 25.0) -> Vector3:
 	if route_line and show_route and state in [State.LIBRE, State.CON_PASAJERO]:
@@ -235,9 +265,11 @@ func _board() -> void:
 	else:
 		time_limit = compute_route_time(route)
 	time_left = time_limit
+	late_time = 0.0
 	mood = 1.0
 	_comfort = 1.0
 	_impatient_said = false
+	_late_said = false
 
 	pickup_zone.activate(false)
 	passenger.board()
@@ -254,13 +286,18 @@ func _finish(success: bool) -> void:
 	dropoff_zone.activate(false)
 	_show_route(PackedVector3Array())
 	var fare := 0.0
-	var tip := 0.0
+	var pay := 0.0
 	if success:
 		deliveries += 1
 		fare = compute_fare(route_length)
-		tip = fare * max_tip_ratio * mood
-		earnings += fare + tip
-		tips_total += tip
+		pay = compute_payment(fare, get_late_fraction(), _comfort)
+		earnings += pay
+		if pay <= 0.0:
+			passenger_said.emit("¡Con este servicio no le pago nada!")
+		elif late_time > 0.0:
+			passenger_said.emit("Llegamos tarde. Le doy S/ %.2f nomás." % pay)
+		elif pay < fare - 0.05:
+			passenger_said.emit("Casi me mata. Le doy S/ %.2f." % pay)
 	else:
 		failures += 1
 		mood = 0.0
@@ -269,12 +306,12 @@ func _finish(success: bool) -> void:
 	var right := -moto.global_basis.x
 	var leaving := passenger
 	passenger = _make_passenger()
-	leaving.get_off(moto.global_position + right * 2.0, right, success and mood >= 0.5)
+	leaving.get_off(moto.global_position + right * 2.0, right, success and pay > 0.0 and mood >= 0.5)
 	_result_timer = result_time
 	_set_state(State.ENTREGADO if success else State.FALLADO)
 	ride_finished.emit(success, time_left)
 	if success:
-		paid.emit(fare, tip)
+		paid.emit(pay, fare)
 
 
 ## Detiene el ciclo (fin de partida): sin zonas ni ruta.
@@ -292,7 +329,10 @@ func stop() -> void:
 func _update_mood() -> void:
 	var f := time_left / maxf(time_limit, 0.001)
 	var patience := clampf(f / mood_time_start, 0.0, 1.0)
-	mood = clampf(_comfort * (0.35 + 0.65 * patience), 0.0, 1.0)
+	mood = clampf(_comfort * (0.35 * (1.0 - get_late_fraction()) + 0.65 * patience), 0.0, 1.0)
+	if late_time > 0.0 and not _late_said:
+		_late_said = true
+		passenger_said.emit("¡Ya es tarde! Le voy a pagar menos.")
 	if patience < 0.6 and not _impatient_said:
 		_impatient_said = true
 		passenger_said.emit("¡Apúrese, por favor, que llego tarde!")

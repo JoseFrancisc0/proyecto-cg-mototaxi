@@ -142,14 +142,16 @@ func _ready() -> void:
 func bind(r: RaceManager, m: Mototaxi) -> void:
 	race = r
 	moto = m
-	if r.world:
-		minimap.setup(r.world, r, m)
 	race.ride_started.connect(_on_ride_started)
 	race.ride_finished.connect(_on_ride_finished)
 	race.state_changed.connect(_on_state_changed)
 	race.paid.connect(_on_paid)
 	race.passenger_said.connect(say)
 	moto.damaged.connect(_on_damaged)
+	if r.world:
+		if minimap == null:  # bind antes de entrar al árbol: el minimapa se crea en _ready
+			await ready
+		minimap.setup(r.world, r, m)
 
 
 func bind_session(s: GameSession) -> void:
@@ -163,7 +165,7 @@ func _process(_delta: float) -> void:
 		_turbo_label.text = "TURBO ACTIVO" if moto.turbo_active else "TURBO · SHIFT / X"
 		_turbo_label.modulate = Color("ffdb38") if moto.turbo_active else Color.WHITE
 		_info.text = "%d km/h
-W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: turbo   R: enderezar (volcada cuesta vida)   Esc: pausa" 			% roundi(moto.get_speed_kmh())
+W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: turbo   R: enderezar   M: mapa   Esc: pausa" 			% roundi(moto.get_speed_kmh())
 		if moto.offroad_amount > 0.45:
 			_info.text = "TIERRA · MENOR AGARRE   " + _info.text
 		var hp := moto.get_health_ratio()
@@ -174,7 +176,15 @@ W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: 
 	if race == null:
 		return
 
-	_score.text = "S/ %.2f\nEntregas: %d   Perdidos: %d" % [race.earnings, race.deliveries, race.failures]
+	if session and session.playing:
+		var met := race.earnings + 0.001 >= session.quota
+		var clock := "termina este viaje" if session.overtime else _fmt_time(session.day_time_left)
+		_score.text = "Día %d  ·  %s\nS/ %.2f / cuota S/ %.2f%s\nEntregas: %d   Perdidos: %d" % [
+			session.day, clock, race.earnings, session.quota, "  ✓" if met else "",
+			race.deliveries, race.failures]
+		_score.modulate = COLOR_DROPOFF if met else Color.WHITE
+	else:
+		_score.text = "S/ %.2f\nEntregas: %d   Perdidos: %d" % [race.earnings, race.deliveries, race.failures]
 	_mood_box.visible = race.state == RaceManager.State.CON_PASAJERO
 	if _mood_box.visible:
 		_mood_bar.value = race.mood * 100.0
@@ -192,10 +202,16 @@ W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: 
 			_objective.text = "Destino: %s\n%d m" % [destination, roundi(dist)] if not destination.is_empty() \
 				else "Lleva al pasajero al punto verde del mapa\n%d m" % roundi(dist)
 			_objective.modulate = COLOR_DROPOFF
-			_timer.text = _fmt_time(race.time_left)
-			var urgent := race.time_left < 10.0
-			_timer.modulate = COLOR_FAIL if urgent else Color.WHITE
-			if urgent:  # Parpadeo en los últimos segundos.
+			if race.time_left > 0.0:
+				_timer.text = _fmt_time(race.time_left)
+				var urgent := race.time_left < 10.0
+				_timer.modulate = COLOR_FAIL if urgent else Color.WHITE
+				if urgent:  # Parpadeo en los últimos segundos.
+					_timer.modulate.a = 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.015)
+			else:
+				# Tarde: paga menos; al acabarse el margen se baja sin pagar.
+				_timer.text = "TARDE +%s" % _fmt_time(race.late_time)
+				_timer.modulate = COLOR_FAIL
 				_timer.modulate.a = 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.015)
 		_:
 			_objective.text = "Esperando nuevo pasajero..."
@@ -218,12 +234,17 @@ func _on_ride_started(limit: float, length: float) -> void:
 func _on_ride_finished(success: bool, _time_left: float) -> void:
 	_timer.text = ""
 	if not success:
-		show_banner("¡SE ACABÓ EL TIEMPO!", "El pasajero se bajó molesto y no pagó", COLOR_FAIL)
+		show_banner("¡DEMASIADO TARDE!", "El pasajero se bajó molesto y no pagó", COLOR_FAIL)
 
 
-func _on_paid(fare: float, tip: float) -> void:
-	var note := "¡Excelente viaje!" if race.mood > 0.75 else ("Buen viaje" if race.mood > 0.4 else "El pasajero se bajó enojado")
-	show_banner("¡PASAJERO ENTREGADO!", "Pasaje S/ %.2f + propina S/ %.2f  ·  %s" % [fare, tip, note], COLOR_DROPOFF)
+func _on_paid(amount: float, fare: float) -> void:
+	if amount <= 0.0:
+		show_banner("ENTREGADO, PERO NO PAGÓ", "Pasaje de S/ %.2f  ·  el servicio fue muy malo" % fare, COLOR_FAIL)
+	elif amount >= fare - 0.05:
+		show_banner("¡PASAJERO ENTREGADO!", "Pagó el pasaje completo: S/ %.2f" % amount, COLOR_DROPOFF)
+	else:
+		var why := "por llegar tarde" if race.late_time > 0.0 else "por los golpes"
+		show_banner("PASAJERO ENTREGADO", "Pagó S/ %.2f de S/ %.2f  ·  %s" % [amount, fare, why], COLOR_PICKUP)
 
 
 ## Lo que dice el pasajero, bajo su barra de ánimo.
