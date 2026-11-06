@@ -36,6 +36,16 @@ signal job_progress(stage: String, fraction: float)
 @export var highway_width := 9.5
 @export var avenue_width := 7.5
 @export var street_width := 5.5
+## Red más residencial (pendiente 10, fase 2): enlaces extra, cuadras en los pueblos y
+## trochas. Apagado = solo las carreteras entre pueblos.
+@export var grow_network := true
+## Enlaces extra entre pueblos o hacia una carretera que solo se alcanza dando mucha vuelta.
+@export_range(0, 16) var extra_links := 4
+## Cuadras por lado de la cuadrícula de calles de cada pueblo (0 = sin cuadrícula).
+@export_range(0, 8) var town_blocks := 4
+## Trochas de tierra a chacras (-1 = según el largo de las carreteras).
+@export_range(-1, 32) var farm_tracks := -1
+@export var trail_width := 4.5
 @export var road_width := 4.0
 @export var road_fade := 3.0
 @export var road_smooth := 3
@@ -614,6 +624,8 @@ func _build_cfg() -> Dictionary:
 		"hierarchical_roads": hierarchical_roads,
 		"town_count": town_count, "block_size": block_size,
 		"highway_width": highway_width, "avenue_width": avenue_width, "street_width": street_width,
+		"grow_network": grow_network, "extra_links": extra_links, "town_blocks": town_blocks,
+		"farm_tracks": farm_tracks, "trail_width": trail_width, "debug_roads": OS.has_environment("DEBUG_ROADS"),
 		"road_width": road_width,
 		"road_fade": road_fade,
 		"road_smooth": road_smooth,

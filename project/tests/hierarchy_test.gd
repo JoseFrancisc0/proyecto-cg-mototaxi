@@ -26,20 +26,26 @@ func _initialize() -> void:
  var counts := [0,0,0,0]
  var router := RoadRouter.new()
  router.build(metadata)
- var trunk_points := {}
+ # Cuantas vias usan cada punto (a 10 cm, como RoadRouter): un cruce es un punto compartido.
+ var uses := {}
  for road: Dictionary in metadata:
   counts[road.kind]+=1
-  if road.width != [0.0,9.5,7.5,5.5][road.kind]: errors+=1
-  if road.kind == 1:
-   for point: Vector3 in road.path:
-    trunk_points[Vector2i(roundi(point.x * 10), roundi(point.z * 10))] = true
+  if road.width != [4.5,9.5,7.5,5.5][road.kind]: errors+=1
+  for point: Vector3 in road.path:
+   var key := Vector2i(roundi(point.x * 10), roundi(point.z * 10))
+   uses[key] = uses.get(key, 0) + 1
  for road: Dictionary in metadata:
   var path: PackedVector3Array = road.path
   for point in path:
    if not point.is_finite() or absf(point.x)>768 or absf(point.z)>768: errors+=1
+  # Fase 2: toda via que no es carretera sale de un punto de otra via (cruce exacto).
   if road.kind != 1:
+   var joined := 0
    for point: Vector3 in [path[0], path[-1]]:
-    if not trunk_points.has(Vector2i(roundi(point.x * 10), roundi(point.z * 10))): errors+=1
+    if uses.get(Vector2i(roundi(point.x * 10), roundi(point.z * 10)), 0) > 1: joined += 1
+   if joined == 0: errors+=1
+  # Y el GPS llega a ella desde el primer pueblo.
+  if router.road_path(towns[0], path[path.size() / 2]).is_empty(): errors+=1
  for town: Vector3 in towns:
   if router.road_path(towns[0], town).is_empty(): errors+=1
  var duplicate := RoadNetwork.new()

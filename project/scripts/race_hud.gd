@@ -240,7 +240,11 @@ func _on_state_changed(s: RaceManager.State) -> void:
 
 
 func _on_ride_started(limit: float, length: float) -> void:
-	show_banner("¡Pasajero a bordo!", "Ruta de %d m · tienes %s" % [roundi(length), _fmt_time(limit)], COLOR_DROPOFF)
+	var far := race.ride_kind == RaceManager.RideKind.LARGO
+	var dist := ("%.1f km" % (length / 1000.0)) if length >= 1000.0 else ("%d m" % roundi(length))
+	show_banner("¡VIAJE LARGO!" if far else "¡Pasajero a bordo!",
+		"%s de %s · paga S/ %.2f · tienes %s" % [RaceManager.ride_kind_name(race.ride_kind), dist, race.ride_fare, _fmt_time(limit)],
+		COLOR_PICKUP if far else COLOR_DROPOFF, 3.5 if far else 2.5)
 
 
 func _on_ride_finished(success: bool, _time_left: float) -> void:

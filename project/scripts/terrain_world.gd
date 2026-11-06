@@ -352,7 +352,9 @@ func get_drainage(x: float, z: float) -> float:
 ## Puntos de recogida y destino: [{ "id", "position", "type" }], todos sobre vías.
 ## "reach" indica la zona transitable a la que pertenece (ver is_reachable()).
 ## Tipos: "pueblo", "via" y, con typed_landmarks, "pico", "confluencia" y "costa"
-## (estos traen además "label" y "feature": el punto del pico/confluencia/costa).
+## (estos traen además "feature": el punto del pico/confluencia/costa).
+## StopNames.assign() agrega "region", "kind" (plaza, mercado, paradero, ...; "via" = sin
+## nombre) y "label" a los pueblos, rasgos y a algunas paradas de vía separadas entre sí.
 func get_landmarks() -> Array[Dictionary]:
 	return _landmarks
 
@@ -693,19 +695,10 @@ func _build_landmarks() -> void:
 			types.append(f["type"])
 			extra.append({"label": f["label"], "feature": f["position"]})
 	if generator.last_roads:
-		var town_index := 0
 		for c in generator.last_roads.get_town_centers():
-			var biome := get_biome(c.x, c.z)
-			var region := biome.max_axis_index()
-			var names: Array = [
-				["Mercado San Martín", "Paradero La Caleta", "Plaza del Sol"],
-				["Plaza de Armas", "Mercado de Abastos", "Paradero Mirador"],
-				["Mercado Amazónico", "Paradero El Aguajal", "Embarcadero del Puerto"],
-			][region]
 			points.push_front(c)
 			types.push_front("pueblo")
-			extra.push_front({"label": names[town_index % names.size()]})
-			town_index += 1
+			extra.push_front({})
 	for road in roads:
 		var path: PackedVector3Array = road["path"]
 		var acc := landmark_spacing  # Incluye el primer punto de cada vía.
@@ -716,7 +709,10 @@ func _build_landmarks() -> void:
 				acc = 0.0
 				points.append(path[i])
 				types.append("via")
-				extra.append({})
+				# Dirección de la vía: el cartel de una parada con nombre va a un costado.
+				var a := path[maxi(i - 1, 0)]
+				var b := path[mini(i + 1, path.size() - 1)]
+				extra.append({"road_dir": Vector3(b.x - a.x, 0.0, b.z - a.z).normalized()})
 	var min_d := landmark_spacing * 0.5
 	for i in points.size():
 		var p := points[i]
@@ -738,6 +734,8 @@ func _build_landmarks() -> void:
 		}
 		lm.merge(extra[i])
 		_landmarks.append(lm)
+	# Nombres y tipos de parada según la región (mismo mapa = mismos nombres).
+	StopNames.assign(_landmarks, world_seed, func(q: Vector3) -> int: return get_biome(q.x, q.z).max_axis_index())
 	if landmark_signs:
 		_build_signs()
 
@@ -763,15 +761,15 @@ func _build_signs() -> void:
 	_sign_root = Node3D.new()
 	_sign_root.name = "Carteles"
 	add_child(_sign_root)
-	var colors := {"pico": Color(0.85, 0.45, 0.15), "confluencia": Color(0.15, 0.45, 0.85), "costa": Color(0.95, 0.80, 0.30), "pueblo": Color("175442")}
 	for lm in _landmarks:
-		if not colors.has(lm["type"]):
+		if str(lm.get("label", "")).is_empty():
 			continue
 		var sign := Node3D.new()
 		sign.name = "Cartel_%d" % lm["id"]
 		var p: Vector3 = lm["position"]
 		# El cartel va al costado de la vía, mirando hacia el rasgo del terreno.
-		var feature: Vector3 = lm.get("feature", p + Vector3.FORWARD)
+		# En las paradas de vía, "hacia el rasgo" es a lo largo de la vía (el cartel queda al costado).
+		var feature: Vector3 = lm.get("feature", p + lm.get("road_dir", Vector3.FORWARD))
 		var toward := Vector3(feature.x - p.x, 0, feature.z - p.z)
 		if toward.length() < 0.5:
 			toward = Vector3.FORWARD
@@ -779,6 +777,12 @@ func _build_signs() -> void:
 		var side := toward.cross(Vector3.UP).normalized()
 		var spot := p + side * 8.0
 		var is_town: bool = lm["type"] == "pueblo"
+		if lm["type"] == "via":
+			# Al costado que quede fuera de la calzada.
+			for candidate: Vector3 in [p + side * 7.0, p - side * 7.0, p + side * 10.0, p - side * 10.0]:
+				if is_inside(candidate.x, candidate.z) and get_offroad_amount(candidate.x, candidate.z) > 0.9:
+					spot = candidate
+					break
 		if is_town:
 			spot = Vector3.INF
 			# Deja el tablero fuera de la calzada incluso en un cruce.
@@ -804,7 +808,7 @@ func _build_signs() -> void:
 			sign.add_child(_sign_part(BoxMesh.new(), Vector3(2.7, 0.10, 0.42), Vector3(0, 0.50, -0.36), Color("91664b")))
 		else:
 			sign.add_child(_sign_part(BoxMesh.new(), Vector3(0.12, 2.6, 0.12), Vector3(0, 1.3, 0), support))
-		sign.add_child(_sign_part(BoxMesh.new(), Vector3(3.2 if is_town else 1.8, 0.8, 0.08), Vector3(0, 2.5, 0), colors[lm["type"]]))
+		sign.add_child(_sign_part(BoxMesh.new(), Vector3(3.2 if is_town else 1.8, 0.8, 0.08), Vector3(0, 2.5, 0), StopNames.kind_color(lm["kind"])))
 		var label := Label3D.new()
 		label.text = lm.get("label", lm["type"])
 		label.position = Vector3(0, 2.5, 0.05) if is_town else Vector3(0, 3.4, 0)

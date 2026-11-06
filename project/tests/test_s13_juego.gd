@@ -85,7 +85,9 @@ func _initialize() -> void:
 	var hill := PackedVector3Array([Vector3(0, 0, 0), Vector3(250, 50, 0)])
 	_check(is_equal_approx(race.compute_route_time(flat), race.compute_time_limit(250.0)), "en llano = solo por largo")
 	_check(race.compute_route_time(hill) > race.compute_route_time(flat) * 1.4, "subida 0.2 da más tiempo (%.0f s vs %.0f s)" % [race.compute_route_time(hill), race.compute_route_time(flat)])
-	_check(is_equal_approx(race.compute_fare(1000.0), race.fare_base + race.fare_per_km), "tarifa = base + por km")
+	_check(is_equal_approx(race.compute_fare(150.0), race.fare_base + race.fare_per_km * 0.15), "tarifa corta = base + por km")
+	var per_km_long := (race.compute_fare(2000.0) - race.fare_base) / 2.0
+	_check(per_km_long > race.fare_per_km * 1.5, "el viaje largo paga más por km (S/ %.2f/km)" % per_km_long)
 	race.free()
 
 	print("-- Vida y choques")

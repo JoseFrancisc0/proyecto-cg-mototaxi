@@ -18,7 +18,7 @@ struct RoadSegment {
 	std::vector<Vector3> pts;
 	std::vector<double> h;
 	std::vector<unsigned char> elevated;
-	int kind = 0; // 0 camino anterior, 1 carretera, 2 avenida, 3 calle.
+	int kind = 0; // 0 camino anterior / trocha, 1 carretera, 2 avenida, 3 calle.
 	double half_width = -1.0; // Negativo: usar el ancho global anterior.
 };
 
@@ -35,7 +35,10 @@ private:
 	double sample_height(Ref<TerrainNoise> terrain, double x, double z) const;
 	double sample_water(double x, double z) const;
 	void _generate_hierarchy(Ref<TerrainNoise> terrain, double area_half, Dictionary config);
-	PackedVector3Array _find_path(Ref<TerrainNoise> terrain, Vector2 start, Vector2 goal, double area_half, double max_slope, const std::vector<double> *field, int field_n, double field_cell) const;
+	void _add_road(const PackedVector3Array &path, int kind, const Dictionary &config);
+	void _round_path(Ref<TerrainNoise> terrain, PackedVector3Array &path, double spacing) const;
+	void _grow_network(Ref<TerrainNoise> terrain, double area_half, const Dictionary &config, const std::vector<Vector2> &centers);
+	PackedVector3Array _find_path(Ref<TerrainNoise> terrain, Vector2 start, Vector2 goal, double area_half, double max_slope, const std::vector<double> *field, int field_n, double field_cell, double window = 0.0) const;
 
 protected:
 	static void _bind_methods();

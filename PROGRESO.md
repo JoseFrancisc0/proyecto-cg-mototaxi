@@ -32,7 +32,8 @@ Leyenda: ✅ hecho · 🟡 en curso / parcial · ⬜ pendiente
 **Cómo funciona el ciclo (S11)**
 1. **Libre**: aparece una zona **amarilla** (pasajero) en un landmark a 30–180 m.
 2. Entrar a la zona a **menos de 20 km/h** sube al pasajero → **Con pasajero**.
-3. Aparece la zona **verde** (destino) a 80–260 m; arranca el temporizador.
+3. Aparece la zona **verde** (destino); arranca el temporizador. Desde 2026-11-06 el viaje puede ser corto
+   (80–300 m), medio (300–800 m) o largo (800–1900 m, cruza el mapa) — ver pendiente 8.
 4. Llegar a tiempo → **Entregado** (+1 entrega). Se acaba el tiempo → **Fallado** (+1 fallida).
 5. Tras 3 s de anuncio aparece un nuevo pasajero.
 
@@ -86,6 +87,91 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
 | 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ⬜ |
 | 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | ⬜ |
 | 7 | Ordenar partidas (opción B, decidida 2026-11-06): una sola carrera continua + Modo libre; quitar "Nueva partida"; elegir el escenario al terminar el día o al reiniciar (ver abajo) | ✅ `ScenarioPicker`/`ScenarioPanel`, `CareerSave.launch`, `GameSession.free_mode` |
+| 8 | Destinos por todo el mapa: viajes corto/medio/largo (≈50/32/18 %), los largos pagan más por km (hasta el doble) y rinden más por minuto; no se piden si no alcanza la jornada; en los largos se prefieren lugares con nombre | ✅ `RaceManager._pick_destination`, `compute_fare`, `time_budget`; prueba `tests/test_destinos.gd` |
+| 9 | Minimapa para viajes largos: (a) la distancia del HUD es la que falta de la **ruta**, en km desde 1000 m; (b) el punto del objetivo pegado al borde se dibuja como flechita hacia afuera (como en GTA); (c) opcional, alejar más el minimapa a toda velocidad (p. ej. 300 m) si al jugar hace falta | ⬜ propuesto 2026-11-06 (a y b recomendados) |
+| 10 | Red vial, paradas y ambientación: ver el plan "Red vial, paradas y ambientación" abajo | 🟡 fases 1–2 ✅; fases 3–5 ⬜ |
+
+**Pendiente 10 — plan "Red vial, paradas y ambientación" (planteado 2026-11-06)**
+
+Pedido: paradas que no sean siempre las mismas 3 con los mismos nombres, nombres propios de cada región,
+paradas con más ambientación que un cartel (que no se vea desértico) y una red vial menos de "circuito de
+carreras": más de un camino en tierra llana (en la montaña es lógico que haya uno solo).
+
+*Diagnóstico (cómo está hecho)*
+- Vías: C++ `RoadNetwork::_generate_hierarchy` (`src/road_network.cpp`, autor josep-castro). Pone
+  `town_count` = 4 pueblos, uno por sector angular alrededor del centro; los une con un árbol de enlaces más
+  cortos + **una sola** conexión extra (la que más rodeo ahorra) → casi siempre un solo camino; a cada
+  pueblo le agrega a lo mucho una calle corta (`kind` 3). Las carreteras son `kind` 1.
+- La vía se traza con A* sobre el relieve base (evita pendiente y agua) **antes** de la erosión, y luego el
+  terreno se aplana a lo largo de las vías (`src/terrain_mesh.cpp`, `limit_network_grade`, `road_weight`):
+  el terreno se adapta a las vías, no al revés. Agregar caminos = agregar tramos a esa lista.
+- Lo delicado son los **cruces**: un camino nuevo debe terminar en un punto exacto de otro (cortar la vía
+  ahí) para que el aplanado de la unión (`is_node`/`uses`) y el GPS (`RoadRouter`, que une puntos iguales
+  a 10 cm) lo vean como cruce.
+- La forma cambia con la semilla; el escenario guardado (`terrain_demo.tscn`) usa la semilla 2.
+- Paradas (`TerrainWorld._build_landmarks`): centros de pueblo + puntos cada 60 m sobre las vías + rasgos
+  (picos, confluencias, costa; en el mapa guardado no se detecta ninguno).
+
+*Fases (en este orden: la 2 es la base de la 3 y la 4)*
+1. ✅ **Nombres por región** (2026-11-06, GDScript). `StopNames` (`project/scripts/stop_names.gd`): banco de
+   18 nombres propios por región + plantillas por tipo (plaza, mercado, paradero, colegio, posta, grifo,
+   chacra/fundo, huaca/comunidad/embarcadero, mirador, confluencia/puente, playa). Cada landmark trae
+   `region`, `kind` y `label`; los pueblos son plaza o mercado, los rasgos mirador/confluencia/playa y
+   paradas de vía separadas ≥ 220 m reciben un tipo al azar ("via" = sin nombre). Sale de la semilla del
+   mundo (mismo mapa = mismos nombres), sin repetir. Cartel para cada parada con nombre (color por tipo, al
+   costado de la vía, nunca sobre la calzada). En el mapa guardado: 22 de 131 paradas con nombre.
+   Prueba: `tests/test_paradas.gd`.
+2. ✅ **Red vial más residencial** (2026-11-06, C++ `RoadNetwork::_grow_network`, hecho en `juego`). Resumen
+   abajo en "Fase 2 — cómo quedó"; el plan original era:
+   - 2a. Más conexiones entre pueblos: toda conexión que ahorre mucho rodeo (por ejemplo, ruta por vías
+     > 1.4 × la distancia directa), si A* la encuentra bajo la pendiente máxima; en la montaña no
+     se construye sola → "una sola vía en la sierra" sale del relieve. Parámetro tipo `extra_links`.
+   - 2b. Cuadrícula de calles en cada pueblo en terreno plano (3×3 o 4×4 cuadras de `block_size` 32 m),
+     recortada por pendiente y agua → caminos alternativos dentro del barrio.
+   - 2c. Trochas rurales (`kind` 0, más angostas, textura de tierra) de la carretera a chacras/caseríos;
+     a veces se vuelven a unir con otra vía (vueltas); pueden quedar sin salida.
+   - 2d. Cruces: cortar la vía existente en el punto de unión (riesgo técnico principal).
+   - Validar: `roads_test`, `test_drive_routes -- 8 editor`, alcanzabilidad (`is_reachable`), tiempo de
+     generación, cruces bien aplanados y con textura, FPS.
+3. ⬜ **Paradas sobre la red nueva**: mercado/plaza en el centro del pueblo, colegio/posta en las cuadras,
+   paraderos en los cruces de carretera, chacras al final de las trochas, embarcadero junto al agua (selva),
+   caleta/playa junto al mar (costa). Reusar `StopNames` (agregar reglas de ubicación por tipo).
+4. ⬜ **Ambientación** según región y tipo de parada: casas de adobe/quincha con techo plano (costa), adobe
+   con teja (sierra), madera con calamina o palafitos (selva); puestos de mercado, paradero techado,
+   toldos, postes. Casas a lo largo de las calles con lo que ya funciona en la vegetación (muchas copias
+   instanciadas, impostores de lejos, colisión solo cerca); ubicar con `get_offroad_amount` y pendiente
+   baja. Modelos CC0 (como los pasajeros y la vegetación). Presupuesto: hoy 150–165 FPS.
+5. ⬜ **Obstáculos de animales** (pendiente 5): al final, con pueblos y trochas hay lugares lógicos
+   (gallinas y perros en el pueblo, llamas en la trocha de la sierra, chanchos en la selva).
+
+*Decisiones (2026-11-06)*: la fase 2 se hizo en `juego` (coordinar con josep-castro: toca
+`road_network.cpp`); el escenario guardado puede cambiar. No hizo falta regenerar `terrain_demo.tscn`: la
+escena guarda solo configuración + suelo y el juego rehace las vías con la DLL al arrancar.
+
+*Fase 2 — cómo quedó*
+- **Inserción con cruces exactos (2d).** Todo trazo nuevo pasa por `insert`: se corta donde toca una vía
+  (distancia < semianchos + 2.5 m) y cada tramo libre empieza/termina **en un punto exacto** de la vía que
+  toca (no hace falta partir la vía: un punto compartido a mitad de vía ya es nodo para
+  `limit_network_grade` y para `RoadRouter`). También descarta tramos paralelos a la misma vía.
+- **2a. Enlaces extra** (`extra_links` = 4, `detour_ratio` = 1.4): candidatos pueblo–pueblo (carretera),
+  pueblo–carretera de paso y "travesaños" entre dos carreteras a 150–700 m que por la red quedan a
+  > 2.5× (avenida, `kind` 2). Se rechaza el trazo si es > 1.5× la distancia directa, con pendiente > 0.18
+  en 40 m (`extra_link_grade`) o si va pegado (< 60 m) a otra vía en más del 45%; separados ≥ 400 m.
+  En la semilla 2 el enlace oeste–noreste daría 3.9 km de vueltas por la sierra y no se construye.
+- **2b. Cuadras** (`town_blocks` = 4 → 4×4 cuadras de `block_size`): cuadrícula alineada con la carretera
+  que sale del pueblo; cada cuadra se valida (seca, pendiente ≤ `road_max_grade`, sin ladera de costado).
+- **2c. Trochas** (`kind` 0, `trail_width` 4.5 m, color tierra): `farm_tracks` = −1 → una cada ~450 m de
+  carretera (máx. 24), lejos de los pueblos, a una chacra a 90–260 m sin salida, o con 40%
+  (`track_loop_chance`) de vuelta a otra vía que por la red queda lejos. Pendiente ≤ 0.24 en 30 m.
+- Al final se quitan las vías que quedaron sin unir a las carreteras.
+- `grow_network = false` (en `ChunkMesh`) deja la red de antes. Los parámetros están en `ChunkMesh`.
+  `DEBUG_ROADS=1` imprime los enlaces evaluados.
+- A* con ventana (`_find_path(..., window)`): busca en un cuadrado de la misma grilla alrededor del inicio
+  y la meta; las carreteras no cambian.
+- **Mapa guardado (semilla 2)**: antes 4 carreteras + 2 calles; ahora 4 carreteras, 4 avenidas, 89
+  tramos de calle y 24 trochas. Red vial 0.34 → 0.6 s; reconstrucción total 2.0 → 2.4 s. Pendiente
+  máxima en vías 0.49 → 0.18; 0 de 2437 tramos sobre 0.35; 249 paradas (antes 131), todas en una zona
+  transitable. Capturas: `tests/capture_red_vial.gd` → `output/red_vial/`.
 
 **Pendiente 7 — una sola carrera + Modo libre (decidido 2026-11-06, hecho 2026-11-06)**
 
@@ -258,6 +344,8 @@ Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_jornada.gd    # cuota, ahorros, garaje, mapa
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_partida.gd    # guardar/cargar, reloj
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_escenario.gd  # cambiar escenario, Modo libre
+Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_destinos.gd   # viajes corto/medio/largo y su pago
+Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_paradas.gd    # nombres de paradas por región
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_vegetation.gd -- --editor
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/render_engine_audio.gd   # graba output/audio/mototaxi_demo.wav
 ```
@@ -362,3 +450,10 @@ para que Godot registre la clase.
   reloj ni dinero, con las mototaxis compradas, que reaparece en vez de perder y no toca la carrera.
   Nuevos `ScenarioPicker` (sacado del menú) y `ScenarioPanel`. Prueba nueva `tests/test_escenario.gd`;
   actualizadas `test_partida`, `test_pause_menu`, `test_pregame_ui`; capturas 8c, 9b, 12 y 13.
+- **2026-11-06** — Pendiente 8: destinos corto/medio/largo por todo el mapa con recargo por km en los largos
+  y sin viajes que no alcancen la jornada (`tests/test_destinos.gd`). Pendiente 10, fase 1: nombres y tipos
+  de parada por región (`StopNames`, `tests/test_paradas.gd`); se planteó el resto del plan (fases 2–5) y
+  se propuso el pendiente 9 (minimapa para viajes largos).
+- **2026-11-06** — Pendiente 10, fase 2: red vial más residencial en C++ (`RoadNetwork::_grow_network`):
+  enlaces extra, cuadras en los pueblos, trochas y cruces exactos. `hierarchy_test` actualizado (toda vía
+  nueva sale de un punto de otra y el GPS llega a ella); captura nueva `tests/capture_red_vial.gd`.

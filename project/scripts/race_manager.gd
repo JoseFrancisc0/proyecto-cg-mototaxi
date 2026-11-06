@@ -19,6 +19,7 @@ extends Node3D
 ## rebajan hasta rough_pay_min. Pasado el margen se baja sin pagar (FALLADO).
 
 enum State { LIBRE, CON_PASAJERO, ENTREGADO, FALLADO }
+enum RideKind { CORTO, MEDIO, LARGO }
 
 signal state_changed(state: State)
 signal ride_started(time_limit: float, route_length: float)
@@ -33,9 +34,21 @@ signal passenger_said(text: String)
 @export var pickup_max_dist := 180.0   ## Distancia máxima preferida.
 @export var board_speed_kmh := 20.0    ## Hay que entrar a la zona por debajo de esta velocidad.
 
+## El pasajero pide un viaje corto, medio o largo (distancia en línea recta desde donde sube):
+##   corto: ride_min_dist .. ride_max_dist (la mayoría)
+##   medio: ride_max_dist .. ride_mid_max_dist (ride_mid_chance)
+##   largo: ride_mid_max_dist .. ride_long_max_dist (ride_long_chance), cruza buena parte del mapa
+## Los largos pagan más por km (long_fare_bonus) para que valgan el tiempo, y no se piden si no
+## alcanzan a terminar antes de que acabe la jornada (time_budget).
 @export_group("Destino")
 @export var ride_min_dist := 80.0
-@export var ride_max_dist := 260.0
+@export var ride_max_dist := 300.0
+@export var ride_mid_max_dist := 800.0
+@export var ride_long_max_dist := 1900.0
+@export_range(0.0, 1.0) var ride_mid_chance := 0.32
+@export_range(0.0, 1.0) var ride_long_chance := 0.18
+## En viajes largos, los destinos con nombre (pueblos, miradores) son así de más probables.
+@export var long_named_weight := 3.0
 
 @export_group("Tiempo")
 @export var base_time := 15.0          ## Segundos extra fijos por carrera.
@@ -49,6 +62,12 @@ signal passenger_said(text: String)
 @export_group("Pago y ánimo (S13)")
 @export var fare_base := 3.0           ## Soles por carrera.
 @export var fare_per_km := 4.0         ## Soles por km de ruta recomendada.
+## Recargo por viaje largo: el precio por km sube hasta (1 + long_fare_bonus) entre
+## long_bonus_from y long_bonus_full metros de ruta. Así un viaje largo rinde más soles por
+## minuto que varios cortos (en los cortos pesa la tarifa base), a cambio de más riesgo.
+@export var long_fare_bonus := 1.0
+@export var long_bonus_from := 200.0
+@export var long_bonus_full := 2000.0
 ## Margen de retraso, como fracción del tiempo límite (con un mínimo en segundos).
 @export var late_grace := 0.6
 @export var late_grace_min := 15.0
@@ -84,6 +103,10 @@ var earnings := 0.0       ## Puntaje: soles ganados en la partida.
 ## Segundos de retraso del viaje actual (cuenta cuando time_left llega a 0).
 var late_time := 0.0
 var mood := 1.0           ## Ánimo del pasajero a bordo (0..1).
+var ride_kind: RideKind = RideKind.CORTO  ## Tipo del viaje actual.
+var ride_fare := 0.0      ## Tarifa completa del viaje actual (se conoce al subir).
+## Segundos que quedan para pedir un viaje (GameSession pone lo que le queda a la jornada).
+var time_budget := INF
 var route_line: RouteLine
 
 ## Persona que espera, sube y baja (modelo animado).
@@ -197,9 +220,14 @@ func compute_route_time(path: PackedVector3Array) -> float:
 	return t
 
 
-## Tarifa de una carrera según el largo de la ruta recomendada (m).
+## Tarifa de una carrera según el largo de la ruta recomendada (m), con recargo si es larga.
 func compute_fare(length: float) -> float:
-	return fare_base + fare_per_km * length / 1000.0
+	var bonus := long_fare_bonus * smoothstep(long_bonus_from, long_bonus_full, length)
+	return fare_base + fare_per_km * length / 1000.0 * (1.0 + bonus)
+
+
+static func ride_kind_name(k: RideKind) -> String:
+	return ["Viaje corto", "Viaje medio", "Viaje largo"][k]
 
 
 ## Lo que paga el pasajero: la tarifa rebajada por el retraso (late_fraction: 0 = a tiempo,
@@ -253,7 +281,7 @@ func _new_passenger() -> void:
 
 func _board() -> void:
 	var from := _landmark_pos(_pickup_id)
-	_dropoff_id = _pick_landmark(from, ride_min_dist, ride_max_dist, _pickup_id)
+	_dropoff_id = _pick_destination(from, _roll_ride_kind())
 	if _dropoff_id < 0:
 		return
 	var to := _landmark_pos(_dropoff_id)
@@ -265,6 +293,7 @@ func _board() -> void:
 	else:
 		time_limit = compute_route_time(route)
 	time_left = time_limit
+	ride_fare = compute_fare(route_length)
 	late_time = 0.0
 	mood = 1.0
 	_comfort = 1.0
@@ -278,7 +307,10 @@ func _board() -> void:
 	_show_route(route)
 	ride_started.emit(time_limit, route_length)
 	var destination := get_target_label()
-	if not destination.is_empty():
+	if ride_kind == RideKind.LARGO:
+		var where := ("Hasta %s" % destination) if not destination.is_empty() else "Lléveme lejos"
+		passenger_said.emit("%s, es lejitos. Le pago S/ %.2f." % [where, ride_fare])
+	elif not destination.is_empty():
 		passenger_said.emit("Hasta %s, por favor." % destination)
 
 
@@ -289,7 +321,7 @@ func _finish(success: bool) -> void:
 	var pay := 0.0
 	if success:
 		deliveries += 1
-		fare = compute_fare(route_length)
+		fare = ride_fare
 		pay = compute_payment(fare, get_late_fraction(), _comfort)
 		earnings += pay
 		if pay <= 0.0:
@@ -409,6 +441,68 @@ func _pick_landmark(origin: Vector3, min_d: float, max_d: float, exclude: int) -
 	if not candidates.is_empty():
 		return candidates[_rng.randi_range(0, candidates.size() - 1)]
 	return far_id
+
+
+## Tipo de viaje que pide el pasajero, al azar según ride_mid_chance y ride_long_chance.
+func _roll_ride_kind() -> RideKind:
+	var r := _rng.randf()
+	if r < ride_long_chance:
+		return RideKind.LARGO
+	if r < ride_long_chance + ride_mid_chance:
+		return RideKind.MEDIO
+	return RideKind.CORTO
+
+
+## Rango de distancia en línea recta [mín, máx] de cada tipo de viaje.
+func ride_range(k: RideKind) -> Vector2:
+	match k:
+		RideKind.MEDIO:
+			return Vector2(ride_max_dist, ride_mid_max_dist)
+		RideKind.LARGO:
+			return Vector2(ride_mid_max_dist, ride_long_max_dist)
+	return Vector2(ride_min_dist, ride_max_dist)
+
+
+## Destino para un viaje del tipo pedido desde origin. Si no hay ninguno de ese tipo (borde
+## del mapa, zona chica) o no alcanza el tiempo de la jornada, prueba con uno más corto.
+## Deja en ride_kind el tipo que salió.
+func _pick_destination(origin: Vector3, wanted: RideKind) -> int:
+	var lms := world.get_landmarks()
+	for k in range(wanted, -1, -1):
+		var span := ride_range(k)
+		# Estimación del tiempo límite sin calcular la ruta: las vías dan ~1.4 veces la recta.
+		if k > RideKind.CORTO and compute_time_limit(span.x * 1.4) > time_budget:
+			continue
+		var ids: Array[int] = []
+		var weights := PackedFloat32Array()
+		var total := 0.0
+		for lm in lms:
+			var id: int = lm["id"]
+			if id == _pickup_id:
+				continue
+			var p: Vector3 = lm["position"]
+			var d := Vector2(p.x - origin.x, p.z - origin.z).length()
+			if d < span.x or d > span.y or not world.is_reachable(origin, p):
+				continue
+			if k > RideKind.CORTO and compute_time_limit(d * 1.4) > time_budget:
+				continue
+			var w := 1.0
+			if k == RideKind.LARGO and not str(lm.get("label", "")).is_empty():
+				w = long_named_weight
+			ids.append(id)
+			weights.append(w)
+			total += w
+		if ids.is_empty():
+			continue
+		ride_kind = k as RideKind
+		var r := _rng.randf() * total
+		for i in ids.size():
+			r -= weights[i]
+			if r <= 0.0:
+				return ids[i]
+		return ids[ids.size() - 1]
+	ride_kind = RideKind.CORTO
+	return _pick_landmark(origin, ride_min_dist, ride_max_dist, _pickup_id)
 
 
 ## Desplazamiento desde el centro de la vía hasta la vereda derecha, según cómo se llega

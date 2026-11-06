@@ -103,6 +103,8 @@ func _physics_process(delta: float) -> void:
 	if not playing or moto == null or world == null:
 		return
 	play_time += delta
+	# Los pasajeros no piden viajes medios o largos que no alcancen a terminar en la jornada.
+	race.time_budget = INF if free_mode else day_time_left
 	if not free_mode:  # El Modo libre no tiene reloj.
 		if day_time_left <= 0.0:
 			overtime_time += delta
