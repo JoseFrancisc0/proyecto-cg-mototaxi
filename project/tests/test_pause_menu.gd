@@ -61,9 +61,13 @@ func _initialize() -> void:
 
 	print("-- Reiniciar")
 	await _press_pause()
-	main.pause_menu.restart_requested.emit()
+	main.pause_menu.open_scenario()
+	_check(main.pause_menu._scenario.visible and not main.pause_menu._box.visible, "Reiniciar partida abre el escenario")
+	_check(main.pause_menu._scenario._note.text.contains("pierdes los ahorros"), "y avisa que se pierden los ahorros")
+	main.pause_menu._scenario.confirm()  # Mismo escenario: sin regenerar.
 	await process_frame
 	_check(not paused and not main.pause_menu.visible, "reiniciar cierra el menú y sigue la partida")
+	_check(current_scene == main, "en el mismo escenario no se recarga la escena")
 	_check(race.state == RaceManager.State.LIBRE, "turno nuevo (buscando pasajero)")
 
 	print("-- Volumen")

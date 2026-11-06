@@ -41,17 +41,36 @@ func _capture() -> void:
 	race.state = RaceManager.State.ENTREGADO
 	for i in 10: await physics_frame
 	await save_frame("8_dia_completo")
+	main.game_over_screen.open_garage()
+	await save_frame("8b_garaje_fin_del_dia")
+	main.game_over_screen.close_garage()
+	main.game_over_screen.open_scenario()
+	await save_frame("8c_escenario_fin_del_dia")
+	main.game_over_screen._close_panels()
 	main.next_day()
 	for i in 10: await physics_frame
 	main.pause()
 	main._on_save_requested()
 	await save_frame("9_pausa_guardada")
+	main.pause_menu.open_scenario()
+	await save_frame("9b_pausa_reiniciar")
 	main.resume()
 	main.queue_free()
 	await process_frame
 	main = load("res://main.tscn").instantiate()
 	root.add_child(main)
 	await save_frame("10_menu_continuar")
+	main.loading._open_garage()
+	await save_frame("11_menu_garaje")
+	main.loading._close_dialog()
+	main.loading._open_free_setup()
+	await save_frame("12_modo_libre")
+	main.loading._on_play()
+	while not main.hud.visible:
+		await process_frame
+	for i in 60: await physics_frame
+	await save_frame("13_modo_libre_hud")
+	paused = false
 	CareerSave.reset()
 	print("Capturas de la jornada guardadas")
 	quit()

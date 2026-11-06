@@ -14,8 +14,13 @@ var _root: Control
 var _home: Control
 var _hero: Control
 var _navigation: BoxContainer
-var _continue_game: Button   ## "Continuar · Día N": solo si hay partida guardada.
-var _new_game: Button
+var _continue_game: Button   ## "Continuar · Día N": en lugar de "Jugar" si hay partida guardada.
+var _new_game: Button        ## "Jugar": solo sin partida guardada (hay una sola carrera).
+var _free_button: Button     ## Modo libre: explorar escenarios sin cuota ni dinero.
+var _garage_button: Button   ## Garaje: comprar y elegir mototaxi, con o sin partida guardada.
+var _vehicle_note: Label     ## En "Jugar" y "Modo libre": qué mototaxi se usará.
+## true si la configuración abierta es la del Modo libre.
+var _free_setup := false
 var _title: Label
 var _paper: Label
 var _dialog: Control
@@ -26,13 +31,13 @@ var _dialog_close: Button
 var _menu: VBoxContainer
 var _options: VBoxContainer
 var _notice: Label
+## Terreno, región y calidad (los demás campos son atajos a sus controles).
+var _picker: ScenarioPicker
 var _seed_edit: LineEdit
 var _seed_row: VBoxContainer
 var _quality_row: VBoxContainer
 var _mode: OptionButton
 var _region: OptionButton
-var _region_note: Label
-var _share_row: VBoxContainer
 var _share: OptionButton
 var _quality: OptionButton
 var _play: Button
@@ -154,6 +159,18 @@ func _build_ui() -> void:
 	_continue_game.pressed.connect(_on_continue)
 	_navigation.add_child(_continue_game)
 	_navigation.move_child(_continue_game, 0)
+	_free_button = Button.new()
+	_free_button.name = "FreeModeButton"
+	_free_button.text = "Modo libre"
+	_free_button.pressed.connect(_open_free_setup)
+	_navigation.add_child(_free_button)
+	_navigation.move_child(_free_button, _new_game.get_index() + 1)
+	_garage_button = Button.new()
+	_garage_button.name = "GarageButton"
+	_garage_button.text = "Garaje"
+	_garage_button.pressed.connect(_open_garage)
+	_navigation.add_child(_garage_button)
+	_navigation.move_child(_garage_button, _free_button.get_index() + 1)
 	_refresh_continue()
 	_paper = _root.get_node("VersionMargin/VersionContainer/VersionLabel")
 	_paper.text = "Schott et al. (2024) · Terrain Amplification using Multi-scale Erosion"
@@ -219,49 +236,20 @@ func _build_dialog() -> void:
 	_menu.add_theme_constant_override("separation",12)
 	contents.add_child(_menu)
 	_garage = VehicleGarage.new()
-	_menu.add_child(_garage)
-	_menu.add_child(_label("Terreno"))
-	_mode = OptionButton.new()
-	_mode.add_item("Terreno guardado")
-	_mode.add_item("Nuevo terreno")
-	_mode.custom_minimum_size.y = 44
-	_mode.item_selected.connect(_update_mode)
-	_menu.add_child(_mode)
-	_menu.add_child(_label("Región"))
-	_region = OptionButton.new()
-	for item in ["Mixta (costa, sierra y selva)","Costa","Sierra","Selva"]: _region.add_item(item)
-	_region.custom_minimum_size.y = 44
-	_region.item_selected.connect(_update_mode)
-	_menu.add_child(_region)
-	_share_row = VBoxContainer.new()
-	_menu.add_child(_share_row)
-	_share = OptionButton.new()
-	for item in ["Mayoría de esa región","Solo esa región"]: _share.add_item(item)
-	_share.custom_minimum_size.y = 44
-	_share_row.add_child(_share)
-	_region_note = _label("",15,MUTED)
-	_region_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_menu.add_child(_region_note)
-	_seed_row = VBoxContainer.new()
-	_menu.add_child(_seed_row)
-	_seed_row.add_child(_label("Semilla"))
-	var seed_controls := HBoxContainer.new()
-	_seed_row.add_child(seed_controls)
-	_seed_edit = LineEdit.new()
-	_seed_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_seed_edit.custom_minimum_size.y = 44
-	seed_controls.add_child(_seed_edit)
-	seed_controls.add_child(_button("Aleatoria",func(): _seed_edit.text = str(randi()%2147483647)))
-	_quality_row = VBoxContainer.new()
-	_menu.add_child(_quality_row)
-	_quality_row.add_child(_label("Generación"))
-	_quality = OptionButton.new()
-	for item in ["Rápida","Normal","Completa"]: _quality.add_item(item)
-	_quality.custom_minimum_size.y = 44
-	_quality_row.add_child(_quality)
-	var note := _label("La misma semilla y los mismos ajustes generan el mismo terreno. La generación completa tarda más.",15,MUTED)
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_quality_row.add_child(note)
+	contents.add_child(_garage)
+	contents.move_child(_garage, 0)
+	_vehicle_note = _label("",16,MUTED)
+	_vehicle_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_menu.add_child(_vehicle_note)
+	_picker = ScenarioPicker.new()
+	_menu.add_child(_picker)
+	_mode = _picker.mode
+	_region = _picker.region
+	_share = _picker.share
+	_seed_row = _picker.seed_row
+	_seed_edit = _picker.seed_edit
+	_quality_row = _picker.quality_row
+	_quality = _picker.quality
 	_notice = _label("",16,Color("ff839c"))
 	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_menu.add_child(_notice)
@@ -442,18 +430,35 @@ func _open_panel(title: String) -> void:
 	_dialog_title.text = title
 	_menu.hide()
 	_play.hide()
+	_garage.hide()
 	_options.hide()
 	_dialog_body.hide()
 	_dialog.show()
 	_dialog_close.grab_focus()
 	_responsive()
 
-func _open_setup() -> void:
-	_open_panel("Jugar")
+## Configuración de la carrera (solo sin partida guardada: hay una sola carrera). free: Modo libre.
+func _open_setup(free := false) -> void:
+	_free_setup = free
+	_open_panel("Modo libre" if free else "Jugar")
+	_notice.hide()
+	_play.text = "Explorar" if free else "Iniciar"
+	_vehicle_note.text = "Mototaxi: %s  ·  cámbiala en el Garaje" % VehicleCatalog.entry(CareerSave.get_active()).name
+	if free:
+		_vehicle_note.text += "\nSin pasajeros, sin reloj ni dinero: recorre el terreno a tu ritmo. No toca tu carrera."
 	_menu.show()
 	_play.show()
 	_responsive()
 	_play.grab_focus()
+
+func _open_free_setup() -> void:
+	_open_setup(true)
+
+func _open_garage() -> void:
+	_open_panel("Garaje")
+	_garage.refresh()
+	_garage.show()
+	_responsive()
 
 func _show_options() -> void:
 	_open_panel("Opciones")
@@ -506,7 +511,7 @@ func _responsive() -> void:
 	_music_toggle.offset_right = -12
 	_music_toggle.offset_top = -52
 	_music_toggle.offset_bottom = -12
-	var setup := is_instance_valid(_menu) and _menu.visible
+	var setup := is_instance_valid(_menu) and (_menu.visible or _garage.visible)
 	var w := minf(1000 if setup else 540,v.x-28)
 	var h := minf(740 if setup else 620,v.y-36)
 	_dialog_panel.position = (v-Vector2(w,h))/2
@@ -517,16 +522,7 @@ func _responsive() -> void:
 	_progress_box.offset_bottom = -72
 
 func _update_mode(_index := 0) -> void:
-	_seed_row.visible = _mode.selected == 1
-	_quality_row.visible = _mode.selected == 1
-	_share_row.visible = _mode.selected == 1 and _region.selected > 0
-	if _region.selected == 0:
-		_region_note.text = ""
-	elif _mode.selected == 0:
-		_region_note.text = "El terreno guardado ya tiene sus regiones: empiezas en la zona de esa región."
-	else:
-		_region_note.text = "El mapa se genera con esa región como protagonista y empiezas en ella."
-	_region_note.visible = _region_note.text != ""
+	_picker.update_mode()
 
 func show_menu(choice: Dictionary) -> void:
 	_starting = false
@@ -536,32 +532,27 @@ func show_menu(choice: Dictionary) -> void:
 	_hero.show()
 	_progress_box.hide()
 	_dialog.hide()
-	_seed_edit.text = str(choice.get("seed",67))
-	_mode.select(0 if choice.get("mode","editor") == "editor" else 1)
-	var scale: float = choice.get("erosion_scale",.1)
-	_quality.select(0 if scale <= .15 else (1 if scale <= .5 else 2))
-	_region.select(clampi(int(choice.get("region",_region.selected)),0,3))
-	_share.select(1 if choice.get("region_only",_share.selected == 1) else 0)
-	if choice.has("vehicle"):
-		_garage.select_vehicle(int(choice.vehicle))
+	_picker.set_choice(choice)
 	_notice.hide()
 	_play.disabled = false
 	_refresh_continue()
-	_update_mode()
 	_responsive()
 	_focus_first()
 
 func _focus_first() -> void:
 	(_continue_game if _continue_game.visible else _new_game).grab_focus()
 
-## Muestra "Continuar" si hay partida guardada (y "Nueva partida" en vez de "Jugar").
+## Hay una sola carrera: con partida guardada, "Continuar · Día N" reemplaza a "Jugar"
+## (para empezar de cero está "Reiniciar partida" en la pausa).
 func _refresh_continue() -> void:
 	var save := CareerSave.load_game()
 	_continue_game.visible = not save.is_empty()
 	_continue_game.text = "Continuar · Día %d" % int(save.get("day", 1))
-	_new_game.text = "Nueva partida" if _continue_game.visible else "Jugar"
+	_new_game.visible = not _continue_game.visible
+	_new_game.text = "Jugar"
 
-## Sigue la partida guardada: el mismo mundo (semilla o terreno del editor) y la misma mototaxi.
+## Sigue la partida guardada: el mismo mundo (semilla o terreno del editor), con la mototaxi
+## elegida en el garaje.
 func _on_continue() -> void:
 	if _starting: return
 	var save := CareerSave.load_game()
@@ -570,32 +561,35 @@ func _on_continue() -> void:
 		return
 	var choice := {"mode":"editor","seed":67,"erosion_scale":.1}
 	choice.merge(save.get("choice",{}),true)
-	choice["vehicle"] = int(save.get("vehicle",choice.get("vehicle",CareerSave.STARTER)))
+	choice["vehicle"] = CareerSave.get_active()  # La elegida en el garaje.
 	choice["load"] = save
 	_starting = true
 	start_requested.emit(choice)
 
 func _on_play() -> void:
 	if _starting: return
-	var seed_text := _seed_edit.text.strip_edges()
-	if _mode.selected == 1 and (not seed_text.is_valid_int() or int(seed_text)<0 or int(seed_text)>2147483647):
-		_notice.text = "Ingresa una semilla entre 0 y 2147483647."
+	var error := _picker.validate()
+	if error != "":
+		_notice.text = error
 		_notice.show()
 		return
-	if not _garage.is_selected_owned():
-		_notice.text = "Esa mototaxi aún no es tuya: cómprala con tus ahorros o elige otra."
+	# La carrera es una sola: "Jugar" no borra una partida guardada (se sigue con Continuar).
+	if not _free_setup and CareerSave.has_game():
+		_notice.text = "Ya tienes una partida en curso: síguela con Continuar."
 		_notice.show()
 		return
 	_starting = true
 	_play.disabled = true
 	start_requested.emit(_current_choice())
 
-## Lo elegido en el menú. region: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva; vehicle: índice del garaje.
+## Lo elegido en el menú. region: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva; vehicle: índice
+## del garaje; free: Modo libre.
 func _current_choice() -> Dictionary:
-	var seed_text := _seed_edit.text.strip_edges()
-	return {"mode":"editor" if _mode.selected == 0 else "seed","seed":int(seed_text) if seed_text.is_valid_int() else 67,
-		"erosion_scale":[.1,.35,1.0][_quality.selected],"region":_region.selected,"region_only":_share.selected == 1,
-		"vehicle":_garage.selected}
+	var choice := _picker.get_choice()
+	choice["vehicle"] = CareerSave.get_active()
+	if _free_setup:
+		choice["free"] = true
+	return choice
 
 func show_progress() -> void:
 	_home.hide()
@@ -620,8 +614,9 @@ func set_progress(stage: String, fraction: float) -> void:
 	_progress_percent.text = "%d %%" % int(_fraction*100)
 
 func show_error(message := "No se pudo preparar el terreno. Intenta de nuevo.") -> void:
+	var free := _free_setup
 	show_menu(_current_choice())
-	_open_setup()
+	_open_setup(free)
 	_notice.text = message
 	_notice.show()
 

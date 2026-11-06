@@ -85,6 +85,37 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
 | 4 | Darle sentido al dinero (ver opciones abajo) y un fin de partida que no dependa solo de la vida | ✅ opciones 1 + 3: jornadas con cuota (`GameSession`) y ahorros para el garaje (`CareerSave`); sin propinas |
 | 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ⬜ |
 | 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | ⬜ |
+| 7 | Ordenar partidas (opción B, decidida 2026-11-06): una sola carrera continua + Modo libre; quitar "Nueva partida"; elegir el escenario al terminar el día o al reiniciar (ver abajo) | ✅ `ScenarioPicker`/`ScenarioPanel`, `CareerSave.launch`, `GameSession.free_mode` |
+
+**Pendiente 7 — una sola carrera + Modo libre (decidido 2026-11-06, hecho 2026-11-06)**
+
+Problema: el menú "Continuar / Nueva partida" es de juego con historia (varias líneas de tiempo), pero las
+reglas son de roguelite (ahorros que se pierden al perder, compras que se quedan). "Nueva partida" solo
+servía para borrar la guardada; tener varias líneas de tiempo rompería las compras globales.
+
+- **Una sola carrera.** Se quita "Nueva partida". Menú: Jugar/Continuar · Modo libre · Garaje · Opciones ·
+  Controles · Créditos · Salir. Sin partida guardada, "Jugar" abre la configuración del mundo (como hoy);
+  con partida, "Continuar · Día N".
+- **Escenario dentro de la partida.** Al terminar el día, junto a "Garaje", un botón para cambiar el
+  escenario (región, terreno/semilla, calidad): se regenera el mapa y el día siguiente empieza ahí. En la
+  pausa no se cambia a mitad del día; ahí la configuración elegida se aplica al **reiniciar** ("Reiniciar
+  partida" = abandonar y empezar de cero, desde el día 1 y sin ahorros, con confirmación).
+- **Modo libre.** Explorar escenarios (el otro punto fuerte del juego, el terreno): sin cuota, sin dinero, no
+  guarda ni toca la carrera; cualquier terreno, región o semilla.
+- **Se mantiene** lo hecho el 2026-11-06 (ahorros por partida, compras permanentes, mototaxi en uso, cuota
+  fija, garaje en el menú y al terminar el día, `carrera_pruebas.cfg` para las pruebas).
+- **Decidido:** (a) al terminar el día se puede cambiar todo (terreno guardado o nuevo con semilla, región,
+  calidad); (b) Modo libre solo con las mototaxis compradas (como el modo práctica de Geometry Dash: sirve
+  para explorar, pero lo que se desbloquea se gana en la carrera), sin pasajeros, reloj, dinero ni récord;
+  si se destroza, se sale del mapa o queda atrapada, reaparece; (c) tras perder, "Reintentar" sigue en el
+  mismo mapa y al lado está "Cambiar escenario" (día 1 en otro).
+- **Cómo funciona:** el selector de escenario es `ScenarioPicker` (menú) y `ScenarioPanel` (fin del día,
+  fin de partida y pausa). Si el escenario cambia, Main deja lo elegido en `CareerSave.launch` (solo en
+  memoria) y recarga la escena, que genera el mapa nuevo sin pasar por la portada; si es el mismo, sigue
+  sin regenerar. Al terminar el día, la partida guardada pasa a ese escenario (sin posición: se empieza en
+  la zona de la región). En la pausa, "Reiniciar partida" abre el panel (avisa que se pierden los ahorros);
+  en Modo libre la pausa ofrece "Cambiar escenario" y "Volver al inicio" (sin "Guardar"). Con partida
+  guardada, "Jugar" no aparece (solo "Continuar · Día N"). `--libre` entra directo al Modo libre.
 
 **Opciones para darle sentido al dinero** (en GTA el taxi solo suma dinero; aquí el juego necesita una meta)
 1. **Cuota del día (alquiler de la mototaxi).** La partida es una jornada con reloj (p. ej. 6–8 min). Al final
@@ -105,12 +136,20 @@ Elegido: **1 + 3** (2026-11-04). Las reparaciones pagadas (opción 2) quedan com
   vuelcos rebajan hasta 60 % (`rough_pay_min`). Si se acaba el tiempo, el pasajero sigue a bordo pero
   *tarde*: paga desde 70 % (`late_pay_start`) bajando hasta nada al final del margen (`late_grace`, 60 % del
   tiempo límite, mínimo 15 s); pasado el margen se baja sin pagar. Se redondea a 10 céntimos.
-- **Jornada con cuota.** Cada día dura 6 min (`day_length`); la cuota es S/ 10 el día 1 y sube S/ 4 por día.
-  Si el reloj llega a 0 con pasajero a bordo, se termina ese viaje. Con la cuota juntada, lo que sobra va a
-  los ahorros y sigue el día siguiente (mototaxi reparada); si no, fin de partida. Ya no se pierde por
-  pasajeros perdidos (`max_failures = 0`); siguen el fin por vida, borde y atrapado.
-- **Garaje con precios.** `user://carrera.cfg` guarda ahorros, mototaxis compradas y mejor jornada. Se
-  empieza con Neon Shadow; las demás cuestan S/ 30–85 (`price` en `VehicleCatalog`) y se compran en el menú.
+- **Jornada con cuota.** Cada día dura 6 min (`day_length`); la cuota es fija, S/ 10 por día
+  (`quota_per_day = 0`: lo que cuenta es lo ganado ese día). Si el reloj llega a 0 con pasajero a bordo, se
+  termina ese viaje. Con la cuota juntada, lo que sobra va a los ahorros de la partida y sigue el día
+  siguiente (mototaxi reparada); si no, fin de partida. Ya no se pierde por pasajeros perdidos
+  (`max_failures = 0`); siguen el fin por vida, borde y atrapado.
+- **Ahorros por partida, compras para siempre.** `user://carrera.cfg` tiene dos niveles: la carrera
+  (mototaxis compradas, la que está en uso y mejor jornada; se conserva siempre) y la partida (estado
+  guardado y sus ahorros). Perder o "Reiniciar partida" (pausa, pide confirmar) borran la partida y sus
+  ahorros; lo comprado se queda (ya no hay "Nueva partida": ver Pendiente 7). Objetivo a largo
+  plazo, sin anunciarlo: conseguir todas las mototaxis. Las pruebas (`-s`) usan `carrera_pruebas.cfg`.
+- **Garaje con precios.** Se empieza con Neon Shadow; las demás cuestan S/ 30–85 (`price` en
+  `VehicleCatalog`). El garaje es una entrada propia del menú principal y también se abre desde el resumen
+  de cada día cumplido: comprar (queda en uso) o "Usar esta". "Continuar", "Jugar", el Modo libre y el día
+  siguiente usan la mototaxi en uso; "Jugar" solo configura el terreno.
 - **Reloj acelerado.** Los 6 min reales van de 07:00 a 19:00 en el reloj del juego (`day_start_hour`,
   `day_end_hour`; 1 s real = 2 min). El HUD muestra la hora y la de cierre. La luz del sol todavía no sigue la
   hora (queda para la parte gráfica).
@@ -218,6 +257,7 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/t
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_passenger.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_jornada.gd    # cuota, ahorros, garaje, mapa
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_partida.gd    # guardar/cargar, reloj
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_escenario.gd  # cambiar escenario, Modo libre
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_vegetation.gd -- --editor
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/render_engine_audio.gd   # graba output/audio/mototaxi_demo.wav
 ```
@@ -309,3 +349,16 @@ para que Godot registre la clase.
   cada día; antes solo se guardaban los ahorros al terminar un día, así que cerrar el juego a mitad perdía
   todo. Reloj del juego acelerado: la jornada va de 07:00 a 19:00 en 6 min reales. Prueba nueva
   `tests/test_partida.gd`.
+- **2026-11-06** — Ahorros por partida: perder borra la partida guardada y sus ahorros; las mototaxis
+  compradas se conservan (`CareerSave`: secciones carrera/partida, `get_active`/`set_active`, migración de
+  los ahorros antiguos a la partida guardada). Cuota fija por día. Garaje como botón propio del menú
+  principal y en el resumen del día (`GameOverScreen.open_garage`); "Nueva partida" sin garaje y con
+  confirmación al borrar una guardada; "Reiniciar partida" en la pausa con confirmación. Pruebas actualizadas:
+  `test_jornada`, `test_partida`, `test_pregame_ui`, `test_pregame_start`; capturas 8b, 11 y 12 en
+  `capture_jornada.gd`.
+- **2026-11-06** — Pendiente 7: una sola carrera + Modo libre. Sin "Nueva partida" (con partida guardada el
+  menú solo ofrece "Continuar · Día N"); "Cambiar escenario" al terminar el día (el siguiente empieza en el
+  mapa nuevo, con los ahorros), al perder (día 1) y en la pausa al reiniciar; Modo libre sin pasajeros,
+  reloj ni dinero, con las mototaxis compradas, que reaparece en vez de perder y no toca la carrera.
+  Nuevos `ScenarioPicker` (sacado del menú) y `ScenarioPanel`. Prueba nueva `tests/test_escenario.gd`;
+  actualizadas `test_partida`, `test_pause_menu`, `test_pregame_ui`; capturas 8c, 9b, 12 y 13.

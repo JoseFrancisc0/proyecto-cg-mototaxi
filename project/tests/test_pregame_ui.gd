@@ -40,19 +40,24 @@ func _run() -> void:
 	check(screen._dialog.visible and screen._menu.visible,"Jugar abre la configuración en una pantalla aparte")
 	screen._mode.select(0)
 	screen._mode.item_selected.emit(0)
-	# Una mototaxi sin comprar no deja jugar; comprada sí (carrera de prueba aparte).
+	check(not screen._garage.is_visible_in_tree(),"Nueva partida solo configura el terreno")
+	# El garaje es una entrada propia; una sin comprar no queda en uso (carrera de prueba aparte).
 	CareerSave.path = "user://test_pregame.cfg"
 	CareerSave.reset()
+	screen._close_dialog()
+	screen._open_garage()
+	check(screen._garage.is_visible_in_tree() and not screen._menu.visible,"Garaje abre su propia pantalla")
 	screen._garage.select_vehicle(4)
-	screen._on_play()
-	check(choices.is_empty() and screen._notice.visible,"Una mototaxi sin comprar no deja jugar")
+	check(screen._garage._buy.disabled,"Sin ahorros no se compra")
 	CareerSave.add_savings(1000.0)
-	screen._garage._on_buy()
-	check(CareerSave.is_owned(4),"Comprar con ahorros la desbloquea")
+	screen._garage._on_shop_button()
+	check(CareerSave.is_owned(4) and CareerSave.get_active()==4,"Comprar con ahorros la desbloquea y la deja en uso")
+	screen._close_dialog()
+	screen._open_setup()
 	screen._on_play()
 	screen._on_play()
 	check(choices.size()==1 and choices[0].mode=="editor","Arranque único, modo guardado conservado")
-	check(choices[0].vehicle==4,"La selección del garaje se entrega al juego")
+	check(choices[0].vehicle==4,"La mototaxi en uso se entrega al juego")
 	screen.show_menu({"mode":"seed","seed":42,"erosion_scale":.35})
 	check(screen._seed_row.visible and screen._quality.selected==1,"Selección de semilla y calidad recuperadas")
 	screen._seed_edit.text="abc"
@@ -81,7 +86,7 @@ func _run() -> void:
 	check(not screen._dialog.visible,"Ayuda cerrable")
 	root.size=Vector2i(720,900)
 	screen._responsive()
-	check(screen._navigation.vertical and screen._navigation.get_child_count()==6,"La lista original de la plantilla conserva su distribución")
+	check(screen._navigation.vertical and screen._navigation.get_child_count()==8,"La lista original de la plantilla conserva su distribución")
 	for viewport_size in [Vector2i(1440,900),Vector2i(960,640),Vector2i(720,900),Vector2i(390,844),Vector2i(640,360)]:
 		root.size=viewport_size
 		screen.show_menu({"mode":"seed","seed":42})

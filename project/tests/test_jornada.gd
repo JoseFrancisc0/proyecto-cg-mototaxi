@@ -1,5 +1,6 @@
 extends SceneTree
-## Prueba sin ventana de la jornada con cuota, los ahorros del garaje y el mapa completo:
+## Prueba sin ventana de la jornada con cuota fija, los ahorros de la partida, el garaje
+## (lo comprado se queda al perder) y el mapa completo:
 ##   Godot_console.exe --headless --path project -s res://tests/test_jornada.gd
 ## Usa un archivo de carrera aparte (no toca los ahorros del jugador).
 
@@ -29,6 +30,19 @@ func _initialize() -> void:
 	var price: float = VehicleCatalog.entry(0)["price"]
 	_check(CareerSave.buy(0) and CareerSave.is_owned(0), "con ahorros se compra")
 	_check(is_equal_approx(CareerSave.get_savings(), 100.0 - price), "se descuenta el precio (quedan S/ %.2f)" % CareerSave.get_savings())
+	_check(CareerSave.get_active() == 0, "la comprada queda en uso")
+	_check(not CareerSave.set_active(4) and CareerSave.get_active() == 0, "no se usa una sin comprar")
+	_check(CareerSave.set_active(CareerSave.STARTER) and CareerSave.get_active() == CareerSave.STARTER, "se vuelve a la inicial")
+	CareerSave.clear_game()
+	_check(CareerSave.get_savings() == 0.0 and CareerSave.is_owned(0), "terminar la partida borra los ahorros, no lo comprado")
+	CareerSave.reset()
+
+	print("-- Ahorros antiguos (en la carrera) pasan a la partida guardada")
+	var old := ConfigFile.new()
+	old.set_value("carrera", "ahorros", 42.0)
+	old.set_value("partida", "estado", {"day": 3})
+	old.save(CareerSave.path)
+	_check(is_equal_approx(CareerSave.get_savings(), 42.0), "se conservan S/ %.2f" % CareerSave.get_savings())
 	CareerSave.reset()
 
 	var world: TerrainWorld = load("res://scripts/terrain_world.gd").new()
@@ -74,7 +88,7 @@ func _initialize() -> void:
 	moto.use_input = false
 	race.start(2)
 	session.next_day()
-	_check(session.day == 2 and session.quota > session.quota_base, "día 2, cuota más alta (S/ %.2f)" % session.quota)
+	_check(session.day == 2 and is_equal_approx(session.quota, session.quota_base), "día 2, la misma cuota (S/ %.2f)" % session.quota)
 	_check(race.earnings == 0.0, "se empieza el día en S/ 0")
 
 	print("-- Con pasajero a bordo se termina el viaje")
@@ -87,7 +101,8 @@ func _initialize() -> void:
 	moto.place_at(race.dropoff_zone.global_position, 0.0)
 	await _frames(10)
 	_check(ends.size() == 1 and str(ends[0][0]).contains("cuota"), "sin juntar la cuota: fin de partida (%s)" % [ends])
-	_check(is_equal_approx(CareerSave.get_savings(), 3.5), "perder no quita ahorros")
+	_check(ends.size() == 1 and is_equal_approx(ends[0][1].get("lost", 0.0), 3.5), "se pierden los S/ 3.50 ahorrados")
+	_check(CareerSave.get_savings() == 0.0 and not CareerSave.has_game(), "y la partida guardada")
 
 	print("-- Mapa completo")
 	var hud := RaceHUD.new()

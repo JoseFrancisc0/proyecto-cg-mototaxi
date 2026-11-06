@@ -4,9 +4,12 @@ extends Node
 ##
 ## La partida es una serie de jornadas. Cada jornada dura day_length segundos reales, que en el
 ## reloj del juego van de day_start_hour a day_end_hour (como en GTA: 6 min = 7:00 a 19:00); al final se
-## paga la cuota del día al dueño de la mototaxi (sube cada día). Si se juntó, lo que sobra
-## va a los ahorros (CareerSave, para el garaje) y sigue el día siguiente (day_completed);
-## si no, fin de partida. Si el reloj llega a 0 con un pasajero a bordo, se termina ese viaje.
+## paga la cuota del día al dueño de la mototaxi (fija: lo que cuenta es lo ganado ese día). Si se
+## juntó, lo que sobra va a los ahorros de la partida (CareerSave, para el garaje) y sigue el día
+## siguiente (day_completed); si no, fin de partida. Si el reloj llega a 0 con un pasajero a
+## bordo, se termina ese viaje.
+##
+## Perder borra la partida guardada y sus ahorros; solo se conservan las mototaxis compradas.
 ##
 ## También termina la partida (game_over) cuando:
 ##   - la vida de la mototaxi llega a 0 (choques fuertes y vuelcos),
@@ -14,18 +17,23 @@ extends Node
 ##   - queda atrapada: el jugador acelera pero no logra moverse (un hueco, una quebrada),
 ##   - se pierden max_failures pasajeros en una jornada (0 = sin límite).
 ## Avisa con warning(texto, segundos) antes de terminar por atrapado o por salir del mapa.
+##
+## Modo libre (free_mode): sin reloj, sin cuota y sin tocar la carrera; en vez de terminar la
+## partida pide reaparecer (respawn_needed) y se sigue explorando.
 
 signal warning(text: String, seconds_left: float)
 signal game_over(reason: String, stats: Dictionary)
 ## Jornada cumplida: stats trae además "quota", "saved" y "savings".
 signal day_completed(stats: Dictionary)
+## Solo en Modo libre: lo que habría terminado la partida (Main repara y reaparece).
+signal respawn_needed(reason: String)
 
 @export_group("Jornada")
 @export var day_length := 360.0      ## Segundos reales de cada jornada.
 @export var day_start_hour := 7.0    ## Hora del reloj del juego al empezar la jornada.
 @export var day_end_hour := 19.0     ## Hora en que termina (se paga la cuota).
 @export var quota_base := 10.0       ## Cuota (soles) del primer día.
-@export var quota_per_day := 4.0     ## Lo que sube la cuota cada día.
+@export var quota_per_day := 0.0     ## Lo que sube la cuota cada día (0 = cuota fija).
 @export var max_failures := 0
 @export_group("Atrapado")
 @export var stuck_radius := 8.0      ## Moverse menos que esto (m) ...
@@ -38,6 +46,8 @@ signal day_completed(stats: Dictionary)
 var world: TerrainWorld
 var moto: Mototaxi
 var race: RaceManager
+## Modo libre: explorar sin jornadas ni dinero (no guarda ni borra la partida de la carrera).
+var free_mode := false
 
 var playing := false
 var day := 1
@@ -55,8 +65,10 @@ var _anchor := Vector3.ZERO
 var _stuck_timer := 0.0
 
 
-## Partida nueva desde el día 1.
+## Partida nueva desde el día 1: la anterior (y sus ahorros) se borra.
 func start() -> void:
+	if not free_mode:
+		CareerSave.clear_game()
 	day = 1
 	play_time = 0.0
 	damage_taken = 0.0
@@ -91,15 +103,16 @@ func _physics_process(delta: float) -> void:
 	if not playing or moto == null or world == null:
 		return
 	play_time += delta
-	if day_time_left <= 0.0:
-		overtime_time += delta
-	day_time_left = maxf(day_time_left - delta, 0.0)
-	if day_time_left <= 0.0:
-		if race.state == RaceManager.State.CON_PASAJERO:
-			overtime = true  # Termina el viaje en curso.
-		else:
-			_end_day()
-			return
+	if not free_mode:  # El Modo libre no tiene reloj.
+		if day_time_left <= 0.0:
+			overtime_time += delta
+		day_time_left = maxf(day_time_left - delta, 0.0)
+		if day_time_left <= 0.0:
+			if race.state == RaceManager.State.CON_PASAJERO:
+				overtime = true  # Termina el viaje en curso.
+			else:
+				_end_day()
+				return
 	var p := moto.global_position
 
 	# Fuera del mapa: pasó el borde o cayó muy por debajo del suelo.
@@ -214,7 +227,7 @@ func _end_day() -> void:
 	_stop_play()
 	var stats := get_stats()
 	if race.earnings + 0.001 < quota:
-		stats["savings"] = CareerSave.get_savings()
+		_lose(stats)
 		game_over.emit("No juntaste la cuota del día %d: S/ %.2f de S/ %.2f" % [day, race.earnings, quota], stats)
 		return
 	var saved := race.earnings - quota
@@ -234,8 +247,18 @@ func _stop_play() -> void:
 func _end(reason: String) -> void:
 	if not playing:
 		return
+	if free_mode:
+		respawn_needed.emit(reason)
+		_reset_stuck()
+		return
 	playing = false
 	_stop_play()
 	var stats := get_stats()
-	stats["savings"] = CareerSave.get_savings()
+	_lose(stats)
 	game_over.emit(reason, stats)
+
+
+## Fin de partida: se pierden los ahorros (stats["lost"]) y la partida guardada.
+func _lose(stats: Dictionary) -> void:
+	stats["lost"] = CareerSave.get_savings()
+	CareerSave.clear_game()

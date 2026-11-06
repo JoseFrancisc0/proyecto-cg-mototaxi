@@ -13,7 +13,9 @@ func _run() -> void:
 	root.add_child(main)
 	await process_frame
 	main.loading._seed_edit.text = "31415"
-	main.loading._garage.select_vehicle(5)
+	CareerSave.reset()
+	CareerSave.add_savings(1000.0)
+	CareerSave.buy(5)
 	main.loading._on_play()
 	var deadline := Time.get_ticks_msec()+45000
 	while not world.is_generated() and Time.get_ticks_msec()<deadline:
@@ -33,5 +35,6 @@ func _run() -> void:
 	paused=false
 	main.queue_free()
 	await process_frame
+	CareerSave.reset()
 	print("Inicio real desde menú: %d errores" % failures)
 	quit(0 if failures==0 else 1)

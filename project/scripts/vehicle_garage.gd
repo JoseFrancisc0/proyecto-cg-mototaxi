@@ -1,9 +1,12 @@
 class_name VehicleGarage
 extends VBoxContainer
-## Garaje del menú: elegir mototaxi y comprar las que faltan con los ahorros de las
-## jornadas (CareerSave). Solo se puede jugar con una mototaxi propia.
+## Garaje (menú principal y fin de cada día): ver las mototaxis, comprar las que faltan con
+## los ahorros de la partida en curso y elegir cuál se usa (CareerSave). Lo comprado se queda
+## aunque se pierda la partida; solo se juega con una mototaxi propia.
 
 signal ownership_changed
+## Cambió la mototaxi en uso (comprada o elegida con "Usar esta").
+signal active_changed(index: int)
 
 var selected := 2
 var _model_root: Node3D
@@ -113,7 +116,7 @@ func _ready() -> void:
 	shop.add_child(_wallet)
 	_buy = Button.new()
 	_buy.custom_minimum_size = Vector2(190, 40)
-	_buy.pressed.connect(_on_buy)
+	_buy.pressed.connect(_on_shop_button)
 	shop.add_child(_buy)
 	var hint := Label.new()
 	hint.text = "Arrastra para girar · Rueda para acercar · Shift / X del mando: turbo"
@@ -122,8 +125,13 @@ func _ready() -> void:
 	hint.add_theme_color_override("font_color",Color("a7abb7"))
 	add_child(hint)
 	resized.connect(_responsive)
+	selected = CareerSave.get_active()
 	select_vehicle(selected)
 	_responsive()
+
+## Vuelve a mostrar la mototaxi en uso y el dinero actual (al abrir el garaje).
+func refresh() -> void:
+	select_vehicle(CareerSave.get_active())
 
 func select_vehicle(index: int) -> void:
 	selected = clampi(index,0,5)
@@ -138,6 +146,8 @@ func select_vehicle(index: int) -> void:
 	var v := VehicleCatalog.entry(selected)
 	var owned := CareerSave.is_owned(selected)
 	_name_label.text = ("%02d / %s" if owned else "🔒 %02d / %s") % [selected+1,v.name]
+	if owned and selected == CareerSave.get_active():
+		_name_label.text += "  ·  EN USO"
 	_update_shop()
 	_name_label.add_theme_color_override("font_color",v.color)
 	for child in _stats.get_children():
@@ -187,18 +197,39 @@ func _update_shop() -> void:
 		return
 	var savings := CareerSave.get_savings()
 	var best := CareerSave.get_best_day()
-	_wallet.text = "Ahorros: S/ %.2f%s" % [savings, ("   ·   Mejor jornada: día %d" % best) if best > 0 else ""]
+	var money := ("Ahorros de la partida: S/ %.2f" % savings) if CareerSave.has_game() else "Sin partida en curso"
+	_wallet.text = money + (("   ·   Mejor jornada: día %d" % best) if best > 0 else "")
 	var owned := CareerSave.is_owned(selected)
 	var price := float(VehicleCatalog.entry(selected).get("price", 0.0))
-	_buy.visible = not owned
-	_buy.text = "Comprar · S/ %.2f" % price
-	_buy.disabled = savings < price
+	if not owned:
+		_buy.text = "Comprar · S/ %.2f" % price
+		_buy.disabled = savings < price
+	elif selected == CareerSave.get_active():
+		_buy.text = "En uso"
+		_buy.disabled = true
+	else:
+		_buy.text = "Usar esta"
+		_buy.disabled = false
+
+
+func _on_shop_button() -> void:
+	if CareerSave.is_owned(selected):
+		_on_use()
+	else:
+		_on_buy()
 
 
 func _on_buy() -> void:
 	if CareerSave.buy(selected):
 		select_vehicle(selected)
 		ownership_changed.emit()
+		active_changed.emit(selected)
+
+
+func _on_use() -> void:
+	if CareerSave.set_active(selected):
+		select_vehicle(selected)
+		active_changed.emit(selected)
 
 
 func _responsive() -> void:

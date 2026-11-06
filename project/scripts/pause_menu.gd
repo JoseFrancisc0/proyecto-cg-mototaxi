@@ -1,12 +1,16 @@
 class_name PauseMenu
 extends CanvasLayer
 ## Menú de pausa (Esc, P o Start del mando): continuar, guardar la partida (se sigue desde el
-## menú principal con "Continuar"), reiniciar el turno en el mismo mapa, volver al menú
-## principal sin tener que perder, y volumen general del juego.
+## menú principal con "Continuar"), reiniciar la partida (desde el día 1 y sin ahorros), volver
+## al menú principal sin tener que perder, y volumen general del juego.
+## "Reiniciar partida" abre el escenario (ScenarioPanel): a mitad del día no se cambia de mapa,
+## pero al reiniciar se puede empezar de cero en otro; el botón del panel confirma.
+## En Modo libre (free_mode) no hay guardar: "Cambiar escenario" y "Volver al inicio".
 ## Main abre y cierra el menú y pausa el árbol; este nodo sigue activo durante la pausa.
 
 signal resume_requested
-signal restart_requested
+## choice: escenario con el que se reinicia ({} = el mismo, sin regenerar el mapa).
+signal restart_requested(choice: Dictionary)
 signal menu_requested
 signal save_requested
 
@@ -18,6 +22,15 @@ var _continue: Button
 var _volume: HSlider
 var _volume_label: Label
 var _save_status: Label
+var _save: Button
+var _restart: Button
+var _respawn: Button
+var _box: VBoxContainer
+var _scenario: ScenarioPanel
+## Modo libre: sin guardar; se cambia de escenario directamente.
+var free_mode := false
+## Escenario en juego (para mostrarlo al abrir el panel).
+var current_choice := {}
 
 
 ## Registra la acción de pausa (si no está ya en el Mapa de entrada del proyecto).
@@ -44,6 +57,11 @@ func _ready() -> void:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 14)
 	center.add_child(box)
+	_box = box
+	_scenario = ScenarioPanel.new()
+	center.add_child(_scenario)
+	_scenario.confirmed.connect(func(choice: Dictionary): restart_requested.emit(choice))
+	_scenario.cancelled.connect(_close_scenario)
 
 	var title := Label.new()
 	title.text = "PAUSA"
@@ -57,13 +75,14 @@ func _ready() -> void:
 	box.add_child(title)
 
 	_continue = _button(box, "Continuar", font, func(): resume_requested.emit())
-	_button(box, "Guardar partida", font, func(): save_requested.emit())
+	_save = _button(box, "Guardar partida", font, func(): save_requested.emit())
 	_save_status = Label.new()
 	_save_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_save_status.add_theme_font_size_override("font_size", 18)
 	_save_status.add_theme_color_override("font_color", YELLOW)
 	box.add_child(_save_status)
-	_button(box, "Reiniciar turno", font, func(): restart_requested.emit())
+	_restart = _button(box, "Reiniciar partida", font, open_scenario)
+	_respawn = _button(box, "Volver al inicio", font, func(): restart_requested.emit({}))
 	_button(box, "Menú principal", font, func(): menu_requested.emit())
 
 	var vol_row := HBoxContainer.new()
@@ -94,12 +113,36 @@ func _ready() -> void:
 
 func open() -> void:
 	visible = true
+	_close_scenario()
 	_save_status.text = ""
+	_save.visible = not free_mode
+	_respawn.visible = free_mode
+	_restart.text = "Cambiar escenario" if free_mode else "Reiniciar partida"
 	_continue.grab_focus()
 
 
 func close() -> void:
 	visible = false
+	_close_scenario()
+
+
+## Panel del escenario. En la carrera avisa que se empieza de cero (día 1, sin ahorros).
+func open_scenario() -> void:
+	_box.visible = false
+	if free_mode:
+		_scenario.open("Cambiar escenario", "", "Explorar", current_choice)
+	else:
+		_scenario.open("Reiniciar partida",
+			"Empiezas de cero en el día 1 y pierdes los ahorros de la partida (S/ %.2f). Las mototaxis compradas se quedan.
+Puedes seguir en este escenario o elegir otro." % CareerSave.get_savings(),
+			"Empezar de cero", current_choice)
+
+
+func _close_scenario() -> void:
+	if _scenario:
+		_scenario.visible = false
+	if _box:
+		_box.visible = true
 
 
 ## Mensaje bajo "Guardar partida" (p. ej. "Partida guardada: día 2, 10:24").

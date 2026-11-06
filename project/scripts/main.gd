@@ -6,12 +6,13 @@ extends Node3D
 ## Sin menú (pruebas o atajos): ejecutar con "-- --seed=123" (mundo nuevo desde la semilla)
 ## o "-- --editor" (terreno guardado en terrain_demo.tscn). "--erosion=0.35" cambia la erosión.
 ## "--region=costa|sierra|selva" elige la región (mayoría en un mundo nuevo, y donde se empieza)
-## y "--solo" deja solo esa región.
+## y "--solo" deja solo esa región. "--libre" entra al Modo libre.
 ##
-## La partida es una serie de jornadas con cuota (GameSession): si se junta la cuota, lo que
-## sobra va a los ahorros del garaje y sigue el día siguiente; termina si no se junta, por
-## vida, por salir del mapa o por quedar atrapada. La pantalla final permite reintentar en el
-## mismo mapa. M (o Back del mando) abre el mapa completo (FullMap) y pausa el juego.
+## La partida es una serie de jornadas con cuota fija (GameSession): si se junta la cuota, lo
+## que sobra va a los ahorros de la partida y sigue el día siguiente (antes se puede pasar por
+## el garaje); termina si no se junta, por vida, por salir del mapa o por quedar atrapada, y
+## entonces se pierden la partida guardada y sus ahorros (las mototaxis compradas se quedan).
+## La pantalla final permite reintentar en el mismo mapa. M (o Back del mando) abre el mapa completo (FullMap) y pausa el juego.
 ## Durante la partida, Esc / P / Start abre el menú de pausa (PauseMenu): continuar, guardar,
 ## reiniciar el turno o volver al menú principal sin tener que perder.
 ##
@@ -19,6 +20,12 @@ extends Node3D
 ## editor), el día, el reloj, lo ganado, la vida y dónde está la mototaxi; también se guarda
 ## solo al completar cada día. "Continuar" en el menú principal regenera ese mismo mundo y
 ## sigue desde ahí (el viaje en curso no se guarda: se empieza con un pasajero nuevo).
+##
+## Hay una sola carrera (sin "Nueva partida"). El escenario (terreno, región, calidad) se cambia
+## al terminar el día (el día siguiente empieza ahí, con los ahorros), al perder o al reiniciar
+## desde la pausa (día 1): se recarga la escena con CareerSave.launch y se genera el mapa nuevo
+## sin pasar por la portada. Modo libre: explorar el terreno sin pasajeros, reloj ni dinero, con
+## las mototaxis compradas; no guarda ni toca la carrera, y si algo sale mal se reaparece.
 
 const REGION_NAMES := ["mixta", "costa", "sierra", "selva"]
 
@@ -40,6 +47,8 @@ var full_map: FullMap
 var region := 0
 ## Lo elegido en el menú para este mundo (se guarda con la partida).
 var _choice := {}
+## Modo libre: sin pasajeros, reloj ni dinero.
+var free_mode := false
 
 
 func _ready() -> void:
@@ -53,7 +62,10 @@ func _ready() -> void:
 	add_child(loading)
 
 	var choice := {"mode": "editor" if world.use_editor_scene else "seed", "seed": world.world_seed, "erosion_scale": world.erosion_scale}
-	if not _choice_from_args(choice) and show_menu:
+	if not CareerSave.launch.is_empty():  # Cambio de escenario dentro de la partida.
+		choice.merge(CareerSave.launch, true)
+		CareerSave.launch = {}
+	elif not _choice_from_args(choice) and show_menu:
 		loading.show_menu(choice)
 		choice = await loading.start_requested
 	world.progress.connect(loading.set_progress)
@@ -61,15 +73,17 @@ func _ready() -> void:
 		world.use_editor_scene = choice["mode"] == "editor"
 		world.erosion_scale = choice["erosion_scale"]
 		region = int(choice.get("region", 0))
+		free_mode = bool(choice.get("free", false))
 		_choice = choice.duplicate()
-		_choice.erase("load")
+		for key in ["load", "free", "vehicle"]:
+			_choice.erase(key)
 		_apply_region_bias(region, bool(choice.get("region_only", false)))
 		world.preview_size = 768
 		loading.show_progress()
 		var t0 := Time.get_ticks_msec()
 		var ok: bool = await world.generate_async(-1 if world.use_editor_scene else int(choice["seed"]))
 		if ok and world.is_generated():
-			moto.select_vehicle(int(choice.get("vehicle", 2)))
+			moto.select_vehicle(int(choice.get("vehicle", CareerSave.get_active())))
 			print("Mundo listo en %.1f s (%s)" % [(Time.get_ticks_msec() - t0) / 1000.0, "terreno del editor" if world.use_editor_scene else "semilla %d" % world.world_seed])
 			_start_game(choice.get("load", {}))
 			break
@@ -96,6 +110,8 @@ func _choice_from_args(choice: Dictionary) -> bool:
 			choice["region"] = maxi(REGION_NAMES.find(arg.get_slice("=", 1)), 0)
 		elif arg == "--solo":
 			choice["region_only"] = true
+		elif arg == "--libre":
+			choice["free"] = true
 	return found
 
 
@@ -129,15 +145,20 @@ func _start_game(save: Dictionary = {}) -> void:
 	session.world = world
 	session.moto = moto
 	session.race = race
+	session.free_mode = free_mode
 	add_child(session)
 	session.game_over.connect(_on_game_over)
 	session.day_completed.connect(_on_day_completed)
+	session.respawn_needed.connect(_on_respawn_needed, CONNECT_DEFERRED)
 	hud.bind_session(session)
+	hud.free_text = ScenarioPicker.describe(_choice)
 	game_over_screen = GameOverScreen.new()
 	add_child(game_over_screen)
+	game_over_screen.current_choice = _choice
 	game_over_screen.retry_requested.connect(restart)
 	game_over_screen.menu_requested.connect(_back_to_menu)
 	game_over_screen.next_day_requested.connect(next_day)
+	game_over_screen.scenario_requested.connect(_on_scenario_requested)
 	full_map = FullMap.new()
 	full_map.name = "FullMap"
 	full_map.minimap = hud.minimap
@@ -146,9 +167,11 @@ func _start_game(save: Dictionary = {}) -> void:
 	add_child(full_map)
 	pause_menu = PauseMenu.new()
 	pause_menu.name = "PauseMenu"
+	pause_menu.free_mode = free_mode
+	pause_menu.current_choice = _choice
 	add_child(pause_menu)
 	pause_menu.resume_requested.connect(resume)
-	pause_menu.restart_requested.connect(restart)
+	pause_menu.restart_requested.connect(_on_restart_requested)
 	pause_menu.menu_requested.connect(_back_to_menu)
 	pause_menu.save_requested.connect(_on_save_requested)
 	# Main sigue activo en pausa (pantalla de carga, menús); la partida en sí se detiene:
@@ -156,7 +179,10 @@ func _start_game(save: Dictionary = {}) -> void:
 	for n: Node in [race, session, cam]:
 		n.process_mode = Node.PROCESS_MODE_PAUSABLE
 
-	if save.is_empty():
+	if free_mode:
+		race.stop()  # Sin pasajeros.
+		session.start()
+	elif save.is_empty():
 		race.start()
 		_face_route()
 		session.start()
@@ -169,9 +195,12 @@ func _start_game(save: Dictionary = {}) -> void:
 		session.load_save_data(save)
 	get_tree().paused = false
 	loading.finish()
-	if not save.is_empty():
+	if free_mode:
+		hud.show_banner("MODO LIBRE", ScenarioPicker.describe(_choice) + " · sin reloj ni pasajeros", Color(1.0, 0.85, 0.25))
+	elif not save.is_empty():
+		var how := "Escenario nuevo" if save.get("pos") == null else "Partida cargada"
 		hud.show_banner("DÍA %d · %s" % [session.day, session.get_clock_text()],
-			"Partida cargada · cuota de hoy: S/ %.2f" % session.quota, Color(1.0, 0.85, 0.25))
+			"%s · cuota de hoy: S/ %.2f" % [how, session.quota], Color(1.0, 0.85, 0.25))
 
 
 ## Nueva partida en el mismo mapa: vida llena, de vuelta al inicio, marcador en cero.
@@ -180,20 +209,75 @@ func restart() -> void:
 	pause_menu.close()
 	hud.visible = true
 	hud.reset_view()
+	_use_active_vehicle()
 	moto.repair()
 	moto.use_input = true
 	spawn()
-	race.start()
-	_face_route()
+	if free_mode:
+		race.stop()
+	else:
+		race.start()
+		_face_route()
 	session.start()
 	get_tree().paused = false
 
 
-## Jornada siguiente en el mismo mapa: mototaxi reparada, cuota más alta.
+## Pausa → "Reiniciar partida" (o en Modo libre "Cambiar escenario" / "Volver al inicio").
+## choice: escenario elegido; si es el mismo, se reinicia sin regenerar el mapa.
+func _on_restart_requested(choice: Dictionary = {}) -> void:
+	if choice.is_empty() or ScenarioPicker.same(choice, _choice):
+		restart()
+		return
+	if not free_mode:
+		CareerSave.clear_game()  # Empezar de cero en otro escenario.
+	_relaunch(choice, {})
+
+
+## "Cambiar escenario" en la pantalla final. Al terminar el día, el siguiente empieza en el
+## escenario elegido (la partida ya se guardó como el inicio de ese día); tras perder, el día 1.
+func _on_scenario_requested(choice: Dictionary) -> void:
+	var day_done := game_over_screen.is_day_complete() and CareerSave.has_game()
+	if ScenarioPicker.same(choice, _choice):
+		if day_done:
+			next_day()
+		else:
+			restart()
+		return
+	var save := {}
+	if day_done:
+		save = CareerSave.load_game()
+		save["choice"] = choice
+		save.erase("pos")  # Se empieza en la zona de la región del mapa nuevo.
+		save.erase("yaw")
+		CareerSave.save_game(save)
+	_relaunch(choice, save)
+
+
+## Recarga la escena y genera el escenario elegido sin pasar por la portada.
+func _relaunch(choice: Dictionary, save: Dictionary) -> void:
+	var launch := choice.duplicate()
+	launch["vehicle"] = CareerSave.get_active()
+	if free_mode:
+		launch["free"] = true
+	if not save.is_empty():
+		launch["load"] = save
+	CareerSave.launch = launch
+	_back_to_menu()
+
+
+## Modo libre: lo que habría terminado la partida solo hace reaparecer.
+func _on_respawn_needed(reason: String) -> void:
+	moto.repair()
+	spawn()
+	hud.show_banner(reason, "Vuelves al punto de partida", Color(1.0, 0.45, 0.4))
+
+
+## Jornada siguiente en el mismo mapa: mototaxi reparada (o la nueva elegida en el garaje).
 func next_day() -> void:
 	game_over_screen.hide_result()
 	hud.visible = true
 	hud.reset_view()
+	_use_active_vehicle()
 	moto.repair()
 	moto.use_input = true
 	spawn()
@@ -247,6 +331,13 @@ func resume() -> void:
 	get_tree().paused = false
 
 
+## Cambia a la mototaxi elegida en el garaje si es otra.
+func _use_active_vehicle() -> void:
+	var active := CareerSave.get_active()
+	if moto.vehicle_index != active:
+		moto.select_vehicle(active)
+
+
 func _on_game_over(reason: String, stats: Dictionary) -> void:
 	print("Fin de partida: %s %s" % [reason, stats])
 	get_tree().paused = true
@@ -264,6 +355,8 @@ func _on_day_completed(stats: Dictionary) -> void:
 
 ## Guarda la partida. Con fresh_day, como el inicio del día siguiente.
 func save_game(fresh_day := false) -> Dictionary:
+	if free_mode:  # El Modo libre no toca la carrera.
+		return {}
 	var data := session.get_save_data(fresh_day)
 	data["choice"] = _choice
 	data["vehicle"] = moto.vehicle_index
@@ -275,7 +368,7 @@ func save_game(fresh_day := false) -> Dictionary:
 
 
 func _on_save_requested() -> void:
-	if session == null or not session.playing:
+	if session == null or not session.playing or free_mode:
 		pause_menu.set_save_status("Ahora no se puede guardar")
 		return
 	save_game()

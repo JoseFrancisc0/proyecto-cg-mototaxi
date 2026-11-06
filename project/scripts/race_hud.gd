@@ -12,6 +12,8 @@ const COLOR_FAIL := Color(1.0, 0.3, 0.25)
 var race: RaceManager
 var moto: Mototaxi
 var session: GameSession
+## En Modo libre, el escenario que se explora (p. ej. "Semilla 42 · Sierra").
+var free_text := ""
 
 var _info: Label
 var _objective: Label
@@ -174,6 +176,15 @@ W/S: acelerar / frenar y reversa   A/D: girar   Espacio: freno de mano   Shift: 
 	if Time.get_ticks_msec() > _warning_until:
 		_warning.text = ""
 	if race == null:
+		return
+	if session and session.free_mode:  # Sin pasajeros ni dinero.
+		_score.text = "MODO LIBRE
+%s" % free_text
+		_score.modulate = Color.WHITE
+		_objective.text = "Explora el terreno  ·  M: mapa  ·  Esc: cambiar de escenario"
+		_objective.modulate = Color.WHITE
+		_timer.text = ""
+		_mood_box.visible = false
 		return
 
 	if session and session.playing:
