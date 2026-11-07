@@ -8,9 +8,18 @@ extends VBoxContainer
 const MUTED := Color("a7abb7")
 const REGIONS := ["Mixta (costa, sierra y selva)", "Costa", "Sierra", "Selva"]
 const QUALITY_SCALES := [0.1, 0.35, 1.0]
+## Tarjetas de región (pendiente 11): foto del juego real (tools/capture_scenario_previews.gd).
+const CARD_NAMES := ["Mixta", "Costa", "Sierra", "Selva"]
+const CARD_TEXTS := ["Costa, sierra y selva en un mismo mapa", "Arena, huarangos y ríos en el desierto",
+	"Cerros altos, ichu y cumbres nevadas", "Bosque tupido, palmeras y ríos"]
+const CARD_IMAGES := ["res://ui/scenarios/mixta.jpg", "res://ui/scenarios/costa.jpg",
+	"res://ui/scenarios/sierra.jpg", "res://ui/scenarios/selva.jpg"]
+const YELLOW := Color(1.0, 0.85, 0.2)
 
 var mode: OptionButton
+## Región elegida (oculto: las tarjetas lo cambian; el resto del juego lee region.selected).
 var region: OptionButton
+var cards: Array[Button] = []
 var share_row: VBoxContainer
 var share: OptionButton
 var region_note: Label
@@ -27,7 +36,22 @@ func _init() -> void:
 	add_child(mode)
 	add_child(_label("Región"))
 	region = _option(REGIONS)
+	region.visible = false
 	add_child(region)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	add_child(grid)
+	# Con espacio, las cuatro en una fila (sin tener que bajar); si no, de a dos.
+	grid.resized.connect(func():
+		var wanted := 4 if grid.size.x >= 860.0 else 2
+		if grid.columns != wanted:
+			grid.columns = wanted)
+	for i in CARD_NAMES.size():
+		var card := _card(i)
+		cards.append(card)
+		grid.add_child(card)
 	share_row = VBoxContainer.new()
 	add_child(share_row)
 	share = _option(["Mayoría de esa región", "Solo esa región"])
@@ -112,6 +136,8 @@ static func describe(choice: Dictionary) -> String:
 
 
 func update_mode(_index := 0) -> void:
+	for i in cards.size():
+		cards[i].button_pressed = i == region.selected
 	seed_row.visible = mode.selected == 1
 	quality_row.visible = mode.selected == 1
 	share_row.visible = mode.selected == 1 and region.selected > 0
@@ -122,6 +148,53 @@ func update_mode(_index := 0) -> void:
 	else:
 		region_note.text = "El mapa se genera con esa región como protagonista y empiezas en ella."
 	region_note.visible = region_note.text != ""
+
+
+## Tarjeta de una región: foto, nombre y una línea; borde amarillo si está elegida.
+func _card(index: int) -> Button:
+	var card := Button.new()
+	card.toggle_mode = true
+	card.custom_minimum_size = Vector2(0, 0)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.focus_mode = Control.FOCUS_ALL
+	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		var style := StyleBoxFlat.new()
+		var chosen: bool = state in ["pressed", "hover_pressed"]
+		style.bg_color = Color("232533") if state.begins_with("hover") or chosen else Color("1b1c26")
+		style.border_color = YELLOW if chosen else (Color("c9c6d0") if state == "focus" else Color("4a4652"))
+		style.set_border_width_all(3 if chosen or state == "focus" else 2)
+		style.set_corner_radius_all(8)
+		style.set_content_margin_all(6)
+		if state == "focus":
+			style.draw_center = false
+		card.add_theme_stylebox_override(state, style)
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 4)
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 6)
+	card.add_child(box)
+	var photo := TextureRect.new()
+	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	photo.custom_minimum_size = Vector2(0, 124)
+	photo.clip_contents = true
+	if ResourceLoader.exists(CARD_IMAGES[index]):
+		photo.texture = load(CARD_IMAGES[index])
+	box.add_child(photo)
+	var title := _label(CARD_NAMES[index].to_upper(), 20, Color.WHITE)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(title)
+	var text := _label(CARD_TEXTS[index], 14, MUTED)
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(text)
+	# El botón no mide a sus hijos: se le da el alto de la foto, el nombre y dos líneas de texto.
+	card.custom_minimum_size.y = 124 + 30 + 42 + 18
+	card.pressed.connect(func():
+		region.select(index)
+		region.item_selected.emit(index))
+	return card
 
 
 func _option(items: Array) -> OptionButton:

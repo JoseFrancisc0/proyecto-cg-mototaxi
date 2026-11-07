@@ -7,8 +7,12 @@ extends RefCounted
 ##   "kind":   tipo de parada ("plaza", "mercado", "paradero", "colegio", ...); "via" = sin nombre
 ##   "label":  nombre a mostrar ("Mercado Santa Rosa"), salvo en las paradas "via"
 ## Los centros de pueblo son plaza o mercado; los rasgos del terreno, mirador, confluencia o
-## playa; y algunos puntos de vía separados entre sí (named_spacing) reciben un tipo y un
-## nombre al azar. Todo sale de la semilla del mundo: el mismo mapa da los mismos nombres.
+## playa. Con la red vial (pendiente 10, fase 3) TerrainWorld marca "site" en los lugares que
+## piden un tipo (ver SITE_KINDS): mercado y colegio/posta en las cuadras, paradero en los cruces
+## de carretera, grifo en la carretera, chacra al final de las trochas y, junto al río,
+## playa (costa), puente (sierra) o embarcadero (selva). Los demás puntos de vía separados entre
+## sí (named_spacing) reciben un tipo y un nombre al azar. Todo sale de la semilla del mundo: el
+## mismo mapa da los mismos nombres.
 ## El tipo de parada servirá para ambientarla (puestos de mercado, paradero techado, ...).
 
 const REGIONS := ["costa", "sierra", "selva"]
@@ -47,8 +51,16 @@ const TEMPLATES := {
 	"playa": ["Playa %s", "Playa %s", "Playa %s"],
 }
 
-## Tipos de las paradas de vía con nombre y su peso al sortear.
-const ROAD_KINDS := {"paradero": 3.0, "chacra": 2.0, "colegio": 1.5, "posta": 1.0, "grifo": 1.0, "especial": 1.0}
+## Tipos de las paradas de vía sin sitio y su peso al sortear (colegio, posta, mercado y
+## embarcadero solo salen en su lugar: cuadras y orilla).
+const ROAD_KINDS := {"paradero": 3.0, "chacra": 1.5, "grifo": 1.0}
+## Sitio de la red vial -> tipo de parada. "trocha" y "ribera" dependen de la región.
+const SITE_KINDS := {"mercado": "mercado", "colegio": "colegio", "posta": "posta", "cruce": "paradero",
+	"carretera": "grifo"}
+## Junto al río: costa playa, sierra puente ("confluencia"), selva embarcadero ("especial").
+const RIVER_KINDS := ["playa", "confluencia", "especial"]
+## Separación mínima entre paradas con sitio (en el pueblo están a una o dos cuadras).
+const SITE_SPACING := 40.0
 ## Rasgo del terreno -> tipo de parada.
 const FEATURE_KINDS := {"pico": "mirador", "confluencia": "confluencia", "costa": "playa"}
 
@@ -81,9 +93,18 @@ static func assign(landmarks: Array[Dictionary], world_seed: int, region_of: Cal
 		lm["region"] = region
 		var type: String = lm["type"]
 		if type == "pueblo":
-			# El primer pueblo de cada región tiene la plaza; los demás, alternan.
-			lm["kind"] = "plaza" if town_count[region] % 2 == 0 else "mercado"
+			# Con cuadras, el centro es la plaza y el mercado está a una cuadra; sin ellas, los
+			# pueblos de cada región alternan plaza y mercado.
+			var has_market := landmarks.any(func(o: Dictionary) -> bool: return o.get("town", -1) == lm.get("town", -2) and o.get("site", "") == "mercado")
+			lm["kind"] = "plaza" if has_market or town_count[region] % 2 == 0 else "mercado"
 			town_count[region] += 1
+		elif lm.has("site"):
+			var site_kind := _site_kind(lm["site"], region, rng)
+			if site_kind.is_empty() or named.any(func(q: Vector3) -> bool: return _flat(q, lm["position"]) < SITE_SPACING):
+				lm["kind"] = "via"
+				lm.erase("label")
+				continue
+			lm["kind"] = site_kind
 		elif FEATURE_KINDS.has(type):
 			lm["kind"] = FEATURE_KINDS[type]
 		else:
@@ -110,6 +131,21 @@ static func assign(landmarks: Array[Dictionary], world_seed: int, region_of: Cal
 		lm["kind"] = _pick_kind(rng)
 		lm["label"] = _make_label(lm["kind"], lm["region"], rng, pools, used)
 		named.append(p)
+
+
+## Tipo de parada de un sitio de la red vial ("" = sin nombre).
+static func _site_kind(site: String, region: int, rng: RandomNumberGenerator) -> String:
+	match site:
+		"trocha":
+			# Al final de una trocha: chacra; en costa y sierra, a veces huaca o comunidad.
+			return "especial" if region != 2 and rng.randf() < 0.3 else "chacra"
+		"ribera":
+			return RIVER_KINDS[region]
+	return SITE_KINDS.get(site, "")
+
+
+static func _flat(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x - b.x, a.z - b.z).length()
 
 
 static func _pick_kind(rng: RandomNumberGenerator) -> String:

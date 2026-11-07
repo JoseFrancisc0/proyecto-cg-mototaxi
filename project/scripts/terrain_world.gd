@@ -694,11 +694,16 @@ func _build_landmarks() -> void:
 			points.append(spot)
 			types.append(f["type"])
 			extra.append({"label": f["label"], "feature": f["position"]})
-	if generator.last_roads:
-		for c in generator.last_roads.get_town_centers():
-			points.push_front(c)
-			types.push_front("pueblo")
-			extra.push_front({})
+	var towns := generator.last_roads.get_town_centers() if generator.last_roads else PackedVector3Array()
+	for t in towns.size():
+		points.push_front(towns[t])
+		types.push_front("pueblo")
+		extra.push_front({"town": t})
+	# Lugares de la red que piden un tipo de parada (cuadras, cruces, trochas, orillas).
+	for site: Dictionary in _road_sites(roads, towns):
+		points.append(site["position"])
+		types.append("via")
+		extra.append({"site": site["site"], "road_dir": site["road_dir"], "town": site.get("town", -1)})
 	for road in roads:
 		var path: PackedVector3Array = road["path"]
 		var acc := landmark_spacing  # Incluye el primer punto de cada vía.
@@ -740,6 +745,112 @@ func _build_landmarks() -> void:
 		_build_signs()
 
 
+## Radio (m) alrededor del centro de un pueblo que cuenta como el pueblo (sus cuadras).
+const TOWN_RADIUS := 130.0
+
+## Lugares de la red vial que piden un tipo de parada (pendiente 10, fase 3):
+##   "mercado", "colegio", "posta": cruces de calles en las cuadras de cada pueblo;
+##   "cruce": donde una carretera o avenida se une con otra vía, fuera de los pueblos;
+##   "trocha": final sin salida de una trocha (chacra);
+##   "ribera": carretera junto a un río (playa, puente o embarcadero según la región);
+##   "carretera": tramo de carretera lejos de pueblos y cruces (grifo).
+## Devuelve [{ "position", "site", "road_dir", "town" (solo en el pueblo) }].
+func _road_sites(roads: Array, towns: PackedVector3Array) -> Array[Dictionary]:
+	var sites: Array[Dictionary] = []
+	# Cuántas vías pasan por cada punto (a 10 cm, como RoadRouter): > 1 = cruce.
+	var uses := {}
+	for road in roads:
+		var seen := {}
+		for p: Vector3 in road["path"]:
+			var k := Vector2i(roundi(p.x * 10.0), roundi(p.z * 10.0))
+			if not seen.has(k):
+				seen[k] = true
+				uses[k] = uses.get(k, 0) + 1
+	var shared := func(p: Vector3) -> bool: return uses.get(Vector2i(roundi(p.x * 10.0), roundi(p.z * 10.0)), 0) > 1
+	var town_of := func(p: Vector3) -> int:
+		for t in towns.size():
+			if Vector2(p.x - towns[t].x, p.z - towns[t].z).length() < TOWN_RADIUS:
+				return t
+		return -1
+	var usable := func(p: Vector3) -> bool: return is_inside(p.x, p.z) and get_reach_id(p.x, p.z) >= 0
+	var far_from := func(p: Vector3, kinds: Array, distance: float) -> bool:
+		for s: Dictionary in sites:
+			if (kinds.is_empty() or s["site"] in kinds) and Vector2(s["position"].x - p.x, s["position"].z - p.z).length() < distance:
+				return false
+		return true
+	var add := func(path: PackedVector3Array, i: int, site: String, town := -1) -> void:
+		var a := path[maxi(i - 1, 0)]
+		var b := path[mini(i + 1, path.size() - 1)]
+		var entry := {"position": path[i], "site": site, "road_dir": Vector3(b.x - a.x, 0.0, b.z - a.z).normalized()}
+		if town >= 0:
+			entry["town"] = town
+		sites.append(entry)
+
+	# 1. Cuadras: el mercado a una o dos cuadras de la plaza; colegio y posta más afuera.
+	var nodes := {}  # pueblo -> [[path, i], ...]
+	for road in roads:
+		if road["kind"] != 3:
+			continue
+		var path: PackedVector3Array = road["path"]
+		for i in path.size():
+			var t: int = town_of.call(path[i])
+			if t >= 0 and shared.call(path[i]) and usable.call(path[i]):
+				if not nodes.has(t):
+					nodes[t] = []
+				nodes[t].append([path, i])
+	for t: int in nodes:
+		var center := towns[t]
+		var list: Array = nodes[t]
+		var dist := func(n: Array) -> float: return Vector2(n[0][n[1]].x - center.x, n[0][n[1]].z - center.z).length()
+		list.sort_custom(func(a: Array, b: Array) -> bool: return dist.call(a) < dist.call(b))
+		for n: Array in list:
+			if dist.call(n) >= 40.0 and dist.call(n) <= 80.0:
+				add.call(n[0], n[1], "mercado", t)
+				break
+		list.reverse()
+		for site in ["colegio", "posta"]:
+			for n: Array in list:
+				var p: Vector3 = n[0][n[1]]
+				if dist.call(n) >= 55.0 and far_from.call(p, [], 60.0):
+					add.call(n[0], n[1], site, t)
+					break
+
+	# 2. Cruces de carretera, 3. finales de trocha, 4. orillas y 5. grifos.
+	var catchment := float(generator.get("river_catchment")) if generator.get("river_catchment") != null else 60000.0
+	var near_river := func(p: Vector3) -> bool:
+		for k in 9:
+			var q := p if k == 8 else p + Vector3(cos(k * PI / 4.0), 0.0, sin(k * PI / 4.0)) * 15.0
+			if get_drainage(q.x, q.z) >= catchment:
+				return true
+		return false
+	for road in roads:
+		var path: PackedVector3Array = road["path"]
+		var kind: int = road["kind"]
+		if kind == 0:
+			for i in [0, path.size() - 1]:
+				if not shared.call(path[i]) and usable.call(path[i]) and far_from.call(path[i], ["trocha"], 120.0):
+					add.call(path, i, "trocha")
+		if kind != 1 and kind != 2:
+			continue
+		for i in path.size():
+			var p := path[i]
+			if town_of.call(p) >= 0 or not usable.call(p):
+				continue
+			if shared.call(p) and far_from.call(p, ["cruce"], 300.0):
+				add.call(path, i, "cruce")
+			elif i % 3 == 0 and near_river.call(p) and far_from.call(p, ["ribera"], 400.0):
+				add.call(path, i, "ribera")
+	for road in roads:
+		if road["kind"] != 1:
+			continue
+		var path: PackedVector3Array = road["path"]
+		for i in range(0, path.size(), 4):
+			var p := path[i]
+			if usable.call(p) and not shared.call(p) and town_of.call(p) < 0 					and towns.size() > 0 and Array(towns).all(func(c: Vector3) -> bool: return Vector2(c.x - p.x, c.z - p.z).length() > 250.0) 					and far_from.call(p, ["cruce"], 200.0) and far_from.call(p, ["carretera"], 900.0):
+				add.call(path, i, "carretera")
+	return sites
+
+
 ## Punto de vía más cercano a p (dentro de landmark_snap_distance y transitable), o INF.
 func _nearest_road_point(p: Vector3, roads: Array) -> Vector3:
 	var best := Vector3.INF
@@ -779,7 +890,12 @@ func _build_signs() -> void:
 		var is_town: bool = lm["type"] == "pueblo"
 		if lm["type"] == "via":
 			# Al costado que quede fuera de la calzada.
-			for candidate: Vector3 in [p + side * 7.0, p - side * 7.0, p + side * 10.0, p - side * 10.0]:
+			# En un cruce de cuadras los cuatro lados son calle: probar también en diagonal.
+			var diag_a := (side + toward).normalized()
+			var diag_b := (side - toward).normalized()
+			for candidate: Vector3 in [p + side * 7.0, p - side * 7.0, p + side * 10.0, p - side * 10.0,
+					p + diag_a * 10.0, p - diag_a * 10.0, p + diag_b * 10.0, p - diag_b * 10.0,
+					p + diag_a * 14.0, p - diag_a * 14.0, p + diag_b * 14.0, p - diag_b * 14.0]:
 				if is_inside(candidate.x, candidate.z) and get_offroad_amount(candidate.x, candidate.z) > 0.9:
 					spot = candidate
 					break

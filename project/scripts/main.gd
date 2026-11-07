@@ -174,6 +174,7 @@ func _start_game(save: Dictionary = {}) -> void:
 	pause_menu.restart_requested.connect(_on_restart_requested)
 	pause_menu.menu_requested.connect(_back_to_menu)
 	pause_menu.save_requested.connect(_on_save_requested)
+	pause_menu.garage_closed.connect(_use_active_vehicle)
 	# Main sigue activo en pausa (pantalla de carga, menús); la partida en sí se detiene:
 	# así la pausa congela también el reloj del pasajero y los avisos de la sesión.
 	for n: Node in [race, session, cam]:
@@ -328,6 +329,8 @@ func pause() -> void:
 
 func resume() -> void:
 	pause_menu.close()
+	if free_mode:
+		_use_active_vehicle()  # Pudo elegir otra en el garaje de la pausa.
 	get_tree().paused = false
 
 

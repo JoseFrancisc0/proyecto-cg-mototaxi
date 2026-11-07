@@ -49,12 +49,43 @@ func _initialize() -> void:
 		"los pueblos son plaza o mercado")
 	_check(named.all(_matches_region), "cada nombre es de la región donde está")
 	var spaced := true
-	var roadside := named.filter(func(lm): return lm["type"] == "via")
+	var roadside := named.filter(func(lm): return lm["type"] == "via" and not lm.has("site"))
 	for a in roadside:
 		for b in named:
 			if a != b and Vector2(a["position"].x - b["position"].x, a["position"].z - b["position"].z).length() < 220.0:
 				spaced = false
 	_check(spaced and roadside.size() > 0, "las paradas de vía con nombre están separadas (%d)" % roadside.size())
+
+	print("-- Paradas en su lugar de la red (fase 3)")
+	var roads := world.get_roads()
+	var uses := {}
+	var kind_at := {}
+	for road in roads:
+		for p: Vector3 in road["path"]:
+			var k := Vector2i(roundi(p.x * 10.0), roundi(p.z * 10.0))
+			uses[k] = uses.get(k, 0) + 1
+			kind_at[k] = kind_at.get(k, []) + [road["kind"]]
+	var key := func(p: Vector3) -> Vector2i: return Vector2i(roundi(p.x * 10.0), roundi(p.z * 10.0))
+	var sited := named.filter(func(lm): return lm.has("site"))
+	var by_site := {}
+	for lm in sited:
+		by_site[lm["site"]] = by_site.get(lm["site"], 0) + 1
+	print("  sitios con nombre: %s" % by_site)
+	var towns := world.generator.last_roads.get_town_centers()
+	var in_town := func(p: Vector3) -> bool:
+		return Array(towns).any(func(c: Vector3) -> bool: return Vector2(c.x - p.x, c.z - p.z).length() < TerrainWorld.TOWN_RADIUS)
+	_check(by_site.get("mercado", 0) >= towns.size() - 1, "mercado a una cuadra de la plaza en los pueblos (%d de %d)" % [by_site.get("mercado", 0), towns.size()])
+	_check(by_site.get("colegio", 0) + by_site.get("posta", 0) >= towns.size(), "colegios y postas en las cuadras (%d)" % (by_site.get("colegio", 0) + by_site.get("posta", 0)))
+	_check(sited.filter(func(lm): return lm["site"] in ["mercado", "colegio", "posta"]).all(func(lm): return in_town.call(lm["position"]) and 3 in kind_at.get(key.call(lm["position"]), [])),
+		"mercado, colegio y posta están en las calles del pueblo")
+	_check(sited.filter(func(lm): return lm["site"] == "cruce").all(func(lm): return uses.get(key.call(lm["position"]), 0) > 1 and lm["kind"] == "paradero"),
+		"los paraderos de cruce están en un cruce (%d)" % by_site.get("cruce", 0))
+	_check(by_site.get("trocha", 0) > 0 and sited.filter(func(lm): return lm["site"] == "trocha").all(func(lm): return 0 in kind_at.get(key.call(lm["position"]), []) and lm["kind"] in ["chacra", "especial"]),
+		"chacras al final de las trochas (%d)" % by_site.get("trocha", 0))
+	_check(named.filter(func(lm): return lm["kind"] == "especial" and lm["region"] == 2).all(func(lm): return lm.get("site", "") == "ribera"),
+		"los embarcaderos de la selva están junto al río")
+	_check(named.filter(func(lm): return lm["kind"] in ["colegio", "posta", "mercado"] and lm["type"] == "via").all(func(lm): return lm.has("site")),
+		"colegio, posta y mercado solo salen en las cuadras (no al azar)")
 
 	print("-- Misma semilla, mismos nombres; otra semilla, otros")
 	var copy: Array[Dictionary] = []

@@ -118,6 +118,21 @@ func _run() -> void:
 	main.pause()
 	_check(not main.pause_menu._save.visible and main.pause_menu._respawn.visible, "la pausa ofrece Volver al inicio (sin Guardar)")
 	_check(main.pause_menu._restart.text == "Cambiar escenario", "y Cambiar escenario")
+	# Pendiente 12: garaje dentro del Modo libre.
+	var first: int = main.moto.vehicle_index
+	var other: int = (first + 1) % VehicleCatalog.VEHICLES.size()
+	CareerSave.add_savings(100000.0)
+	CareerSave.buy(other)
+	CareerSave.set_active(first)
+	_check(main.pause_menu._garage_button.visible, "la pausa del Modo libre tiene Garaje")
+	main.pause_menu.open_garage()
+	main.pause_menu.garage.select_vehicle(other)
+	main.pause_menu.garage._on_use()
+	main.pause_menu._close_scenario()  # "Volver"
+	_check(main.moto.vehicle_index == other and CareerSave.get_active() == other, "al volver del garaje ya maneja la otra mototaxi")
+	main.resume()
+	_check(not get_root().get_tree().paused and main.moto.vehicle_index == other, "y sigue explorando con ella")
+	main.pause()
 	main.pause_menu.open_scenario()
 	main.pause_menu._scenario.picker.region.select(1)
 	main.pause_menu._scenario.confirm()

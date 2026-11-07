@@ -84,12 +84,14 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
 | 2 | Minimapa estilo GTA como guía principal (ruta por las vías + punto del objetivo) | ✅ `Minimap` en `RaceHUD`; se quitó la flecha flotante |
 | 3 | Mapa completo (tecla M o en la pausa), estilo GTA, con el destino y la ruta | ✅ `FullMap` (M / Back): norte arriba, zoom y arrastre, lugares con nombre; pausa el juego |
 | 4 | Darle sentido al dinero (ver opciones abajo) y un fin de partida que no dependa solo de la vida | ✅ opciones 1 + 3: jornadas con cuota (`GameSession`) y ahorros para el garaje (`CareerSave`); sin propinas |
-| 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ⬜ |
+| 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ⬜ es la fase 5 del pendiente 10 (plan abajo) |
 | 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | ⬜ |
 | 7 | Ordenar partidas (opción B, decidida 2026-11-06): una sola carrera continua + Modo libre; quitar "Nueva partida"; elegir el escenario al terminar el día o al reiniciar (ver abajo) | ✅ `ScenarioPicker`/`ScenarioPanel`, `CareerSave.launch`, `GameSession.free_mode` |
 | 8 | Destinos por todo el mapa: viajes corto/medio/largo (≈50/32/18 %), los largos pagan más por km (hasta el doble) y rinden más por minuto; no se piden si no alcanza la jornada; en los largos se prefieren lugares con nombre | ✅ `RaceManager._pick_destination`, `compute_fare`, `time_budget`; prueba `tests/test_destinos.gd` |
 | 9 | Minimapa para viajes largos: (a) la distancia del HUD es la que falta de la **ruta**, en km desde 1000 m; (b) el punto del objetivo pegado al borde se dibuja como flechita hacia afuera (como en GTA); (c) opcional, alejar más el minimapa a toda velocidad (p. ej. 300 m) si al jugar hace falta | ⬜ propuesto 2026-11-06 (a y b recomendados) |
-| 10 | Red vial, paradas y ambientación: ver el plan "Red vial, paradas y ambientación" abajo | 🟡 fases 1–2 ✅; fases 3–5 ⬜ |
+| 10 | Red vial, paradas y ambientación: ver el plan "Red vial, paradas y ambientación" abajo | 🟡 fases 1–3 ✅; fases 4–5 ⬜ |
+| 11 | Elegir escenario con **vista previa** (costa, sierra, selva, mixto) en vez de solo el nombre, como en un juego | ✅ 2026-11-06 (revisado y aprobado por el usuario): `ScenarioPicker` con 4 tarjetas con foto (en una fila si hay espacio, si no 2×2); fotos del juego real con `tools/capture_scenario_previews.gd` → `ui/scenarios/*.jpg`; Mixta = collage diagonal de las tres |
+| 12 | Garaje dentro del **Modo libre** (cambiar de vehículo al momento, sin volver al menú), como ya se hace con el escenario | ✅ 2026-11-06: botón "Garaje" en la pausa del Modo libre (`PauseMenu.open_garage`, el mismo `VehicleGarage`); al volver o continuar se usa la mototaxi elegida (`garage_closed` → `Main._use_active_vehicle`) |
 
 **Pendiente 10 — plan "Red vial, paradas y ambientación" (planteado 2026-11-06)**
 
@@ -133,16 +135,96 @@ carreras": más de un camino en tierra llana (en la montaña es lógico que haya
    - 2d. Cruces: cortar la vía existente en el punto de unión (riesgo técnico principal).
    - Validar: `roads_test`, `test_drive_routes -- 8 editor`, alcanzabilidad (`is_reachable`), tiempo de
      generación, cruces bien aplanados y con textura, FPS.
-3. ⬜ **Paradas sobre la red nueva**: mercado/plaza en el centro del pueblo, colegio/posta en las cuadras,
-   paraderos en los cruces de carretera, chacras al final de las trochas, embarcadero junto al agua (selva),
-   caleta/playa junto al mar (costa). Reusar `StopNames` (agregar reglas de ubicación por tipo).
-4. ⬜ **Ambientación** según región y tipo de parada: casas de adobe/quincha con techo plano (costa), adobe
-   con teja (sierra), madera con calamina o palafitos (selva); puestos de mercado, paradero techado,
-   toldos, postes. Casas a lo largo de las calles con lo que ya funciona en la vegetación (muchas copias
-   instanciadas, impostores de lejos, colisión solo cerca); ubicar con `get_offroad_amount` y pendiente
-   baja. Modelos CC0 (como los pasajeros y la vegetación). Presupuesto: hoy 150–165 FPS.
-5. ⬜ **Obstáculos de animales** (pendiente 5): al final, con pueblos y trochas hay lugares lógicos
-   (gallinas y perros en el pueblo, llamas en la trocha de la sierra, chanchos en la selva).
+3. ✅ **Paradas sobre la red nueva** (2026-11-06, GDScript). `TerrainWorld._road_sites` lee la red (puntos
+   compartidos a 10 cm = cruces; extremo de trocha que no comparte = sin salida) y marca `site` en:
+   `mercado` (cruce de calles a 40–80 m de la plaza), `colegio` y `posta` (cruces de calles más afuera,
+   separados ≥ 60 m), `cruce` (carretera/avenida que se une con otra vía fuera del pueblo, cada ≥ 300 m),
+   `trocha` (final sin salida), `ribera` (carretera a ≤ 15 m de un cauce, cada ≥ 400 m) y `carretera`
+   (lejos de pueblos y cruces, cada ≥ 900 m). `StopNames` convierte el sitio en tipo: mercado, colegio,
+   posta, paradero, chacra (o huaca/comunidad en costa/sierra, 30%), playa/puente/embarcadero según la
+   región, grifo. El centro del pueblo es la plaza (con mercado a una cuadra). Solo las paradas sin sitio
+   se sortean (paradero, chacra o grifo). Los carteles de cruces de cuadras prueban también en diagonal.
+   Mapa guardado: 46 de 259 paradas con nombre (antes 22 de 131): 4 plazas, 4 mercados, 4 colegios,
+   4 postas, 12 paraderos, 13 chacras, 3 grifos, 1 embarcadero. `tests/test_paradas.gd` comprueba cada
+   tipo en su lugar.
+4. ⬜ **Ambientación: casas y objetos por región y por tipo de parada.** Ver "Fase 4 — cómo pedirla" abajo.
+5. ⬜ **Obstáculos de animales** (pendiente 5). Ver "Fase 5 — cómo pedirla" abajo.
+
+*Fase 4 — cómo pedirla* (pedir en sesión nueva: "haz la fase 4 del pendiente 10", en la rama `juego`)
+- **Objetivo.** Que los pueblos y paradas no se vean desérticos: las cuadras de la fase 2 se llenan de
+  casas y cada parada con nombre tiene algo propio alrededor del cartel.
+- **Casas por región** (según `get_biome` en ese punto):
+  - Costa: adobe o quincha, techo plano, colores claros.
+  - Sierra: adobe con techo de teja a dos aguas.
+  - Selva: madera con calamina, o palafitos cerca del agua.
+  - En zonas mixtas se toma la región que domina.
+- **Dónde van.**
+  - Casas en fila a los dos lados de las calles (`kind` 3), frente a la vía y a unos metros del borde.
+  - Solo donde el suelo es firme (`get_offroad_amount` alto), con poca pendiente y sin agua.
+  - Nunca sobre la calzada ni tapando un cruce.
+  - Menos casas, más separadas, en avenidas y carreteras cerca del pueblo; casi nada en trochas (solo la
+    casa de la chacra al final).
+- **Ambientación por tipo de parada** (los tipos de `StopNames` y los `site` de `TerrainWorld._road_sites`):
+  - Plaza: espacio abierto, bancas, árboles.
+  - Mercado: puestos con toldos.
+  - Paradero: techito.
+  - Colegio y posta: edificio más grande con muro o patio.
+  - Grifo: surtidor con techo.
+  - Chacra: casa pequeña y cerco.
+  - Embarcadero / playa / puente: muelle o bote, según la región.
+- **Cómo hacerlo** (lo que ya funciona en la vegetación):
+  - Muchas copias de pocos modelos con MultiMesh, como `TerrainVegetation`.
+  - Versiones simples o impostores de lejos (`VegetationImpostors`).
+  - Colisión solo cerca de la mototaxi, como `TreeColliders`/`NearVegetation`.
+  - Quitar la vegetación que quede dentro de una casa.
+  - Todo sale de la semilla del mundo: mismo mapa, mismas casas.
+- **Modelos.** CC0 (Quaternius, Kenney u otros), o casas armadas por código como las plantas de
+  `VegetationAssets` (cajas y techos simples, con color por vértice). Lo primero es preguntar cuál
+  prefiere el usuario.
+- **Estilo.** El terreno busca ser realista pero optimizado; las casas deben ir con ese estilo y no con el
+  de las pistas actuales, que se ven rústicas (ver "Puntos a mejorar para el equipo de gráficos", punto 2).
+- **Presupuesto.** Hoy 150–165 FPS; la carga del mapa sube como mucho ~0.5 s.
+- **Validar.**
+  - Una prueba nueva tipo `tests/test_ambientacion.gd`:
+    - ninguna casa sobre la calzada ni en agua;
+    - cada parada con nombre tiene su objeto;
+    - mismas casas con la misma semilla.
+  - `test_drive_routes -- 8 editor` sigue 8/8 (las casas no bloquean rutas).
+  - `test_paradas`, `hierarchy_test`.
+  - Capturas de pueblos en costa, sierra y selva (como `tests/capture_red_vial.gd`).
+  - FPS.
+
+*Fase 5 — cómo pedirla* (pedir en sesión nueva: "haz la fase 5 del pendiente 10", en `juego`)
+- **Objetivo.** Animales que cruzan o caminan por la vía, estilo Mario Kart: obstáculos que hay que
+  esquivar, no enemigos.
+- **Qué animales y dónde** (lugares que ya existen gracias a las fases 2–4):
+  - Costa: perros y gallinas en calles del pueblo.
+  - Sierra: llamas, alpacas y ovejas en trochas y carreteras de la sierra (rebaño que cruza).
+  - Selva: chanchos y gallinas cerca de casas y chacras.
+  - Más animales en pueblos y trochas; pocos en carreteras abiertas.
+- **Comportamiento.**
+  - Aparecen solo cerca de la mototaxi (a unos 60–150 m, fuera de cámara si se puede) y desaparecen
+    lejos, para no gastar FPS.
+  - Cruzan la vía de un lado al otro o caminan un rato por ella; se apartan o se asustan si la mototaxi
+    pita o se acerca despacio.
+  - No se ponen sobre el punto de recogida ni sobre el destino.
+- **Al chocar.**
+  - Daño a la mototaxi con `Mototaxi.apply_damage(cantidad, "animal")`.
+  - Enojo del pasajero: baja `_comfort` en `RaceManager`, como los golpes; frase del pasajero.
+  - El animal huye; nada gráfico.
+  - Que no sea injusto: aviso visual o sonido antes, y un tiempo de gracia entre golpes.
+- **Modelos.** Animales CC0 de bajo detalle (Quaternius tiene "Farm Animals" / "Animal Pack"); revisar
+  licencia y anotarla en Créditos (`loading_screen.gd`) y en el `SOURCE.md` de la carpeta del modelo.
+- **Opciones.**
+  - Cuántos animales hay (ninguno / pocos / muchos), en Opciones o al elegir el escenario.
+  - En el Modo libre también aparecen.
+- **Validar.**
+  - Una prueba sin ventana: aparecen según la región, nunca fuera de la vía o del pueblo, chocar resta
+    vida y ánimo.
+  - El piloto automático sigue completando viajes con los animales desactivados.
+  - FPS con el máximo de animales.
+- Ideas relacionadas para después: pendiente 6 (piedras de huaico, baches, combis lentas) y la bocina
+  para espantar animales como mejora del garaje.
 
 *Decisiones (2026-11-06)*: la fase 2 se hizo en `juego` (coordinar con josep-castro: toca
 `road_network.cpp`); el escenario guardado puede cambiar. No hizo falta regenerar `terrain_demo.tscn`: la
@@ -316,6 +398,33 @@ con el `road_max_grade` del juego.
   arrancar el juego se rehacen en ~2 s. El juego carga en ~2 s (antes ~10 s).
 - Se quitó el transform del nodo `Terrain` (estaba rotado ~9° y a 4 km del origen: no se veía en 3D).
 
+## Puntos a mejorar para el equipo de gráficos (anotados 2026-11-06)
+
+Encontrados mientras se hacía la red vial en `juego`. El objetivo teórico principal es un terreno
+generado de forma optimizada pero realista; estos puntos desentonan con eso.
+
+1. **Nodo `Terrain` rotado en `terrain_demo.tscn`.** Tiene un `transform` girado ~31° e inclinado ~3.5°
+   (ya estaba en la versión del 2026-10-21; parece un movimiento accidental en el editor). Por eso falla
+   `textures_test` ("La elevacion del sol debe llegar al shader"): el sol se pasa al shader en el espacio
+   del terreno y la inclinación lo desvía. Arreglo probable: dejar el transform en identidad y volver a
+   guardar la escena (el juego no usa ese transform; copia solo los parámetros y el suelo).
+2. **Vías con aspecto rústico.** La calzada se pinta con el color de vértice de la malla (celdas de 3 m),
+   así que las calles (6 m) y las trochas (4.5 m) se ven con bordes borrosos, y las trochas son un color
+   tierra liso, sin textura. Ideas: máscara de vías en una textura de más resolución o malla propia de la
+   calzada (cinta) con textura de asfalto/tierra, bordes y veredas en los pueblos.
+3. **La sierra queda fuera del juego.** En el mapa guardado (semilla 2) ninguna vía entra a la sierra
+   (21% del mapa): 0 de 249 paradas están en la sierra. Los pueblos se ubican por sector buscando suelo
+   llano y las vías evitan la pendiente. En versiones anteriores la sierra además era difícil de manejar
+   y muchos destinos no se alcanzaban. Ideas: asegurar al menos un pueblo en una meseta o valle de la
+   sierra y una carretera con curvas de herradura (serpentinas) que suba con pendiente ≤ 0.16.
+4. **Fin del mapa en el horizonte.** Más allá del borde se ve el "suelo" del cielo procedural (franja
+   marrón oscura bajo el horizonte). Para las fotos del selector se igualó, solo en la captura, el color
+   del suelo del cielo al del horizonte y se puso neblina; en el juego convendría algo así (o un
+   horizonte lejano) para que el mapa no se vea como una maqueta.
+5. **Pueblos sin edificios.** Las cuadras de los pueblos están hechas (fase 2), pero hoy son calles en
+   medio de la vegetación; la fase 4 (jugabilidad) pondrá casas por región, y conviene que el estilo de
+   esos modelos lo acuerde el equipo de gráficos.
+
 ## Computación Gráfica (rama `main`)
 
 Todo lo del PDF de la semana 10 está hecho; el detalle de cada tarea está en `docs/s11_cgb.md` y `docs/s12_s14_cg.md`.
@@ -457,3 +566,14 @@ para que Godot registre la clase.
 - **2026-11-06** — Pendiente 10, fase 2: red vial más residencial en C++ (`RoadNetwork::_grow_network`):
   enlaces extra, cuadras en los pueblos, trochas y cruces exactos. `hierarchy_test` actualizado (toda vía
   nueva sale de un punto de otra y el GPS llega a ella); captura nueva `tests/capture_red_vial.gd`.
+- **2026-11-06** — Pendiente 10, fase 3: paradas según su lugar en la red (`TerrainWorld._road_sites`,
+  `StopNames` con `site`). Anotados los pendientes 11 (vista previa al elegir escenario) y 12 (garaje en
+  el Modo libre) y una sección de puntos a mejorar para el equipo de gráficos (nodo `Terrain` rotado que
+  hace fallar `textures_test`, vías rústicas, sierra sin vías, pueblos sin casas).
+- **2026-11-06** — Pendientes 11 y 12: selector de escenario con tarjetas con foto por región (Mixta,
+  Costa, Sierra, Selva) en el menú, el fin del día y la pausa; garaje dentro de la pausa del Modo libre.
+  Captura `tests/capture_escenario_ui.gd` (→ `output/ui_review/escenario_*.png`, `libre_*.png`);
+  `test_escenario` comprueba el garaje del Modo libre.
+- **2026-11-06** — El usuario revisó y aprobó los pendientes 11 y 12. Las fases 4 (casas y ambientación) y
+  5 (animales) del pendiente 10 quedan descritas para pedirlas en una sesión nueva ("Fase 4 — cómo
+  pedirla", "Fase 5 — cómo pedirla").
