@@ -224,6 +224,8 @@ var busy := false
 ## TerrainMesh del calculo en curso o del ultimo (la pantalla de carga lee su avance y vista previa).
 var current_builder: TerrainMesh
 var vegetation: TerrainVegetation
+## Círculos [x, z, radio] donde no van plantas (casas del juego, TerrainHouses).
+var vegetation_blockers: Array = []
 var _sun_timer: SceneTreeTimer
 
 
@@ -823,7 +825,8 @@ func _build_vegetation() -> void:
 		if s != null:
 			snow = float(s)
 	vegetation.build(last_surface, last_terrain, {"seed": noise_seed, "snow_height": snow,
-		"sun_direction": (global_basis.inverse() * sun_direction()).normalized(), "chunk_cells": 128})
+		"sun_direction": (global_basis.inverse() * sun_direction()).normalized(), "chunk_cells": 128,
+		"blockers": vegetation_blockers})
 	_set_canopy(vegetation.canopy_texture)
 	if material_override is ShaderMaterial:
 		TerrainVegetation.sync_lighting(material_override, sun_direction())

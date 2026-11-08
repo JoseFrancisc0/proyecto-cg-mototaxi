@@ -66,6 +66,7 @@ func build(builder: TerrainMesh, terrain: TerrainNoise, options := {}) -> int:
 	if builder == null or terrain == null:
 		return 0
 	var opts := options.duplicate()
+	opts.erase("blockers")
 	opts["density_scale"] = density
 	var t0 := Time.get_ticks_msec()
 	var result: Dictionary = builder.scatter_vegetation(terrain, SPECIES, opts)
@@ -75,6 +76,7 @@ func build(builder: TerrainMesh, terrain: TerrainNoise, options := {}) -> int:
 	var per_side: int = result["chunks_per_side"]
 	var half := chunk_m * per_side * 0.5
 	var species: Dictionary = result["species"]
+	var blocked := _blocker_grid(options.get("blockers", []))
 	for rule: Dictionary in SPECIES:
 		var name: String = rule["name"]
 		if not species.has(name):
@@ -101,6 +103,10 @@ func build(builder: TerrainMesh, terrain: TerrainNoise, options := {}) -> int:
 		var chunks: Dictionary = info["chunks"]
 		for chunk_id: int in chunks:
 			var buffer: PackedFloat32Array = chunks[chunk_id]
+			if not blocked.is_empty():
+				buffer = _remove_blocked(buffer, blocked)
+				if buffer.is_empty():
+					continue
 			if trunk > 0.0 and colliders:
 				colliders.add_trunks(buffer, trunk, variants[0].get_aabb().size.y)
 			var parts := _split_variants(buffer, variants.size())
@@ -129,6 +135,40 @@ func clear() -> void:
 	near = null
 	counts.clear()
 	total = 0
+
+
+const BLOCK_CELL := 16.0
+
+## Círculos [x, z, r] por celda de BLOCK_CELL m.
+static func _blocker_grid(circles: Array) -> Dictionary:
+	var grid := {}
+	for c: Array in circles:
+		for cz in range(floori((c[1] - c[2]) / BLOCK_CELL), floori((c[1] + c[2]) / BLOCK_CELL) + 1):
+			for cx in range(floori((c[0] - c[2]) / BLOCK_CELL), floori((c[0] + c[2]) / BLOCK_CELL) + 1):
+				var key := Vector2i(cx, cz)
+				if not grid.has(key):
+					grid[key] = []
+				grid[key].append(c)
+	return grid
+
+
+## Quita del buffer (20 floats por planta) las plantas que caen dentro de un círculo.
+static func _remove_blocked(buffer: PackedFloat32Array, grid: Dictionary) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	var removed := false
+	for i in range(0, buffer.size(), 20):
+		var x := buffer[i + 3]
+		var z := buffer[i + 11]
+		var inside := false
+		for c: Array in grid.get(Vector2i(floori(x / BLOCK_CELL), floori(z / BLOCK_CELL)), []):
+			if Vector2(x - c[0], z - c[1]).length_squared() < c[2] * c[2]:
+				inside = true
+				break
+		if inside:
+			removed = true
+		else:
+			out.append_array(buffer.slice(i, i + 20))
+	return out if removed else buffer
 
 
 ## Un MultiMeshInstance3D por especie, chunk y variante.

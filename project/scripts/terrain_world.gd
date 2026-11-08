@@ -73,6 +73,11 @@ const Generator = preload("res://scripts/chunk_mesh.gd")
 @export var landmark_snap_distance := 160.0
 ## Carteles 3D con el nombre de cada landmark tipado.
 @export var landmark_signs := true
+## Obstáculos fijos en las vías (RoadObstacles.LEVELS: 0 ninguno, 1 pocos, 2 normal, 3 muchos).
+## El juego lo toma de Opciones (GameSettings); las pruebas lo dejan en 0 salvo que lo pidan.
+@export_range(0, 3) var obstacle_level := 0
+## Viviendas por región en pueblos, afueras y campo (TerrainHouses).
+@export var houses_enabled := true
 
 @export_group("Transitabilidad")
 ## Pendiente máxima (tan del ángulo) que la mototaxi puede subir con margen.
@@ -96,6 +101,8 @@ var _body: StaticBody3D
 var _bridge_body: StaticBody3D
 var _chunk_root: Node3D
 var _sign_root: Node3D
+var obstacles: RoadObstacles
+var houses: TerrainHouses
 var _generated_ok := false
 var _editor_t0 := 0
 var _router: RoadRouter  # Grafo de vías para find_road_route (se arma la primera vez).
@@ -226,6 +233,8 @@ func _finish_generate() -> void:
 	_add_bridge_decks()
 	_build_reachability()
 	_build_landmarks()
+	_build_houses()
+	_build_obstacles()
 	_build_vegetation()
 	_generated_ok = true
 	generated.emit()
@@ -241,6 +250,8 @@ func _finish_generate_async() -> void:
 		["Puentes", _add_bridge_decks],
 		["Zonas transitables", _build_reachability],
 		["Landmarks (picos, confluencias, costa)", _build_landmarks],
+		["Viviendas", _build_houses],
+		["Obstáculos en las vías", _build_obstacles],
 		["Vegetación (MultiMesh)", _build_vegetation],
 	]
 	for k in steps.size():
@@ -951,6 +962,50 @@ func _sign_part(mesh: BoxMesh, size: Vector3, offset: Vector3, color: Color) -> 
 	mi.visibility_range_begin = 2.5
 	mi.position = offset
 	return mi
+
+
+## Viviendas según la región (antes de la vegetación: los árboles de adentro se quitan).
+func _build_houses() -> void:
+	if houses == null:
+		houses = TerrainHouses.new()
+		houses.name = "Viviendas"
+		add_child(houses)
+	var t0 := Time.get_ticks_msec()
+	houses.build(self, world_seed, 1.0 if houses_enabled else 0.0)
+	if generator != null:
+		generator.vegetation_blockers = houses.blockers()
+	if houses_enabled:
+		print("Viviendas: %d en %.2f s %s" % [houses.houses.size(), (Time.get_ticks_msec() - t0) / 1000.0, houses.counts])
+
+
+## Centros de los pueblos (plazas).
+func get_town_centers() -> PackedVector3Array:
+	return generator.last_roads.get_town_centers() if generator != null and generator.last_roads != null else PackedVector3Array()
+
+
+## Posiciones de los carteles de las paradas.
+func get_sign_positions() -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	if _sign_root != null:
+		for c in _sign_root.get_children():
+			out.append((c as Node3D).position)
+	return out
+
+
+## Obstáculos fijos sobre las vías según la región (rocas, troncos, obras, charcos, arena, baches).
+func _build_obstacles() -> void:
+	if obstacles == null:
+		obstacles = RoadObstacles.new()
+		obstacles.name = "Obstaculos"
+		add_child(obstacles)
+	var level := clampi(obstacle_level, 0, RoadObstacles.LEVELS.size() - 1)
+	obstacles.build(self, float(RoadObstacles.LEVELS[level][1]), world_seed)
+
+
+## Efecto del suelo bajo una rueda: RoadObstacles.HAZARD_NONE, HAZARD_SLOW (barro, arena)
+## o HAZARD_BUMP (bache).
+func get_hazard(x: float, z: float) -> int:
+	return obstacles.hazard_at(x, z) if obstacles != null else RoadObstacles.HAZARD_NONE
 
 
 ## Vegetación del mapa del juego (MultiMesh por especie y chunk).

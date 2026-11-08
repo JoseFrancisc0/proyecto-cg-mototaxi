@@ -376,6 +376,10 @@ func _on_moto_damaged(amount: float, reason: String) -> void:
 	if reason == "vuelco":
 		_comfort -= mood_flip_loss
 		passenger_said.emit("¡¿Qué le pasa?! ¡Casi me mata!")
+	elif reason == "bache":
+		_comfort -= amount * mood_hit_factor + 0.03
+		if amount >= 3.0:
+			passenger_said.emit("¡Ay! ¿No vio ese hueco?")
 	else:
 		_comfort -= amount * mood_hit_factor
 		if amount >= 8.0:

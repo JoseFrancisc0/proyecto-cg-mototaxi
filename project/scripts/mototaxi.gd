@@ -61,6 +61,11 @@ var turbo_requested := false
 var turbo_active := false
 var turbo_charge := 1.0
 var offroad_amount := 0.0
+var mud_amount := 0.0     ## Fracción de ruedas en barro o arena (RoadObstacles).
+var mud_drag := 0.9       ## Frenado del barro (por m/s de velocidad, por kg).
+var pothole_damage := 0.2 ## Daño por km/h por encima de pothole_safe_kmh al caer en un bache.
+var pothole_safe_kmh := 18.0
+var _pothole_cool: Array[float] = []
 var turbo_multiplier := 2.1
 var road_grip := 3.2
 var offroad_speed_ratio := 0.61
@@ -221,7 +226,7 @@ func _physics_process(delta: float) -> void:
 	var contacts := 0
 	var contact_normal := Vector3.ZERO
 	for w in _wheels:
-		w.wheel_friction_slip = road_grip * (0.83 if w.use_as_steering else 1.0) * lerpf(1.0, 0.56, offroad_amount)
+		w.wheel_friction_slip = road_grip * (0.83 if w.use_as_steering else 1.0) * lerpf(1.0, 0.56, offroad_amount) * lerpf(1.0, 0.6, mud_amount)
 		w.wheel_roll_influence = lerpf(0.05, 0.16, offroad_amount)
 		w.brake = brk + (handbrake_force if handbrake and w.use_as_traction else 0.0)
 		if w.is_in_contact():
@@ -247,6 +252,8 @@ func _physics_process(delta: float) -> void:
 		# Resistencia continua: desacelera también al entrar a tierra por inercia.
 		var horizontal := Vector3(linear_velocity.x, 0.0, linear_velocity.z)
 		apply_central_force(-horizontal * mass * offroad_amount * 0.34)
+		# Barro o arena de la vía: frena mucho más que la tierra.
+		apply_central_force(-horizontal * mass * mud_amount * mud_drag)
 		# Asistencia de pendiente solo con apoyo: no empuja en el aire ni cuesta abajo.
 		if turbo_active and global_basis.z.y > 0.02:
 			var forward := global_basis.z.normalized()
@@ -325,12 +332,38 @@ func get_health_ratio() -> float:
 
 func _update_surface(delta: float) -> void:
 	var amount := 0.0
+	var mud := 0.0
+	if _pothole_cool.size() != _wheels.size():
+		_pothole_cool.resize(_wheels.size())
+		_pothole_cool.fill(0.0)
 	if terrain:
-		for wheel in _wheels:
+		for k in _wheels.size():
+			var wheel := _wheels[k]
 			var p := wheel.global_position
 			amount += terrain.get_offroad_amount(p.x, p.z)
+			_pothole_cool[k] -= delta
+			match terrain.get_hazard(p.x, p.z):
+				RoadObstacles.HAZARD_SLOW:
+					mud += 1.0
+				RoadObstacles.HAZARD_BUMP:
+					if _pothole_cool[k] <= 0.0 and wheel.is_in_contact():
+						_pothole_cool[k] = 0.6
+						_hit_pothole(wheel)
 		amount /= maxf(1.0, _wheels.size())
+		mud /= maxf(1.0, _wheels.size())
 	offroad_amount = move_toward(offroad_amount, amount, delta * 3.0)
+	mud_amount = mud
+
+
+## Una rueda cae en un bache: sacudón y, si va rápido, algo de daño.
+func _hit_pothole(wheel: VehicleWheel3D) -> void:
+	var kmh := get_speed_kmh()
+	if kmh < 6.0:
+		return
+	var jolt := mass * clampf(kmh / 60.0, 0.15, 0.8)
+	apply_impulse(Vector3.UP * jolt, wheel.global_position - global_position)
+	if kmh > pothole_safe_kmh:
+		apply_damage((kmh - pothole_safe_kmh) * pothole_damage, "bache")
 
 
 ## Multiplicador de fuerza según la velocidad (marcha corta al arrancar).

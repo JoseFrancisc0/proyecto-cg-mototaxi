@@ -85,13 +85,42 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
 | 3 | Mapa completo (tecla M o en la pausa), estilo GTA, con el destino y la ruta | ✅ `FullMap` (M / Back): norte arriba, zoom y arrastre, lugares con nombre; pausa el juego |
 | 4 | Darle sentido al dinero (ver opciones abajo) y un fin de partida que no dependa solo de la vida | ✅ opciones 1 + 3: jornadas con cuota (`GameSession`) y ahorros para el garaje (`CareerSave`); sin propinas |
 | 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ⬜ es la fase 5 del pendiente 10 (plan abajo) |
-| 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | ⬜ |
+| 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | 🟡 2026-11-08 obstáculos fijos ✅ (`RoadObstacles`, ver abajo); faltan vehículos lentos (combis, otras mototaxis) |
 | 7 | Ordenar partidas (opción B, decidida 2026-11-06): una sola carrera continua + Modo libre; quitar "Nueva partida"; elegir el escenario al terminar el día o al reiniciar (ver abajo) | ✅ `ScenarioPicker`/`ScenarioPanel`, `CareerSave.launch`, `GameSession.free_mode` |
 | 8 | Destinos por todo el mapa: viajes corto/medio/largo (≈50/32/18 %), los largos pagan más por km (hasta el doble) y rinden más por minuto; no se piden si no alcanza la jornada; en los largos se prefieren lugares con nombre | ✅ `RaceManager._pick_destination`, `compute_fare`, `time_budget`; prueba `tests/test_destinos.gd` |
 | 9 | Minimapa para viajes largos: (a) la distancia del HUD es la que falta de la **ruta**, en km desde 1000 m; (b) el punto del objetivo pegado al borde se dibuja como flechita hacia afuera (como en GTA); (c) opcional, alejar más el minimapa a toda velocidad (p. ej. 300 m) si al jugar hace falta | ⬜ propuesto 2026-11-06 (a y b recomendados) |
-| 10 | Red vial, paradas y ambientación: ver el plan "Red vial, paradas y ambientación" abajo | 🟡 fases 1–3 ✅; fases 4–5 ⬜ |
+| 10 | Red vial, paradas y ambientación: ver el plan "Red vial, paradas y ambientación" abajo | 🟡 fases 1–3 ✅; fase 4 🟡 (viviendas ✅, ambientación por tipo de parada ⬜); fase 5 ⬜ |
 | 11 | Elegir escenario con **vista previa** (costa, sierra, selva, mixto) en vez de solo el nombre, como en un juego | ✅ 2026-11-06 (revisado y aprobado por el usuario): `ScenarioPicker` con 4 tarjetas con foto (en una fila si hay espacio, si no 2×2); fotos del juego real con `tools/capture_scenario_previews.gd` → `ui/scenarios/*.jpg`; Mixta = collage diagonal de las tres |
+| 13 | **Dificultad** fácil / normal / difícil (pedido 2026-11-08) en vez de elegir directamente la cantidad de obstáculos: que regule la frecuencia de obstáculos fijos **y de animales** (fase 5). Se hace cuando estén los animales; mientras tanto queda "Obstáculos en las vías" en Opciones (por defecto Normal) | ⬜ |
 | 12 | Garaje dentro del **Modo libre** (cambiar de vehículo al momento, sin volver al menú), como ya se hace con el escenario | ✅ 2026-11-06: botón "Garaje" en la pausa del Modo libre (`PauseMenu.open_garage`, el mismo `VehicleGarage`); al volver o continuar se usa la mototaxi elegida (`garage_closed` → `Main._use_active_vehicle`) |
+
+**Pendiente 6 — obstáculos fijos en las vías (hecho 2026-11-08)**
+- `RoadObstacles` (`project/scripts/road_obstacles.gd`), lo arma `TerrainWorld._build_obstacles` después de
+  las paradas. Seis tipos, elegidos por región (`get_biome`) y tipo de vía:
+  - Sólidos (tapan un lado; chocar = frenazo brusco → `Mototaxi._check_crash`, daño y enojo):
+    **rocas** de huaico/derrumbe (sierra; algo en costa), **tronco** caído (selva; eucalipto en sierra; en
+    la selva con la copa al costado), **obra** (barriles naranja/blanco + conos de aviso a 9 m por los dos
+    lados; los conos son `RigidBody3D` de 3 kg y se tumban sin daño).
+  - Suelo (los consulta la mototaxi por rueda con `TerrainWorld.get_hazard`): **charco/barro** (sierra,
+    selva) y **arena** que invade la pista (costa) frenan (`mud_drag`) y resbalan; **bache**: sacudón y daño
+    `(km/h − 18) × 0.2` (≈ 5 a 45 km/h, razón `"bache"`; el pasajero: "¿No vio ese hueco?").
+  - En las calles del pueblo casi solo baches y obras; en trochas no hay obras.
+- Reglas: los sólidos tapan entre 45 y 62 % del ancho desde un borde (en la carretera llegan a la línea del
+  centro) pero siempre queda un carril libre de ≥ 2.8 m (`FREE_LANE`); solo en tramos casi rectos (±20 m,
+  < 34°) y con pendiente < 0.14, para verlos venir. Ninguno a < 16 m de una parada (recogida, destino,
+  inicio), a < 14 m de un cruce, sobre un puente o cauce, ni a < 45 m de otro. Sale de la semilla del mundo.
+- Cantidad en **Opciones → Obstáculos en las vías**: Ninguno / Pocos / Normal / Muchos (`GameSettings`,
+  `user://settings.cfg`; se aplica al cargar el mapa). Argumento `--obstaculos=0..3`. `TerrainWorld`
+  trae 0 por defecto (las pruebas no los ven salvo que los pidan).
+- Mallas generadas por código, juntas por baldosas de 192 m (3 capas: sólido, agua brillante, manchas con
+  borde transparente); colisión con cilindros. Construirlos: ~0.15 s en el mapa guardado.
+- Mapa guardado (semilla 2, casi todo selva), nivel Normal: 64 obstáculos en 17.6 km de vías (24 troncos,
+  21 charcos, 7 baches, 6 obras, 6 rocas). En la sierra salen pocos sólidos: las vías son curvas y empinadas.
+- Pruebas: `tests/test_obstaculos.gd [-- semilla región]` (reparto por región, lugares, carril libre,
+  misma semilla, barro frena, bache y roca dañan); `test_drive_routes -- 8 editor obstaculos` (el piloto
+  los esquiva: 8/8 a tiempo). Capturas: `tests/capture_obstaculos.gd -- --editor --obstaculos=2` (con
+  ventana) → `output/obstaculos/`.
+- Ideas para después: vehículos lentos (combis, otras mototaxis), bocina que espanta animales (fase 5).
 
 **Pendiente 10 — plan "Red vial, paradas y ambientación" (planteado 2026-11-06)**
 
@@ -147,7 +176,9 @@ carreras": más de un camino en tierra llana (en la montaña es lógico que haya
    Mapa guardado: 46 de 259 paradas con nombre (antes 22 de 131): 4 plazas, 4 mercados, 4 colegios,
    4 postas, 12 paraderos, 13 chacras, 3 grifos, 1 embarcadero. `tests/test_paradas.gd` comprueba cada
    tipo en su lugar.
-4. ⬜ **Ambientación: casas y objetos por región y por tipo de parada.** Ver "Fase 4 — cómo pedirla" abajo.
+4. 🟡 **Ambientación: casas y objetos por región y por tipo de parada.** Viviendas ✅ (2026-11-08, ver
+   "Fase 4 — viviendas, cómo quedó"); falta la ambientación por tipo de parada (bancas de la plaza, puestos
+   del mercado, techito del paradero, surtidor del grifo, muelle...). Ver "Fase 4 — cómo pedirla" abajo.
 5. ⬜ **Obstáculos de animales** (pendiente 5). Ver "Fase 5 — cómo pedirla" abajo.
 
 *Fase 4 — cómo pedirla* (pedir en sesión nueva: "haz la fase 4 del pendiente 10", en la rama `juego`)
@@ -193,6 +224,34 @@ carreras": más de un camino en tierra llana (en la montaña es lógico que haya
   - `test_paradas`, `hierarchy_test`.
   - Capturas de pueblos en costa, sierra y selva (como `tests/capture_red_vial.gd`).
   - FPS.
+
+*Fase 4 — viviendas, cómo quedó (2026-11-08)*
+- `TerrainHouses` (`project/scripts/terrain_houses.gd`), lo arma `TerrainWorld._build_houses` después de
+  las paradas y antes de los obstáculos y la vegetación. Modelos importados de Poly Pizza (el usuario
+  prefirió importar): 11 GLB en `project/assets/houses/` con autor y licencia en su `SOURCE.md`
+  (Quaternius, Kenney, CreativeTrio CC0; Jarlan Perez y Poly by Google CC-BY 3.0, en Créditos).
+  - Costa: casas de dos pisos de colores con techo casi plano (Kenney) y casita blanca de techo rojo.
+  - Sierra: casas de muros claros y techo de teja (Quaternius, CreativeTrio).
+  - Selva: chozas y cabañas de madera, una sobre pilotes (Quaternius, Poly by Google).
+- Dónde: fila casi continua a los dos lados de las calles del pueblo (`kind` 3); cada 6–22 m en avenidas
+  y carreteras a < 260 m de un pueblo; una suelta cada 140–420 m de carretera o 90–260 m de trocha en el
+  campo; la casa de la chacra al final de las trochas sin salida. Frente (puerta) hacia la vía, a 1.5 m
+  del borde. Mapa guardado: ~460–490 casas (selva y costa; ese mapa no tiene sierra).
+- Reglas: nada sobre una vía (`get_offroad_amount`), a < 3 m de un cauce, a < 4 m de una parada o
+  a < 2.5 m de un cartel, ni cruzada con otra casa; solo en zona transitable con desnivel ≤ 1.4 m; la
+  región del modelo es la del lugar. El piso va en lo más alto del suelo y un zócalo de piedra cubre el
+  desnivel (no flota ni se entierra).
+- Funcional: cada casa tiene una caja de colisión (chocarla a 36 km/h quita ~20 de vida); los árboles que
+  caerían adentro se quitan (`ChunkMesh.vegetation_blockers` → `TerrainVegetation`); el tronco caído de
+  los obstáculos no se mete en una casa.
+- Dibujo: MultiMesh por modelo y baldosa de 256 m, hasta 900 m. Construirlas: ~0.2–0.5 s. FPS en la
+  calle de un pueblo: 144 con casas, 138 sin ellas (sin diferencia medible).
+- Pruebas: `tests/test_viviendas.gd [-- semilla región]`; capturas `tests/capture_viviendas.gd`
+  (con ventana; también mide FPS) → `output/casas/`; foto de cada modelo `tests/capture_casas_modelos.gd`.
+- Para el equipo de gráficos: los modelos son low poly de estilo caricatura; se pueden cambiar en
+  `TerrainHouses.MODELS` (archivo, región, alto real en m y giro para que la puerta mire a +Z).
+- Nota: `test_terrain_world` falla en "pendiente máxima en vías 0.74" también sin estos cambios (ya
+  fallaba en el commit 21a726e).
 
 *Fase 5 — cómo pedirla* (pedir en sesión nueva: "haz la fase 5 del pendiente 10", en `juego`)
 - **Objetivo.** Animales que cruzan o caminan por la vía, estilo Mario Kart: obstáculos que hay que
@@ -455,6 +514,8 @@ Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_escenario.gd  # cambiar escenario, Modo libre
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_destinos.gd   # viajes corto/medio/largo y su pago
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_paradas.gd    # nombres de paradas por región
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_obstaculos.gd   # obstáculos en las vías
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_viviendas.gd    # viviendas por región
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_vegetation.gd -- --editor
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/render_engine_audio.gd   # graba output/audio/mototaxi_demo.wav
 ```

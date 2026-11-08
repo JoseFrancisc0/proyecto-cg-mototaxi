@@ -78,6 +78,7 @@ func _ready() -> void:
 		for key in ["load", "free", "vehicle"]:
 			_choice.erase(key)
 		_apply_region_bias(region, bool(choice.get("region_only", false)))
+		world.obstacle_level = int(choice.get("obstacles", GameSettings.get_obstacle_level()))
 		world.preview_size = 768
 		loading.show_progress()
 		var t0 := Time.get_ticks_msec()
@@ -112,6 +113,8 @@ func _choice_from_args(choice: Dictionary) -> bool:
 			choice["region_only"] = true
 		elif arg == "--libre":
 			choice["free"] = true
+		elif arg.begins_with("--obstaculos="):
+			choice["obstacles"] = clampi(int(arg.get_slice("=", 1)), 0, RoadObstacles.LEVELS.size() - 1)
 	return found
 
 

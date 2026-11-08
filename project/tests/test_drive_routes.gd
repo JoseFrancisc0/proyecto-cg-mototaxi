@@ -2,13 +2,16 @@ extends SceneTree
 ## Prueba de punta a punta: un piloto automático sigue la ruta recomendada entre pares
 ## de landmarks (como los elige RaceManager) con la física real de la mototaxi y
 ## comprueba que llega dentro del tiempo límite del juego.
-##   Godot_console.exe --headless --path project -s res://tests/test_drive_routes.gd -- [rides] [seed]
+##   Godot_console.exe --headless --path project -s res://tests/test_drive_routes.gd -- [rides] [seed] [obstaculos]
+## Con "obstaculos" el mapa trae los obstáculos de las vías (nivel normal) y el piloto los esquiva
+## como un jugador: pasa por el carril libre, más despacio.
 
 const LOOKAHEAD := 7.0
 const CRUISE_KMH := 38.0
 
 var moto: Mototaxi
 var world: TerrainWorld
+var dodge := false
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -20,6 +23,8 @@ func _initialize() -> void:
 	world = load("res://scripts/terrain_world.gd").new()
 	world.generate_on_ready = false
 	world.use_editor_scene = use_editor
+	dodge = args.size() > 2 and args[2] == "obstaculos"
+	world.obstacle_level = 2 if dodge else 0
 	root.add_child(world)
 	await process_frame
 	world.generate(-1 if use_editor else world_seed)
@@ -91,6 +96,13 @@ func _drive(route: PackedVector3Array, goal: Vector3, limit: float) -> Dictionar
 		var fwd := moto.global_basis.z
 		to.y = 0.0
 		fwd.y = 0.0
+		var dodging := false
+		if dodge:
+			var avoid := _avoid(p, route, idx)
+			if avoid != Vector3.INF:
+				to = avoid - p
+				to.y = 0.0
+				dodging = true
 		var ang := atan2(fwd.cross(to).y, fwd.dot(to))
 		# Curva muy cerrada y casi detenida: maniobra de tres puntos (retrocede con el
 		# volante al revés), como haría un jugador.
@@ -102,7 +114,7 @@ func _drive(route: PackedVector3Array, goal: Vector3, limit: float) -> Dictionar
 			moto.throttle = -1.0 if moto.get_forward_speed() > -2.5 else 0.0
 		else:
 			moto.steer_input = clampf(ang * 2.5, -1.0, 1.0)
-			var target_kmh := CRUISE_KMH * (0.5 if absf(ang) > 0.6 else 1.0)
+			var target_kmh := CRUISE_KMH * (0.5 if absf(ang) > 0.6 else 1.0) * (0.7 if dodging else 1.0)
 			moto.throttle = clampf((target_kmh - moto.get_speed_kmh()) * 0.25, -1.0, 1.0)
 		# El piloto usa el mismo turbo de subida que tiene disponible el jugador.
 		moto.turbo_requested = moto.throttle > 0.1 and moto.global_basis.z.y > 0.08 and moto.get_speed_kmh() < 35.0
@@ -129,6 +141,32 @@ func _drive(route: PackedVector3Array, goal: Vector3, limit: float) -> Dictionar
 	result["time"] = t
 	result["resets"] = resets[0]
 	return result
+
+
+## Punto al que apuntar para pasar al lado de un obstáculo sólido de adelante, o INF si no hay.
+func _avoid(p: Vector3, route: PackedVector3Array, idx: int) -> Vector3:
+	var j := mini(idx + 3, route.size() - 1)
+	var rd := route[j] - p
+	rd.y = 0.0
+	if rd.length() < 0.5:
+		return Vector3.INF
+	rd = rd.normalized()
+	var right := Vector3(-rd.z, 0.0, rd.x)
+	var shift := 0.0
+	var ahead := INF
+	for s: Array in world.obstacles.solids_near(p, 24.0):
+		var rel := Vector3(s[0] - p.x, 0.0, s[1] - p.z)
+		var a := rel.dot(rd)
+		var lat := rel.dot(right)
+		var clear: float = s[2] + 1.2
+		if a < -1.0 or a > 24.0 or absf(lat - shift) >= clear:
+			continue
+		# Se pasa por el lado contrario al obstáculo.
+		shift = lat - signf(lat if absf(lat) > 0.05 else 1.0) * clear
+		ahead = minf(ahead, maxf(a, 5.0))
+	if ahead == INF:
+		return Vector3.INF
+	return p + rd * ahead + right * shift
 
 
 func _max_grade(route: PackedVector3Array) -> float:
