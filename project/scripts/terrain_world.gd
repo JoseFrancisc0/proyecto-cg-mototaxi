@@ -89,6 +89,12 @@ const Generator = preload("res://scripts/chunk_mesh.gd")
 ## Separación de los landmarks a lo largo de las vías (m).
 @export var landmark_spacing := 60.0
 
+var road_layout: PeruRoadLayout
+var water_system: PeruWaterSystem
+var _roads_override: Array=[]
+var _regional_towns:=PackedVector3Array()
+var _district_patches: Array[Dictionary]=[]
+var _settlement_grades: Array[Dictionary]=[]
 var generator: Generator
 var _surface: TerrainMesh
 var _heights := PackedFloat32Array()
@@ -180,6 +186,14 @@ func _prepare_generator(new_seed: int) -> bool:
 	if new_seed >= 0:
 		world_seed = new_seed
 	_router = null
+	_roads_override=[]
+	_regional_towns.clear();_district_patches.clear();_settlement_grades.clear()
+	for extension in [road_layout,water_system]:
+		if is_instance_valid(extension):
+			remove_child(extension)
+			extension.queue_free()
+	road_layout=null
+	water_system=null
 	_route_heights = PackedFloat32Array()
 	_generated_ok = false
 	_n = grid_size + 1
@@ -213,6 +227,11 @@ func _configure_generator() -> void:
 	generator.erosion_iteration_scale = erosion_scale
 	generator.retarget_enabled = retarget_enabled
 	generator.road_max_grade = road_max_grade
+	# Balanced regional territory and inhabitable Andean valleys between the peaks.
+	generator.biome_bias=Vector3(.25,.50,.25)
+	generator.region_patches=8
+	generator.transition_width=.22
+	generator.mountain_amplitude=55.0
 	for key in generator_overrides:
 		generator.set(key, generator_overrides[key])
 
@@ -226,11 +245,12 @@ func _generate_base_sync() -> bool:
 func _finish_generate() -> void:
 	if not _collect_surface():
 		return
+	_build_water_system()
+	_build_peru_roads()
 	if chunks_enabled:
 		_build_chunks()
 	if build_collision:
 		_build_collision()
-	_add_bridge_decks()
 	_build_reachability()
 	_build_landmarks()
 	_build_houses()
@@ -245,9 +265,10 @@ func _finish_generate_async() -> void:
 	if not _collect_surface():
 		return
 	var steps := [
+		["Ríos mayores y océano", _build_water_system],
+		["Carriles y calzadas", _build_peru_roads],
 		["Chunks con LOD", _build_chunks if chunks_enabled else Callable()],
 		["Colisión del terreno", _build_collision if build_collision else Callable()],
-		["Puentes", _add_bridge_decks],
 		["Zonas transitables", _build_reachability],
 		["Landmarks (picos, confluencias, costa)", _build_landmarks],
 		["Viviendas", _build_houses],
@@ -268,7 +289,9 @@ func _finish_generate_async() -> void:
 func _collect_surface() -> bool:
 	_build_road_index()
 	_surface = generator.last_surface
-	_heights = _surface.get_surface_heights() if _surface else PackedFloat32Array()
+	# Start from the eroded ground, before native road rasterization/breaching.
+	# The shared river/road pass below owns grading once, including collision.
+	_heights = _surface.get_ground_heights() if _surface else PackedFloat32Array()
 	if _heights.size() != _n * _n:
 		push_error("TerrainWorld: el generador no devolvió alturas (%d de %d)" % [_heights.size(), _n * _n])
 		return false
@@ -325,6 +348,11 @@ func _report_editor_scene() -> void:
 
 ## Altura del suelo en (x, z), sobre los mismos triángulos que la colisión (y los puentes).
 func get_height(x: float, z: float) -> float:
+	var ground:=_sample_height(x,z)
+	return road_layout.height_at(x,z,ground) if is_instance_valid(road_layout) else ground
+
+
+func _sample_height(x: float, z: float) -> float:
 	if _heights.is_empty():
 		return 0.0
 	var fx := clampf((x + _half) / cell_size, 0.0, grid_size)
@@ -520,6 +548,7 @@ func is_inside(x: float, z: float) -> bool:
 
 ## Polilíneas de las vías generadas: [{ "kind", "width", "path": PackedVector3Array }].
 func get_roads() -> Array:
+	if not _roads_override.is_empty():return _roads_override
 	return generator.last_roads.get_road_metadata() if generator and generator.last_roads else []
 
 
@@ -555,7 +584,8 @@ func _build_chunks() -> void:
 		var mi := MeshInstance3D.new()
 		var origin: Vector2i = c["origin"]
 		mi.name = "Chunk_%d_%d" % [origin.x / chunk_cells, origin.y / chunk_cells]
-		mi.mesh = c["mesh"]
+		var top_count:=(mini(chunk_cells,grid_size-origin.x)+1)*(mini(chunk_cells,grid_size-origin.y)+1)
+		mi.mesh = _conform_chunk(c["mesh"],top_count)
 		mi.material_override = generator.material_override
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		_chunk_root.add_child(mi)
@@ -563,6 +593,26 @@ func _build_chunks() -> void:
 	generator.mesh = null
 	# Los chunks son solo visuales. Una superficie física continua evita las
 	# colisiones internas en los bordes entre HeightMapShape3D vecinas.
+
+func _conform_chunk(source: Mesh,top_count: int) -> ArrayMesh:
+	var output:=ImporterMesh.new()
+	for surface in source.get_surface_count():
+		var arrays:=source.surface_get_arrays(surface)
+		var vertices: PackedVector3Array=arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array=arrays[Mesh.ARRAY_NORMAL]
+		for i in vertices.size():
+			var p:=vertices[i]
+			var y:=_sample_height(p.x,p.z)
+			# Keep the external skirts; only the actual grid is the driving surface.
+			var ix:=clampi(roundi((p.x+_half)/cell_size),0,_n-1);var iz:=clampi(roundi((p.z+_half)/cell_size),0,_n-1)
+			vertices[i].y=y if i<top_count else y-chunk_skirt_depth
+			var dx:=_sample_height(p.x+cell_size,p.z)-_sample_height(p.x-cell_size,p.z)
+			var dz:=_sample_height(p.x,p.z+cell_size)-_sample_height(p.x,p.z-cell_size)
+			normals[i]=Vector3(-dx,2*cell_size,-dz).normalized()
+		arrays[Mesh.ARRAY_VERTEX]=vertices;arrays[Mesh.ARRAY_NORMAL]=normals
+		output.add_surface(Mesh.PRIMITIVE_TRIANGLES,arrays,[],{},null,"",source.surface_get_format(surface))
+	output.generate_lods(25.0,60.0,[])
+	return output.get_mesh()
 
 
 func _build_collision() -> void:
@@ -593,7 +643,7 @@ func _build_collision() -> void:
 	if _bridge_body != null:
 		_bridge_body.queue_free()
 		_bridge_body = null
-	var bridges := _surface.get_bridge_mesh()
+	var bridges: Mesh = null if is_instance_valid(road_layout) else _surface.get_bridge_mesh()
 	if bridges != null and bridges.get_surface_count() > 0:
 		_bridge_body = StaticBody3D.new()
 		_bridge_body.name = "BridgeBody"
@@ -644,6 +694,7 @@ func _add_bridge_decks() -> void:
 
 ## Etiqueta las zonas conectadas por pendientes manejables (BFS sobre la grilla).
 func _build_reachability() -> void:
+	var heights:=road_layout.navigation_heights if is_instance_valid(road_layout) else _heights
 	var count := _n * _n
 	_reach = PackedInt32Array()
 	_reach.resize(count)
@@ -666,7 +717,7 @@ func _build_reachability() -> void:
 			head += 1
 			var cx := cur % _n
 			var cz := cur / _n
-			var hc := _heights[cur]
+			var hc := heights[cur]
 			for dz in range(-1, 2):
 				var nz := cz + dz
 				if nz < 0 or nz >= _n:
@@ -679,7 +730,7 @@ func _build_reachability() -> void:
 					if _reach[ni] != -2:
 						continue
 					var lim := max_dh_diag if dx != 0 and dz != 0 else max_dh
-					if absf(_heights[ni] - hc) <= lim:
+					if absf(heights[ni] - hc) <= lim:
 						_reach[ni] = label
 						queue[tail] = ni
 						tail += 1
@@ -705,7 +756,7 @@ func _build_landmarks() -> void:
 			points.append(spot)
 			types.append(f["type"])
 			extra.append({"label": f["label"], "feature": f["position"]})
-	var towns := generator.last_roads.get_town_centers() if generator.last_roads else PackedVector3Array()
+	var towns := get_town_centers()
 	for t in towns.size():
 		points.push_front(towns[t])
 		types.push_front("pueblo")
@@ -973,14 +1024,19 @@ func _build_houses() -> void:
 	var t0 := Time.get_ticks_msec()
 	houses.build(self, world_seed, 1.0 if houses_enabled else 0.0)
 	if generator != null:
-		generator.vegetation_blockers = houses.blockers()
+		generator.vegetation_blockers = houses.blockers() + (water_system.blockers() if is_instance_valid(water_system) else []) + (road_layout.vegetation_blockers() if is_instance_valid(road_layout) else [])
+		if is_instance_valid(road_layout):
+			for child in road_layout.get_children():
+				if child is PeruBridges:generator.vegetation_blockers.append_array(child.vegetation_blockers())
 	if houses_enabled:
 		print("Viviendas: %d en %.2f s %s" % [houses.houses.size(), (Time.get_ticks_msec() - t0) / 1000.0, houses.counts])
 
 
 ## Centros de los pueblos (plazas).
 func get_town_centers() -> PackedVector3Array:
-	return generator.last_roads.get_town_centers() if generator != null and generator.last_roads != null else PackedVector3Array()
+	var towns: PackedVector3Array=generator.last_roads.get_town_centers() if generator != null and generator.last_roads != null else PackedVector3Array()
+	towns.append_array(_regional_towns)
+	return towns
 
 
 ## Posiciones de los carteles de las paradas.
@@ -1046,3 +1102,27 @@ func get_offroad_amount(x: float, z: float) -> float:
 		var closest := Geometry2D.get_closest_point_to_segment(p,segment[0],segment[1])
 		result = minf(result, smoothstep(float(segment[2]),float(segment[2])+1.5,p.distance_to(closest)))
 	return result
+
+
+func _build_water_system() -> void:
+	water_system=PeruWaterSystem.new()
+	add_child(water_system)
+	water_system.build(self)
+
+func _build_peru_roads() -> void:
+	road_layout=PeruRoadLayout.new()
+	add_child(road_layout)
+	road_layout.build(self,PeruRegionalSettlements.extend(self,generator.last_roads.get_road_metadata()))
+	water_system._apply_displacement()
+	if generator.material_override is ShaderMaterial:generator._update_height_map(generator.material_override,_heights)
+	if not chunks_enabled and generator.mesh:generator.mesh=_conform_chunk(generator.mesh,_n*_n)
+	_roads_override=road_layout.roads
+	_build_road_index()
+	var bridges:=PeruBridges.new()
+	road_layout.add_child(bridges)
+	bridges.build(self)
+	var native_bridge:=generator.get_node_or_null("PuentesGenerados")
+	if native_bridge:native_bridge.visible=false
+
+func is_water(x: float,z: float) -> bool:
+	return is_instance_valid(water_system) and not water_system.water_at(x,z).is_empty()

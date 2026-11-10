@@ -1,0 +1,173 @@
+[
+  {
+    "id": "porton_madera",
+    "title": "Vivienda con portón de madera",
+    "photo": "porton_madera.png",
+    "source": "Referencia aportada por el usuario; ubicación no verificada",
+    "region": "Referencia de diseño",
+    "model": "peru/costa_casa_moderna_0.glb",
+    "kind": "user_reference"
+  },
+  {
+    "id": "casa_angosta",
+    "title": "Casa angosta con balcón",
+    "photo": "casa_angosta.png",
+    "source": "Referencia aportada por el usuario; ubicación no verificada",
+    "region": "Referencia de diseño",
+    "model": "peru/costa_casa_moderna_1.glb",
+    "kind": "user_reference"
+  },
+  {
+    "id": "casa_tropical",
+    "title": "Vivienda blanca con jardín",
+    "photo": "casa_tropical.png",
+    "source": "Referencia aportada por el usuario; ubicación no verificada",
+    "region": "Referencia de diseño",
+    "model": "peru/costa_casa_moderna_2.glb",
+    "kind": "user_reference"
+  },
+  {
+    "id": "casa_esquina",
+    "title": "Vivienda contemporánea de esquina",
+    "photo": "casa_esquina.png",
+    "source": "Referencia aportada por el usuario; ubicación no verificada",
+    "region": "Referencia de diseño",
+    "model": "peru/costa_casa_moderna_3.glb",
+    "kind": "user_reference"
+  },
+  {
+    "id": "costa_azul",
+    "title": "Casa Costa Azul, La Molina",
+    "region": "Costa · vivienda contemporánea",
+    "source": "https://www.aram.pe/proyectos/casa-costa-azul-la-molina-lima",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "costa_azul.png",
+    "image_source": "https://www.aram.pe/images/pages/og/57-home-69d52b714b405.png"
+  },
+  {
+    "id": "kinsawasi",
+    "title": "Casa Kinsawasi, Pisac",
+    "region": "Sierra · vivienda de campo",
+    "source": "https://reactivoarq.com/en/kinsawasi",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "kinsawasi.webp",
+    "image_source": "https://reactivoarq.com/images/kinsawasi.webp"
+  },
+  {
+    "id": "larapa",
+    "title": "Casa Larapa, Cusco",
+    "region": "Sierra · vivienda urbana",
+    "source": "https://reactivoarq.com/en/larapa",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "larapa.webp",
+    "image_source": "https://reactivoarq.com/images/larapa.webp"
+  },
+  {
+    "id": "zarumilla",
+    "title": "Residencial Zarumilla, Cusco",
+    "region": "Sierra · edificio residencial",
+    "source": "https://reactivoarq.com/en/zarumilla",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "zarumilla.webp",
+    "image_source": "https://reactivoarq.com/images/zarumilla.webp"
+  },
+  {
+    "id": "enaco",
+    "title": "Residencial Enaco, Cusco",
+    "region": "Sierra · edificio residencial",
+    "source": "https://reactivoarq.com/en/enaco",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "enaco.webp",
+    "image_source": "https://reactivoarq.com/images/enaco.webp"
+  },
+  {
+    "id": "huancaro",
+    "title": "Residencial Huancaro, Cusco",
+    "region": "Sierra · edificio residencial",
+    "source": "https://reactivoarq.com/en/huancaro",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "huancaro.webp",
+    "image_source": "https://reactivoarq.com/images/huancaro.webp"
+  },
+  {
+    "id": "chelita",
+    "title": "Casa Chelita, Huasao",
+    "region": "Sierra · vivienda de campo",
+    "source": "https://reactivoarq.com/en/chelita",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "chelita.webp",
+    "image_source": "https://reactivoarq.com/images/chelita.webp"
+  },
+  {
+    "id": "martha",
+    "title": "Casa Martha, Tarapoto",
+    "region": "Selva · madera, quincha y palma",
+    "source": "https://marianabidart.com/project/casa-martha/",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo"
+  },
+  {
+    "id": "el_rio",
+    "title": "Cabaña El Río, Loreto",
+    "region": "Selva · vivienda elevada (proyecto)",
+    "source": "https://reactivoarq.com/en/cabana-el-rio",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "el_rio.webp",
+    "image_source": "https://reactivoarq.com/images/cabana-el-rio.webp"
+  },
+  {
+    "id": "azul",
+    "title": "Casa Azul, Barranco",
+    "region": "Costa · vivienda republicana restaurada",
+    "source": "https://www.davidmutal.pe/casaazul",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "azul.jpg",
+    "image_source": "https://static.wixstatic.com/media/a86747_4a57141e59c24450a7ea548aa8dc5bff~mv2.jpg/v1/fill/w_613,h_919,q_90,enc_avif,quality_auto/a86747_4a57141e59c24450a7ea548aa8dc5bff~mv2.jpg"
+  },
+  {
+    "id": "sucre",
+    "title": "Casa Sucre, Barranco",
+    "region": "Costa · vivienda urbana contemporánea",
+    "source": "https://romanbauer.org/portfolio-item/casa-sucre/",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "sucre.jpg",
+    "image_source": "https://nlh.bbk.temporary.site/wp-content/uploads/2020/07/br5571-1.jpg"
+  },
+  {
+    "id": "tarapoto",
+    "title": "Vivienda en Tarapoto",
+    "region": "Selva · vivienda unifamiliar (propuesta)",
+    "source": "https://www.ark-deko.com/vivienda-tarapoto.html",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo",
+    "photo": "tarapoto.jpg",
+    "image_source": "https://www.ark-deko.com/images/portfolio/tarapoto1.jpg"
+  },
+  {
+    "id": "sumaq",
+    "title": "Vivienda rural Sumaq Wasi, Cusco",
+    "region": "Sierra · vivienda rural",
+    "source": "https://www.gob.pe/institucion/pnvr/noticias/52906-programa-nacional-de-vivienda-rural-y-los-sumaq-wasi-en-cusco",
+    "kind": "research",
+    "status": "Fuente localizada; pendiente de correspondencia con modelo"
+  },
+  {
+    "id": "ladera",
+    "title": "Vivienda progresiva",
+    "region": "Costa · autoconstrucción",
+    "source": "https://www.swisscontact.org/es/proyectos/vivienda-progresiva",
+    "kind": "research",
+    "status": "Estudio de contexto; no se utiliza como referencia de una casa individual",
+    "image_source": "https://www.swisscontact.org/_Resources/Persistent/e/c/1/f/ec1f83ccea7394c19691c437863d7be53b3849f1/Peru_ViPro_Lima_Cover%20Photo-4032x1996-1200x594.jpg"
+  }
+]

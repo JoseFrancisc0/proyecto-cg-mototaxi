@@ -55,3 +55,9 @@ output/
 cmake-build*
 CMakeUserPresets.json
 project/textures/_cache/
+tools/.avatar_runtime/
+tools/.reconstruction_runtime/
+tools/.pifuhd/
+tools/.worldgen/
+tools/.radio_runtime/
+project/bin/windows/~*.TMP

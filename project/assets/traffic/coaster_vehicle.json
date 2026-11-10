@@ -1,0 +1,47 @@
+{
+  "width": 2.05,
+  "length": 6.8,
+  "height": 2.65,
+  "wheels": [
+    {
+      "node": "WheelFL",
+      "position": [
+        -0.9737499999999999,
+        0.38,
+        1.95
+      ],
+      "radius": 0.38,
+      "front": true
+    },
+    {
+      "node": "WheelFR",
+      "position": [
+        0.9737499999999999,
+        0.38,
+        1.95
+      ],
+      "radius": 0.38,
+      "front": true
+    },
+    {
+      "node": "WheelRL",
+      "position": [
+        -0.9737499999999999,
+        0.38,
+        -2.04
+      ],
+      "radius": 0.38,
+      "front": false
+    },
+    {
+      "node": "WheelRR",
+      "position": [
+        0.9737499999999999,
+        0.38,
+        -2.04
+      ],
+      "radius": 0.38,
+      "front": false
+    }
+  ]
+}

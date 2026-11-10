@@ -1,0 +1,178 @@
+[
+  {
+    "key": "0_ladera",
+    "title": "Villa María del Triunfo · ladera",
+    "photo": "res://assets/reference_photos/0_ladera.webp",
+    "source": "https://www.swisscontact.org/es/proyectos/vivienda-progresiva",
+    "status": "Avance parcial",
+    "note": "Se rehízo la muestra con un cerro árido, calles curvas, lotes a ambos lados y una mezcla de ladrillo y pintura menos saturada. La muestra completa y los modelos mejoran el conjunto; faltan la irregularidad precisa, los servicios y el detalle de la foto. No aprobado como casi idéntico."
+  },
+  {
+    "key": "0_popular",
+    "title": "Costa · calle de barrio",
+    "photo": "res://assets/reference_photos/0_popular.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "Se reconstruyó la tienda amarilla y la secuencia turquesa/rosada de la fotografía, con carpintería fotográfica y rejas 3D. Faltan densidad, cableado, postes y mobiliario del conjunto."
+  },
+  {
+    "key": "0_tradicional",
+    "title": "Barranco · casonas contiguas",
+    "photo": "res://assets/reference_photos/0_tradicional.jpg",
+    "source": "https://andina.pe/agencia/galeria.aspx?FotoId=557897&GaleriaId=5385",
+    "status": "Avance parcial",
+    "note": "Hay nuevas molduras, postigos, miradores y balcones cerrados. La distribución y el acabado todavía no equivalen a la calle real."
+  },
+  {
+    "key": "0_residencial",
+    "title": "Miraflores · casas y jardines",
+    "photo": "res://assets/reference_photos/0_residencial.jpg",
+    "source": "https://www.quintamiraflores.com/",
+    "status": "Avance parcial",
+    "note": "Se sustituyeron las villas genéricas por casas con ala baja, frontones ondulados, colores blanco/azul/violeta y cercos de ladrillo y balaustres. Faltan la carpintería exacta, el desgaste y el jardín maduro de Quinta Miraflores."
+  },
+  {
+    "key": "0_moderna",
+    "title": "Costa · edificios del malecón",
+    "photo": "res://assets/reference_photos/0_moderna.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "Cuatro torres nuevas distinguen terrazas curvas, apartamentos esbeltos y oficinas verdes escalonadas. La muestra completa añade ciudad, malecón, acantilado y vía costera. La distribución y el acabado todavía no equivalen a la foto de Costa Verde."
+  },
+  {
+    "key": "0_rural",
+    "title": "Costa · autoconstrucción y borde urbano",
+    "photo": "res://assets/reference_photos/0_rural.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Sin aprobar",
+    "note": "Pendiente de una comparación específica del conjunto rural y sus materiales."
+  },
+  {
+    "key": "1_popular",
+    "title": "Cusco · centro y laderas",
+    "photo": "res://assets/reference_photos/1_popular.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "Se corrigieron las escalas del ladrillo y las cubiertas. Falta igualar el tejido urbano y la proporción entre acabado y material expuesto."
+  },
+  {
+    "key": "1_tradicional",
+    "title": "Cusco · San Blas",
+    "photo": "res://assets/reference_photos/1_tradicional.jpg",
+    "source": "https://www.peru.travel/es/masperu/7-cosas-gratis-que-puedes-hacer-en-la-ciudad-de-cusco",
+    "status": "Avance parcial",
+    "note": "La muestra ahora usa calle estrecha, desnivel, cal, tejas, madera y rejas romboidales de San Blas. Faltan la pendiente y el desgaste precisos, además del entorno de fondo."
+  },
+  {
+    "key": "1_residencial",
+    "title": "Valle Sagrado · terrazas habitadas",
+    "photo": "res://assets/reference_photos/1_residencial.jpg",
+    "source": "https://www.barclaycrousse.com/huayoccari",
+    "status": "Avance parcial",
+    "note": "Se reconstruyó la casa del valle con una base larga de piedra, ventanas verticales, madera y tres cuerpos de cubierta asimétrica. Faltan proporciones exactas, textura fina, vegetación y terreno de Huayoccari."
+  },
+  {
+    "key": "1_moderna",
+    "title": "Huarán · vivienda contemporánea",
+    "photo": "res://assets/reference_photos/1_moderna.jpg",
+    "source": "https://estudiolocal.pe/casa-huaran/",
+    "status": "Avance parcial",
+    "note": "La piedra y el ventanal panorámico se acercan a la tipología. La cubierta, los encuentros y la distribución necesitan más precisión."
+  },
+  {
+    "key": "1_rural",
+    "title": "Sierra · adobe y teja",
+    "photo": "res://assets/reference_photos/1_rural.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "Adobe, aleros y ventanas pequeñas son compatibles con el entorno. No hay todavía equivalencia de pueblo, iluminación y distribución."
+  },
+  {
+    "key": "1_ladera",
+    "title": "Sierra · calle de adobe y pendiente",
+    "photo": "res://assets/reference_photos/1_ladera.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "La calle usa ahora muros gruesos de adobe, patios, puertas de madera, aleros y viviendas bajas, con postes y tendidos. Falta la irregularidad, la pendiente y el desgaste preciso del pueblo de la fotografía."
+  },
+  {
+    "key": "2_popular",
+    "title": "Tarapoto · calle popular",
+    "photo": "res://assets/reference_photos/2_popular.jpg",
+    "source": "https://www.bienesonline.pe/fotos-CAV23838-inicio.php",
+    "status": "Avance parcial",
+    "note": "Se añadieron color, sombra, ventilación y carpintería diversa. La calle y las fachadas aún no reproducen una cuadra específica."
+  },
+  {
+    "key": "2_tradicional",
+    "title": "Iquitos · azulejos y balcones",
+    "photo": "res://assets/reference_photos/2_tradicional.jpg",
+    "source": "https://thatbackpacker.com/things-to-do-in-iquitos/",
+    "status": "Avance parcial",
+    "note": "La casona principal se reconstruyó con cuatro ejes por planta, arcos, pilastras, azulejos y carpintería roja de la referencia. Faltan textura y detalle fino, proporciones exactas y contexto urbano."
+  },
+  {
+    "key": "2_residencial",
+    "title": "Tarapoto · vivienda con balcón",
+    "photo": "res://assets/reference_photos/2_residencial.jpg",
+    "source": "https://tuyoaunclic.com/inmueble-300",
+    "status": "Avance parcial",
+    "note": "Se sustituyeron las villas genéricas por habitaciones bajas contiguas, colores de Tarapoto, puertas de madera, ventanas negras, canaletas y un camino con jardín. La vegetación y los acabados aún requieren más fidelidad."
+  },
+  {
+    "key": "2_moderna",
+    "title": "Tarapoto · volúmenes y jardín tropical",
+    "photo": "res://assets/reference_photos/2_moderna.jpg",
+    "source": "https://www.airbnb.com.mt/rooms/1259717368285766007",
+    "status": "Avance parcial",
+    "note": "La vivienda ahora tiene planta blanca, una planta superior de madera con galería abierta, gran alero y cerramiento de ladrillo. Faltan la carpintería exacta, el desgaste y el jardín maduro de la referencia."
+  },
+  {
+    "key": "2_rural",
+    "title": "Amazonía · comunidad rural",
+    "photo": "res://assets/reference_photos/2_rural.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "Hay pilotes, madera y cubiertas diferentes. La comunidad, las proporciones y el acabado siguen pendientes de aprobación visual."
+  },
+  {
+    "key": "2_ribereno",
+    "title": "Belén · viviendas ribereñas",
+    "photo": "res://assets/reference_photos/2_ribereno.jpg",
+    "source": "https://christianreynoso.lamula.pe/2025/07/08/el-barrio-belen-o-la-venecia-de-iquitos-parte-1/christianreynoso/",
+    "status": "Avance parcial",
+    "note": "Pilotes y accesos responden al tipo ribereño. Faltan densidad, muelles, tendidos y distribución sobre el río."
+  },
+  {
+    "key": "tico",
+    "title": "Taxi compacto · referencia Tico",
+    "photo": "res://assets/reference_photos/tico.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "Se cerró la carrocería y se mantienen cuatro ruedas articuladas. El acabado, las piezas de chapa y los detalles del modelo real todavía son demasiado simples."
+  },
+  {
+    "key": "sedan",
+    "title": "Taxi sedán · referencia urbana",
+    "photo": "res://assets/reference_photos/sedan.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "La cabina, los cristales y las ruedas están separados. Faltan curvas y detalles de carrocería y la franja de taxi de la referencia."
+  },
+  {
+    "key": "coaster",
+    "title": "Cúster · referencia de Lima",
+    "photo": "res://assets/reference_photos/coaster.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "Se cerraron retornos, pilares y la ventanilla de cabina. Faltan las curvas y la gráfica precisa de la cúster real."
+  },
+  {
+    "key": "urban_bus",
+    "title": "Bus urbano · referencia de Lima",
+    "photo": "res://assets/reference_photos/urban_bus.png",
+    "source": "Referencia fotográfica aportada por el usuario",
+    "status": "Avance parcial",
+    "note": "Se corrigieron cierres de cabina, laterales y techo, y se añadieron ópticas y parrilla. La carrocería y la pintura aún no alcanzan el detalle del bus de la fotografía."
+  }
+]

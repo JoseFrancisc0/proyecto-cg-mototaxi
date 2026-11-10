@@ -49,6 +49,11 @@ var region := 0
 var _choice := {}
 ## Modo libre: sin pasajeros, reloj ni dinero.
 var free_mode := false
+var journeys: JourneyEvents
+var world_life: PeruWorldLife
+var radio: GameRadio
+var _hijacking := false
+var _hijacker: DriverAvatar
 
 
 func _ready() -> void:
@@ -183,6 +188,7 @@ func _start_game(save: Dictionary = {}) -> void:
 	for n: Node in [race, session, cam]:
 		n.process_mode = Node.PROCESS_MODE_PAUSABLE
 
+	_install_expansion(save)
 	if free_mode:
 		race.stop()  # Sin pasajeros.
 		session.start()
@@ -209,6 +215,7 @@ func _start_game(save: Dictionary = {}) -> void:
 
 ## Nueva partida en el mismo mapa: vida llena, de vuelta al inicio, marcador en cero.
 func restart() -> void:
+	_restore_driver()
 	game_over_screen.hide_result()
 	pause_menu.close()
 	hud.visible = true
@@ -305,6 +312,7 @@ func _face_route() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _hijacking: return
 	if full_map and full_map.visible and (event.is_action_pressed(FullMap.ACTION) or event.is_action_pressed(PauseMenu.ACTION)):
 		full_map.close()
 		get_tree().paused = false
@@ -368,6 +376,7 @@ func save_game(fresh_day := false) -> Dictionary:
 	data["vehicle"] = moto.vehicle_index
 	data["pos"] = moto.global_position
 	data["yaw"] = moto.rotation.y
+	if journeys: data["journeys"] = journeys.get_save_data()
 	data["saved_at"] = Time.get_datetime_string_from_system(false, true)
 	CareerSave.save_game(data)
 	return data
@@ -446,3 +455,73 @@ func _align_sun() -> void:
 		return
 	var to_sun: Vector3 = world.generator.sun_direction()
 	sun.global_basis = Basis.looking_at(-to_sun, Vector3.UP if absf(to_sun.y) < 0.999 else Vector3.FORWARD)
+
+
+func _install_expansion(save: Dictionary) -> void:
+	race.street_pickups = bool(GameSettings.get_option("clientes_calle",true))
+	if not free_mode:
+		journeys = JourneyEvents.new()
+		journeys.process_mode = Node.PROCESS_MODE_PAUSABLE
+		add_child(journeys)
+		journeys.setup(race,save.get("journeys",{}))
+		race.journeys = journeys
+		journeys.hijack_requested.connect(_on_hijack)
+	world_life = PeruWorldLife.new()
+	world_life.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(world_life)
+	world_life.setup(world,moto,session)
+	radio = GameRadio.new()
+	radio.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(radio)
+	radio.setup(world,moto,race)
+
+
+func _restore_driver() -> void:
+	_hijacking = false
+	if is_instance_valid(_hijacker):
+		moto.remove_child(_hijacker)
+		_hijacker.queue_free()
+	_hijacker = null
+	cam.target = moto
+	moto._refresh_driver()
+
+
+func _on_hijack() -> void:
+	if _hijacking or not session.playing: return
+	_hijacking = true
+	session.playing = false
+	moto.use_input = false
+	moto.handbrake = true
+	moto.throttle = 0
+	var nonlethal := bool(GameSettings.get_option("robo_no_letal",true))
+	hud.show_banner("¡BAJA DE LA MOTO!", "El pasajero se lleva el vehículo…", Color("ff657b"))
+	await get_tree().create_timer(1.2).timeout
+	if moto.driver: moto.driver.hide()
+	# El mismo modelo del pasajero ocupa el asiento del conductor durante la escena.
+	var source: Node3D
+	if is_instance_valid(race.passenger._model):
+		source=race.passenger._model.duplicate() as Node3D
+	else:
+		source=(load("res://assets/characters/passenger_casual.glb") as PackedScene).instantiate() as Node3D
+	_hijacker = DriverAvatar.new()
+	moto.add_child(_hijacker)
+	_hijacker.setup(moto.vehicle_index,source,true)
+	race.passenger.hide()
+	cam.target = null
+	moto.handbrake = false
+	var escape := world.find_road_route(moto.global_position,race.dropoff_zone.global_position)
+	var waypoint := 1
+	var elapsed := 0.0
+	while elapsed<4.0:
+		await get_tree().physics_frame
+		var delta := get_physics_process_delta_time()
+		elapsed += delta
+		if waypoint<escape.size():
+			var target: Vector3 = escape[waypoint]-moto.global_position
+			if target.length()<5: waypoint+=1
+			moto.steer_input = clampf(moto.global_basis.z.signed_angle_to(target.normalized(),Vector3.UP)*2,-1,1)
+		moto.throttle = .55
+		cam.look_at(moto.global_position+Vector3.UP)
+	session.playing = true
+	session._end("Te robaron la mototaxi" if nonlethal else "El asalto terminó tu jornada")
+	game_over_screen._title.text = "MOTOTAXI ROBADA" if nonlethal else "RIP"

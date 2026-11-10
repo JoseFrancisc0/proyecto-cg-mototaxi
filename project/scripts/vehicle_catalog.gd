@@ -1,7 +1,7 @@
 class_name VehicleCatalog
 extends RefCounted
 const MODEL_SCALE := 1.2
-const SOUND_STYLES := ["Eléctrico · turbo iónico", "Deportivo 2T · turbo flutter", "Diésel pesado · descarga de aire", "Bicilíndrico · compresor mecánico", "Motor suave · turbo silbante", "Monocilíndrico viejo · turbo traqueteante"]
+const SOUND_STYLES := ["125 cc ágil · silbido iónico", "Gilera 50 cc · flutter deportivo", "Tuk-tuk tailandés · descarga de aire", "Derbi 50 cc · compresor suave", "Vespa ligera · turbo silbante", "Piaggio Ape viejo · traqueteo irregular"]
 ## "price": soles de ahorro para comprarla en el garaje (CareerSave); la inicial es gratis.
 ## Las barras se derivan de los ajustes usados por la física, no son decorativas.
 const VEHICLES := [

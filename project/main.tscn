@@ -4,8 +4,8 @@
 [ext_resource type="Script" uid="uid://d0d2d5qelowc5" path="res://scripts/terrain_world.gd" id="2_tw"]
 [ext_resource type="PackedScene" path="res://scenes/mototaxi.tscn" id="3_moto"]
 [ext_resource type="Script" uid="uid://ba3pk2e4pdox7" path="res://scripts/chase_camera.gd" id="4_cam"]
-[ext_resource type="Script" path="res://scripts/race_manager.gd" id="5_race"]
-[ext_resource type="Script" path="res://scripts/race_hud.gd" id="6_hud"]
+[ext_resource type="Script" uid="uid://cc5sohbva5qql" path="res://scripts/race_manager.gd" id="5_race"]
+[ext_resource type="Script" uid="uid://cd068v3sva8me" path="res://scripts/race_hud.gd" id="6_hud"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 
@@ -49,7 +49,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 45, -8)
 far = 2000.0
 script = ExtResource("4_cam")
 
-[node name="RaceManager" type="Node3D" parent="."]
+[node name="RaceManager" type="Node3D" parent="." unique_id=1023795478]
 script = ExtResource("5_race")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1900942094]

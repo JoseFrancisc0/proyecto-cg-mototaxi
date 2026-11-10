@@ -1,0 +1,972 @@
+[
+  {
+    "region": "costa",
+    "index": 0,
+    "id": "red_brick_03",
+    "file": "costa/red_brick_03.jpg",
+    "source": "https://polyhaven.com/a/red_brick_03",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_brick_03/red_brick_03_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 1,
+    "id": "red_bricks_02",
+    "file": "costa/red_bricks_02.jpg",
+    "source": "https://polyhaven.com/a/red_bricks_02",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_bricks_02/red_bricks_02_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2500,
+      2500
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 2,
+    "id": "red_bricks_04",
+    "file": "costa/red_bricks_04.jpg",
+    "source": "https://polyhaven.com/a/red_bricks_04",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_bricks_04/red_bricks_04_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2500,
+      2500
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 3,
+    "id": "red_brick_plaster_patch_02",
+    "file": "costa/red_brick_plaster_patch_02.jpg",
+    "source": "https://polyhaven.com/a/red_brick_plaster_patch_02",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_brick_plaster_patch_02/red_brick_plaster_patch_02_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1500,
+      1500
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 4,
+    "id": "plaster_brick_01",
+    "file": "costa/plaster_brick_01.jpg",
+    "source": "https://polyhaven.com/a/plaster_brick_01",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plaster_brick_01/plaster_brick_01_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2700.000286102295,
+      2700.000286102295
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 5,
+    "id": "rough_plaster_brick",
+    "file": "costa/rough_plaster_brick.jpg",
+    "source": "https://polyhaven.com/a/rough_plaster_brick",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rough_plaster_brick/rough_plaster_brick_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1500,
+      1500
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 6,
+    "id": "painted_plaster_wall",
+    "file": "costa/painted_plaster_wall.jpg",
+    "source": "https://polyhaven.com/a/painted_plaster_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_plaster_wall/painted_plaster_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 7,
+    "id": "yellow_plaster",
+    "file": "costa/yellow_plaster.jpg",
+    "source": "https://polyhaven.com/a/yellow_plaster",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/yellow_plaster/yellow_plaster_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 8,
+    "id": "blue_plaster_wall",
+    "file": "costa/blue_plaster_wall.jpg",
+    "source": "https://polyhaven.com/a/blue_plaster_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/blue_plaster_wall/blue_plaster_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dimitrios Savva": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 9,
+    "id": "white_plaster_02",
+    "file": "costa/white_plaster_02.jpg",
+    "source": "https://polyhaven.com/a/white_plaster_02",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_02/white_plaster_02_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 10,
+    "id": "concrete_wall_001",
+    "file": "costa/concrete_wall_001.jpg",
+    "source": "https://polyhaven.com/a/concrete_wall_001",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_001/concrete_wall_001_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dimitrios Savva": "Photography",
+      "Rico Cilliers": "Processing"
+    },
+    "dimensions_cm": [
+      1500.0001192092896,
+      1500
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 11,
+    "id": "concrete_wall_004",
+    "file": "costa/concrete_wall_004.jpg",
+    "source": "https://polyhaven.com/a/concrete_wall_004",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_004/concrete_wall_004_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dario Barresi": "Processing",
+      "Charlotte Baglioni": "Photography"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 12,
+    "id": "concrete_layers",
+    "file": "costa/concrete_layers.jpg",
+    "source": "https://polyhaven.com/a/concrete_layers",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_layers/concrete_layers_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      1549.9999523162842,
+      1549.9999523162842
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 13,
+    "id": "painted_metal_shutter",
+    "file": "costa/painted_metal_shutter.jpg",
+    "source": "https://polyhaven.com/a/painted_metal_shutter",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_metal_shutter/painted_metal_shutter_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dario Barresi": "Baking",
+      "Rico Cilliers": "Processing ",
+      "Charlotte Baglioni": "Photography"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 14,
+    "id": "rusty_metal_sheet",
+    "file": "costa/rusty_metal_sheet.jpg",
+    "source": "https://polyhaven.com/a/rusty_metal_sheet",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_metal_sheet/rusty_metal_sheet_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      1999.9996423721313,
+      1999.9996423721313
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 15,
+    "id": "plywood",
+    "file": "costa/plywood.jpg",
+    "source": "https://polyhaven.com/a/plywood",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plywood/plywood_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      499.999940395355,
+      499.999940395355
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 16,
+    "id": "rectangular_facade_tiles",
+    "file": "costa/rectangular_facade_tiles.jpg",
+    "source": "https://polyhaven.com/a/rectangular_facade_tiles",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rectangular_facade_tiles/rectangular_facade_tiles_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Charlotte Baglioni": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 17,
+    "id": "marble_tiles",
+    "file": "costa/marble_tiles.jpg",
+    "source": "https://polyhaven.com/a/marble_tiles",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/marble_tiles/marble_tiles_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Charlotte Baglioni": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 18,
+    "id": "brushed_concrete",
+    "file": "costa/brushed_concrete.jpg",
+    "source": "https://polyhaven.com/a/brushed_concrete",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brushed_concrete/brushed_concrete_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dario Barresi": "Processing",
+      "Dimitrios Savva": "Photography"
+    },
+    "dimensions_cm": [
+      2500,
+      2500
+    ]
+  },
+  {
+    "region": "costa",
+    "index": 19,
+    "id": "wooden_garage_door",
+    "file": "costa/wooden_garage_door.jpg",
+    "source": "https://polyhaven.com/a/wooden_garage_door",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_garage_door/wooden_garage_door_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dimitrios Savva": "All"
+    },
+    "dimensions_cm": [
+      1979.9997806549072,
+      1979.9997806549072
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 0,
+    "id": "clay_plaster",
+    "file": "sierra/clay_plaster.jpg",
+    "source": "https://polyhaven.com/a/clay_plaster",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clay_plaster/clay_plaster_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      1999.9996423721313,
+      1999.9996423721313
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 1,
+    "id": "patterned_clay_plaster",
+    "file": "sierra/patterned_clay_plaster.jpg",
+    "source": "https://polyhaven.com/a/patterned_clay_plaster",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/patterned_clay_plaster/patterned_clay_plaster_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 2,
+    "id": "plastered_stone_wall",
+    "file": "sierra/plastered_stone_wall.jpg",
+    "source": "https://polyhaven.com/a/plastered_stone_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_stone_wall/plastered_stone_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2500,
+      2500
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 3,
+    "id": "old_stone_wall",
+    "file": "sierra/old_stone_wall.jpg",
+    "source": "https://polyhaven.com/a/old_stone_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Charlotte Baglioni": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 4,
+    "id": "stone_wall",
+    "file": "sierra/stone_wall.jpg",
+    "source": "https://polyhaven.com/a/stone_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall/stone_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dario Barresi": "Processing",
+      "Charlotte Baglioni": "Photography"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 5,
+    "id": "rustic_stone_wall",
+    "file": "sierra/rustic_stone_wall.jpg",
+    "source": "https://polyhaven.com/a/rustic_stone_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rustic_stone_wall/rustic_stone_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dimitrios Savva": "All"
+    },
+    "dimensions_cm": [
+      1519.9998617172241,
+      1519.9998617172241
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 6,
+    "id": "stone_block_wall",
+    "file": "sierra/stone_block_wall.jpg",
+    "source": "https://polyhaven.com/a/stone_block_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_block_wall/stone_block_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2099.9999046325684,
+      2099.9999046325684
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 7,
+    "id": "sandstone_blocks_04",
+    "file": "sierra/sandstone_blocks_04.jpg",
+    "source": "https://polyhaven.com/a/sandstone_blocks_04",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/sandstone_blocks_04/sandstone_blocks_04_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      3000,
+      3000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 8,
+    "id": "white_plaster_rough_01",
+    "file": "sierra/white_plaster_rough_01.jpg",
+    "source": "https://polyhaven.com/a/white_plaster_rough_01",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_rough_01/white_plaster_rough_01_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 9,
+    "id": "white_rough_plaster",
+    "file": "sierra/white_rough_plaster.jpg",
+    "source": "https://polyhaven.com/a/white_rough_plaster",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_rough_plaster/white_rough_plaster_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 10,
+    "id": "clay_roof_tiles",
+    "file": "sierra/clay_roof_tiles.jpg",
+    "source": "https://polyhaven.com/a/clay_roof_tiles",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clay_roof_tiles/clay_roof_tiles_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      4000,
+      4000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 11,
+    "id": "clay_roof_tiles_02",
+    "file": "sierra/clay_roof_tiles_02.jpg",
+    "source": "https://polyhaven.com/a/clay_roof_tiles_02",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clay_roof_tiles_02/clay_roof_tiles_02_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2500,
+      2500
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 12,
+    "id": "clay_roof_tiles_03",
+    "file": "sierra/clay_roof_tiles_03.jpg",
+    "source": "https://polyhaven.com/a/clay_roof_tiles_03",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/clay_roof_tiles_03/clay_roof_tiles_03_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2599.9999046325684,
+      2599.9999046325684
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 13,
+    "id": "ceramic_roof_01",
+    "file": "sierra/ceramic_roof_01.jpg",
+    "source": "https://polyhaven.com/a/ceramic_roof_01",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/ceramic_roof_01/ceramic_roof_01_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      3500.000238418579,
+      3500.000238418579
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 14,
+    "id": "wood_shutter",
+    "file": "sierra/wood_shutter.jpg",
+    "source": "https://polyhaven.com/a/wood_shutter",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_shutter/wood_shutter_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dimitrios Savva": "All"
+    },
+    "dimensions_cm": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 15,
+    "id": "wooden_gate",
+    "file": "sierra/wooden_gate.jpg",
+    "source": "https://polyhaven.com/a/wooden_gate",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_gate/wooden_gate_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      1899.9998569488525,
+      1899.9998569488525
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 16,
+    "id": "wood_peeling_paint_weathered",
+    "file": "sierra/wood_peeling_paint_weathered.jpg",
+    "source": "https://polyhaven.com/a/wood_peeling_paint_weathered",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_peeling_paint_weathered/wood_peeling_paint_weathered_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "Processing",
+      "Dimitrios Savva": "Photography"
+    },
+    "dimensions_cm": [
+      761.9999647140503,
+      762.0000243186951
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 17,
+    "id": "brown_brick_02",
+    "file": "sierra/brown_brick_02.jpg",
+    "source": "https://polyhaven.com/a/brown_brick_02",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_brick_02/brown_brick_02_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 18,
+    "id": "worn_brick_wall",
+    "file": "sierra/worn_brick_wall.jpg",
+    "source": "https://polyhaven.com/a/worn_brick_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/worn_brick_wall/worn_brick_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "sierra",
+    "index": 19,
+    "id": "grey_plaster",
+    "file": "sierra/grey_plaster.jpg",
+    "source": "https://polyhaven.com/a/grey_plaster",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_plaster/grey_plaster_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 0,
+    "id": "wood_plank_wall",
+    "file": "selva/wood_plank_wall.jpg",
+    "source": "https://polyhaven.com/a/wood_plank_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_plank_wall/wood_plank_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dimitrios Savva": "All"
+    },
+    "dimensions_cm": [
+      1000,
+      1000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 1,
+    "id": "wood_planks_grey",
+    "file": "selva/wood_planks_grey.jpg",
+    "source": "https://polyhaven.com/a/wood_planks_grey",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_planks_grey/wood_planks_grey_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      1500,
+      1500.0001192092896
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 2,
+    "id": "wooden_rough_planks",
+    "file": "selva/wooden_rough_planks.jpg",
+    "source": "https://polyhaven.com/a/wooden_rough_planks",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_rough_planks/wooden_rough_planks_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 3,
+    "id": "rough_wood",
+    "file": "selva/rough_wood.jpg",
+    "source": "https://polyhaven.com/a/rough_wood",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rough_wood/rough_wood_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      500,
+      500
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 4,
+    "id": "dark_wooden_planks",
+    "file": "selva/dark_wooden_planks.jpg",
+    "source": "https://polyhaven.com/a/dark_wooden_planks",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dark_wooden_planks/dark_wooden_planks_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 5,
+    "id": "reed_roof_03",
+    "file": "selva/reed_roof_03.jpg",
+    "source": "https://polyhaven.com/a/reed_roof_03",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/reed_roof_03/reed_roof_03_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2500,
+      2500
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 6,
+    "id": "reed_roof_04",
+    "file": "selva/reed_roof_04.jpg",
+    "source": "https://polyhaven.com/a/reed_roof_04",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/reed_roof_04/reed_roof_04_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2500,
+      2500
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 7,
+    "id": "thatch_roof_angled",
+    "file": "selva/thatch_roof_angled.jpg",
+    "source": "https://polyhaven.com/a/thatch_roof_angled",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/thatch_roof_angled/thatch_roof_angled_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "Processing",
+      "Dimitrios Savva": "Photography"
+    },
+    "dimensions_cm": [
+      539.9999618530273,
+      539.9999618530273
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 8,
+    "id": "box_profile_metal_sheet",
+    "file": "selva/box_profile_metal_sheet.jpg",
+    "source": "https://polyhaven.com/a/box_profile_metal_sheet",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/box_profile_metal_sheet/box_profile_metal_sheet_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 9,
+    "id": "rusty_painted_metal",
+    "file": "selva/rusty_painted_metal.jpg",
+    "source": "https://polyhaven.com/a/rusty_painted_metal",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_painted_metal/rusty_painted_metal_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2200.000047683716,
+      2200.000047683716
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 10,
+    "id": "blue_plaster_weathered",
+    "file": "selva/blue_plaster_weathered.jpg",
+    "source": "https://polyhaven.com/a/blue_plaster_weathered",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/blue_plaster_weathered/blue_plaster_weathered_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 11,
+    "id": "yellow_plaster_02",
+    "file": "selva/yellow_plaster_02.jpg",
+    "source": "https://polyhaven.com/a/yellow_plaster_02",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/yellow_plaster_02/yellow_plaster_02_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 12,
+    "id": "red_plaster_weathered",
+    "file": "selva/red_plaster_weathered.jpg",
+    "source": "https://polyhaven.com/a/red_plaster_weathered",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/red_plaster_weathered/red_plaster_weathered_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 13,
+    "id": "painted_concrete",
+    "file": "selva/painted_concrete.jpg",
+    "source": "https://polyhaven.com/a/painted_concrete",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_concrete/painted_concrete_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dario Barresi": "Processing",
+      "Dimitrios Savva": "Photography"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 14,
+    "id": "painted_concrete_02",
+    "file": "selva/painted_concrete_02.jpg",
+    "source": "https://polyhaven.com/a/painted_concrete_02",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_concrete_02/painted_concrete_02_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      4000,
+      4000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 15,
+    "id": "blue_floor_tiles_01",
+    "file": "selva/blue_floor_tiles_01.jpg",
+    "source": "https://polyhaven.com/a/blue_floor_tiles_01",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/blue_floor_tiles_01/blue_floor_tiles_01_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000.0009536743164
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 16,
+    "id": "patterned_brick_wall",
+    "file": "selva/patterned_brick_wall.jpg",
+    "source": "https://polyhaven.com/a/patterned_brick_wall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/patterned_brick_wall/patterned_brick_wall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dario Barresi": "Processing",
+      "Dimitrios Savva": "Photography"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 17,
+    "id": "whitewashed_brick",
+    "file": "selva/whitewashed_brick.jpg",
+    "source": "https://polyhaven.com/a/whitewashed_brick",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/whitewashed_brick/whitewashed_brick_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Charlotte Baglioni": "All"
+    },
+    "dimensions_cm": [
+      2000,
+      2000
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 18,
+    "id": "worn_mossy_plasterwall",
+    "file": "selva/worn_mossy_plasterwall.jpg",
+    "source": "https://polyhaven.com/a/worn_mossy_plasterwall",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/worn_mossy_plasterwall/worn_mossy_plasterwall_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Amal Kumar": "All"
+    },
+    "dimensions_cm": [
+      1800.0000715255737,
+      1800.0000715255737
+    ]
+  },
+  {
+    "region": "selva",
+    "index": 19,
+    "id": "wooden_panels",
+    "file": "selva/wooden_panels.jpg",
+    "source": "https://polyhaven.com/a/wooden_panels",
+    "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_panels/wooden_panels_diff_1k.jpg",
+    "license": "CC0",
+    "authors": {
+      "Dimitrios Savva": "All"
+    },
+    "dimensions_cm": [
+      2099.9999046325684,
+      2099.9999046325684
+    ]
+  }
+]

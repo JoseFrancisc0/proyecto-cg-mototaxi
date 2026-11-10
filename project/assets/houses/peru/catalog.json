@@ -1,0 +1,2623 @@
+[
+  {
+    "file": "peru/costa_invasion_0.glb",
+    "region": 0,
+    "height": 3.3899998664855957,
+    "yaw": 0.0,
+    "style": "invasion",
+    "zones": [
+      "ladera"
+    ],
+    "frontage": 5.2,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_invasion_1.glb",
+    "region": 0,
+    "height": 6.960000038146973,
+    "yaw": 0.0,
+    "style": "invasion",
+    "zones": [
+      "ladera"
+    ],
+    "frontage": 6.1,
+    "roof": "flat",
+    "material_ids": [
+      "red_brick_03",
+      "red_bricks_02",
+      "concrete_wall_001",
+      "rusty_metal_sheet"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 10,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_invasion_2.glb",
+    "region": 0,
+    "height": 3.3899998664855957,
+    "yaw": 0.0,
+    "style": "invasion",
+    "zones": [
+      "ladera"
+    ],
+    "frontage": 7.2,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_invasion_3.glb",
+    "region": 0,
+    "height": 9.660000801086426,
+    "yaw": 0.0,
+    "style": "invasion",
+    "zones": [
+      "ladera"
+    ],
+    "frontage": 8.3,
+    "roof": "flat",
+    "material_ids": [
+      "red_brick_03",
+      "concrete_wall_001"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 27,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_barrio_0.glb",
+    "region": 0,
+    "height": 8.140000343322754,
+    "yaw": 0.0,
+    "style": "barrio",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 9.2,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      -3.5880000591278076,
+      0.1400001049041748,
+      3.430000066757202
+    ],
+    "foundation_size": [
+      9.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 17,
+      "sealed_panels": 23,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_barrio_1.glb",
+    "region": 0,
+    "height": 5.78000020980835,
+    "yaw": 0.0,
+    "style": "barrio",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 5.3,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      1.1660000085830688,
+      0.1400001049041748,
+      3.6549999713897705
+    ],
+    "foundation_size": [
+      5.3,
+      6.65
+    ],
+    "envelope": {
+      "openings": 8,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_barrio_2.glb",
+    "region": 0,
+    "height": 5.78000020980835,
+    "yaw": 0.0,
+    "style": "barrio",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 5.7,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      1.253999948501587,
+      0.1400001049041748,
+      3.880000114440918
+    ],
+    "foundation_size": [
+      5.7,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 8,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_barrio_3.glb",
+    "region": 0,
+    "height": 3.0299999713897705,
+    "yaw": 0.0,
+    "style": "barrio",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 6.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      1.3200000524520874,
+      0.1400001049041748,
+      4.105000019073486
+    ],
+    "foundation_size": [
+      6.0,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 8,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_barranco_0.glb",
+    "region": 0,
+    "height": 2.9800000190734863,
+    "yaw": 0.0,
+    "style": "barranco",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 5.2,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_barranco_1.glb",
+    "region": 0,
+    "height": 6.289999961853027,
+    "yaw": 0.0,
+    "style": "barranco",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 6.1,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 10,
+      "sealed_panels": 4,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_barranco_2.glb",
+    "region": 0,
+    "height": 5.680000305175781,
+    "yaw": 0.0,
+    "style": "barranco",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 7.2,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 21,
+      "sealed_panels": 3,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_barranco_3.glb",
+    "region": 0,
+    "height": 2.9800000190734863,
+    "yaw": 0.0,
+    "style": "barranco",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 8.3,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_jardin_0.glb",
+    "region": 0,
+    "height": 8.041095733642578,
+    "yaw": 0.0,
+    "style": "jardin",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 7.2,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      -1.944000005722046,
+      0.15999996662139893,
+      4.550000190734863
+    ],
+    "foundation_size": [
+      7.2,
+      8.4
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 7,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_jardin_1.glb",
+    "region": 0,
+    "height": 8.015929222106934,
+    "yaw": 0.0,
+    "style": "jardin",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 6.4,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      -1.7280000448226929,
+      0.15999996662139893,
+      4.550000190734863
+    ],
+    "foundation_size": [
+      6.4,
+      8.4
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 7,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_jardin_2.glb",
+    "region": 0,
+    "height": 8.02939224243164,
+    "yaw": 0.0,
+    "style": "jardin",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 6.8,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      -1.8359999656677246,
+      0.15999996662139893,
+      4.550000190734863
+    ],
+    "foundation_size": [
+      6.8,
+      8.4
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 7,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_jardin_3.glb",
+    "region": 0,
+    "height": 8.004579544067383,
+    "yaw": 0.0,
+    "style": "jardin",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 6.1,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      -1.6469999551773071,
+      0.15999996662139893,
+      4.550000190734863
+    ],
+    "foundation_size": [
+      6.1,
+      8.4
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 7,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_miraflores_0.glb",
+    "region": 0,
+    "height": 26.3799991607666,
+    "yaw": 0.0,
+    "style": "miraflores",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 15.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.1799999475479126,
+      6.900000095367432
+    ],
+    "foundation_size": [
+      15.0,
+      13.0
+    ],
+    "envelope": {
+      "openings": 1,
+      "sealed_panels": 140,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_miraflores_1.glb",
+    "region": 0,
+    "height": 35.53000259399414,
+    "yaw": 0.0,
+    "style": "miraflores",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 18.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.1799999475479126,
+      7.150000095367432
+    ],
+    "foundation_size": [
+      18.0,
+      13.5
+    ],
+    "envelope": {
+      "openings": 1,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_miraflores_2.glb",
+    "region": 0,
+    "height": 47.730003356933594,
+    "yaw": 0.0,
+    "style": "miraflores",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 12.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.1799999475479126,
+      5.400000095367432
+    ],
+    "foundation_size": [
+      12.0,
+      10.0
+    ],
+    "envelope": {
+      "openings": 1,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_miraflores_3.glb",
+    "region": 0,
+    "height": 59.93000030517578,
+    "yaw": 0.0,
+    "style": "miraflores",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 22.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.1799999475479126,
+      8.899999618530273
+    ],
+    "foundation_size": [
+      22.0,
+      17.0
+    ],
+    "envelope": {
+      "openings": 1,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_valle_0.glb",
+    "region": 0,
+    "height": 2.9800000190734863,
+    "yaw": 0.0,
+    "style": "valle",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 5.2,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001",
+      "plywood"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_valle_1.glb",
+    "region": 0,
+    "height": 5.680000305175781,
+    "yaw": 0.0,
+    "style": "valle",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 6.1,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001",
+      "rectangular_facade_tiles"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 10,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_valle_2.glb",
+    "region": 0,
+    "height": 2.9800000190734863,
+    "yaw": 0.0,
+    "style": "valle",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 7.2,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001",
+      "marble_tiles"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_valle_3.glb",
+    "region": 0,
+    "height": 5.680000305175781,
+    "yaw": 0.0,
+    "style": "valle",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 8.3,
+    "roof": "flat",
+    "material_ids": [
+      "concrete_wall_001",
+      "brushed_concrete"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 18,
+      "sealed_panels": 5,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_casa_moderna_0.glb",
+    "region": 0,
+    "height": 7.699999809265137,
+    "yaw": 0.0,
+    "style": "casa_moderna",
+    "zones": [
+      "residencial",
+      "moderna"
+    ],
+    "frontage": 9.6,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      -2.496000051498413,
+      0.15999996662139893,
+      5.340000152587891
+    ],
+    "foundation_size": [
+      9.6,
+      10.0
+    ],
+    "envelope": {
+      "openings": 12,
+      "sealed_panels": 8,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_casa_moderna_1.glb",
+    "region": 0,
+    "height": 6.99399995803833,
+    "yaw": 0.0,
+    "style": "casa_moderna",
+    "zones": [
+      "residencial",
+      "moderna"
+    ],
+    "frontage": 6.4,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      -0.8320000171661377,
+      0.15999996662139893,
+      4.340000152587891
+    ],
+    "foundation_size": [
+      6.4,
+      8.0
+    ],
+    "envelope": {
+      "openings": 14,
+      "sealed_panels": 4,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/costa_casa_moderna_2.glb",
+    "region": 0,
+    "height": 6.800000190734863,
+    "yaw": 0.0,
+    "style": "casa_moderna",
+    "zones": [
+      "residencial",
+      "moderna"
+    ],
+    "frontage": 10.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      -0.5,
+      0.12000000476837158,
+      7.130000114440918
+    ],
+    "foundation_size": [
+      10.0,
+      10.0
+    ],
+    "envelope": {
+      "openings": 16,
+      "sealed_panels": 4,
+      "ground_doors": 2
+    }
+  },
+  {
+    "file": "peru/costa_casa_moderna_3.glb",
+    "region": 0,
+    "height": 8.199999809265137,
+    "yaw": 0.0,
+    "style": "casa_moderna",
+    "zones": [
+      "residencial",
+      "moderna"
+    ],
+    "frontage": 16.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      -4.639999866485596,
+      0.1400001049041748,
+      6.980000019073486
+    ],
+    "foundation_size": [
+      16.0,
+      12.0
+    ],
+    "envelope": {
+      "openings": 14,
+      "sealed_panels": 4,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_urbana_0.glb",
+    "region": 1,
+    "height": 4.578444480895996,
+    "yaw": 0.0,
+    "style": "andina_urbana",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 5.2,
+    "roof": "pitched",
+    "material_ids": [
+      "old_stone_wall",
+      "rustic_stone_wall",
+      "clay_roof_tiles"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_urbana_1.glb",
+    "region": 1,
+    "height": 7.440727710723877,
+    "yaw": 0.0,
+    "style": "andina_urbana",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 6.1,
+    "roof": "pitched",
+    "material_ids": [
+      "stone_wall",
+      "rustic_stone_wall",
+      "clay_roof_tiles_02",
+      "brown_brick_02"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 10,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_urbana_2.glb",
+    "region": 1,
+    "height": 10.316205024719238,
+    "yaw": 0.0,
+    "style": "andina_urbana",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 7.2,
+    "roof": "pitched",
+    "material_ids": [
+      "rustic_stone_wall",
+      "clay_roof_tiles_03"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 13,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_urbana_3.glb",
+    "region": 1,
+    "height": 5.541606426239014,
+    "yaw": 0.0,
+    "style": "andina_urbana",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 8.3,
+    "roof": "pitched",
+    "material_ids": [
+      "rustic_stone_wall",
+      "stone_block_wall",
+      "ceramic_roof_01"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_san_blas_0.glb",
+    "region": 1,
+    "height": 4.578444480895996,
+    "yaw": 0.0,
+    "style": "san_blas",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 5.2,
+    "roof": "pitched",
+    "material_ids": [
+      "old_stone_wall",
+      "rustic_stone_wall",
+      "clay_roof_tiles"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_san_blas_1.glb",
+    "region": 1,
+    "height": 7.440727710723877,
+    "yaw": 0.0,
+    "style": "san_blas",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 6.1,
+    "roof": "pitched",
+    "material_ids": [
+      "stone_wall",
+      "rustic_stone_wall",
+      "clay_roof_tiles_02"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 10,
+      "sealed_panels": 3,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_san_blas_2.glb",
+    "region": 1,
+    "height": 10.316205024719238,
+    "yaw": 0.0,
+    "style": "san_blas",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 7.2,
+    "roof": "pitched",
+    "material_ids": [
+      "rustic_stone_wall",
+      "clay_roof_tiles_03"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 13,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_san_blas_3.glb",
+    "region": 1,
+    "height": 5.541606426239014,
+    "yaw": 0.0,
+    "style": "san_blas",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 8.3,
+    "roof": "pitched",
+    "material_ids": [
+      "rustic_stone_wall",
+      "sandstone_blocks_04",
+      "ceramic_roof_01"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 19,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_valle_sagrado_0.glb",
+    "region": 1,
+    "height": 5.890363693237305,
+    "yaw": 0.0,
+    "style": "valle_sagrado",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 14.8,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      1.7760000228881836,
+      0.2200000286102295,
+      4.400000095367432
+    ],
+    "foundation_size": [
+      14.8,
+      8.1
+    ],
+    "envelope": {
+      "openings": 14,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_valle_sagrado_1.glb",
+    "region": 1,
+    "height": 6.047396659851074,
+    "yaw": 0.0,
+    "style": "valle_sagrado",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 13.0,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      1.559999942779541,
+      0.2200000286102295,
+      4.400000095367432
+    ],
+    "foundation_size": [
+      13.0,
+      8.1
+    ],
+    "envelope": {
+      "openings": 13,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_valle_sagrado_2.glb",
+    "region": 1,
+    "height": 6.194744110107422,
+    "yaw": 0.0,
+    "style": "valle_sagrado",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 16.0,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      1.9199999570846558,
+      0.2200000286102295,
+      4.400000095367432
+    ],
+    "foundation_size": [
+      16.0,
+      8.1
+    ],
+    "envelope": {
+      "openings": 13,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_valle_sagrado_3.glb",
+    "region": 1,
+    "height": 6.3323869705200195,
+    "yaw": 0.0,
+    "style": "valle_sagrado",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 12.5,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      1.5,
+      0.2200000286102295,
+      4.400000095367432
+    ],
+    "foundation_size": [
+      12.5,
+      8.1
+    ],
+    "envelope": {
+      "openings": 13,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_actual_0.glb",
+    "region": 1,
+    "height": 7.374821186065674,
+    "yaw": 0.0,
+    "style": "andina_actual",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 8.5,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      -2.2950000762939453,
+      0.15999996662139893,
+      4.360000133514404
+    ],
+    "foundation_size": [
+      8.5,
+      8.0
+    ],
+    "envelope": {
+      "openings": 14,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_actual_1.glb",
+    "region": 1,
+    "height": 6.490000247955322,
+    "yaw": 0.0,
+    "style": "andina_actual",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 10.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      -0.800000011920929,
+      0.15999996662139893,
+      4.860000133514404
+    ],
+    "foundation_size": [
+      10.0,
+      9.0
+    ],
+    "envelope": {
+      "openings": 14,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_actual_2.glb",
+    "region": 1,
+    "height": 17.809999465942383,
+    "yaw": 0.0,
+    "style": "andina_actual",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 12.6,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      2.3940000534057617,
+      0.15999996662139893,
+      5.349999904632568
+    ],
+    "foundation_size": [
+      12.6,
+      10.0
+    ],
+    "envelope": {
+      "openings": 53,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_actual_3.glb",
+    "region": 1,
+    "height": 24.309999465942383,
+    "yaw": 0.0,
+    "style": "andina_actual",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 10.2,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.15999996662139893,
+      5.460000038146973
+    ],
+    "foundation_size": [
+      10.2,
+      10.2
+    ],
+    "envelope": {
+      "openings": 50,
+      "sealed_panels": 84,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_adobe_0.glb",
+    "region": 1,
+    "height": 4.578444480895996,
+    "yaw": 0.0,
+    "style": "adobe",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 5.2,
+    "roof": "pitched",
+    "material_ids": [
+      "clay_plaster",
+      "old_stone_wall",
+      "rustic_stone_wall",
+      "clay_roof_tiles"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_adobe_1.glb",
+    "region": 1,
+    "height": 4.890727519989014,
+    "yaw": 0.0,
+    "style": "adobe",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 6.1,
+    "roof": "pitched",
+    "material_ids": [
+      "patterned_clay_plaster",
+      "stone_wall",
+      "rustic_stone_wall",
+      "clay_roof_tiles_02"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 3,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_adobe_2.glb",
+    "region": 1,
+    "height": 5.216205596923828,
+    "yaw": 0.0,
+    "style": "adobe",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 7.2,
+    "roof": "pitched",
+    "material_ids": [
+      "clay_plaster",
+      "rustic_stone_wall",
+      "clay_roof_tiles_03"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 3,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_adobe_3.glb",
+    "region": 1,
+    "height": 8.091606140136719,
+    "yaw": 0.0,
+    "style": "adobe",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 8.3,
+    "roof": "pitched",
+    "material_ids": [
+      "patterned_clay_plaster",
+      "rustic_stone_wall",
+      "stone_block_wall",
+      "ceramic_roof_01"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 18,
+      "sealed_panels": 8,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_ladera_0.glb",
+    "region": 1,
+    "height": 4.251367568969727,
+    "yaw": 0.0,
+    "style": "andina_ladera",
+    "zones": [
+      "ladera"
+    ],
+    "frontage": 6.0,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      1.440000057220459,
+      0.13999998569488525,
+      3.5799999237060547
+    ],
+    "foundation_size": [
+      6.0,
+      6.6
+    ],
+    "envelope": {
+      "openings": 3,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_ladera_1.glb",
+    "region": 1,
+    "height": 4.272198677062988,
+    "yaw": 0.0,
+    "style": "andina_ladera",
+    "zones": [
+      "ladera"
+    ],
+    "frontage": 7.0,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      -1.75,
+      0.13999998569488525,
+      3.5799999237060547
+    ],
+    "foundation_size": [
+      7.0,
+      6.6
+    ],
+    "envelope": {
+      "openings": 3,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_ladera_2.glb",
+    "region": 1,
+    "height": 6.537233352661133,
+    "yaw": 0.0,
+    "style": "andina_ladera",
+    "zones": [
+      "ladera"
+    ],
+    "frontage": 5.5,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      1.3200000524520874,
+      0.13999998569488525,
+      3.5799999237060547
+    ],
+    "foundation_size": [
+      5.5,
+      6.6
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/sierra_andina_ladera_3.glb",
+    "region": 1,
+    "height": 4.292093276977539,
+    "yaw": 0.0,
+    "style": "andina_ladera",
+    "zones": [
+      "ladera"
+    ],
+    "frontage": 8.5,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      -2.125,
+      0.13999998569488525,
+      3.5799999237060547
+    ],
+    "foundation_size": [
+      8.5,
+      6.6
+    ],
+    "envelope": {
+      "openings": 3,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_pucallpa_0.glb",
+    "region": 2,
+    "height": 4.620991230010986,
+    "yaw": 0.0,
+    "style": "pucallpa",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 5.2,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "box_profile_metal_sheet",
+      "painted_concrete"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_pucallpa_1.glb",
+    "region": 2,
+    "height": 7.606750011444092,
+    "yaw": 0.0,
+    "style": "pucallpa",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 6.1,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "rusty_painted_metal",
+      "painted_concrete"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 10,
+      "sealed_panels": 4,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_pucallpa_2.glb",
+    "region": 2,
+    "height": 10.601876258850098,
+    "yaw": 0.0,
+    "style": "pucallpa",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 7.2,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "box_profile_metal_sheet",
+      "painted_concrete"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 13,
+      "sealed_panels": 6,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_pucallpa_3.glb",
+    "region": 2,
+    "height": 5.496976375579834,
+    "yaw": 0.0,
+    "style": "pucallpa",
+    "zones": [
+      "popular"
+    ],
+    "frontage": 8.3,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "rusty_painted_metal",
+      "painted_concrete"
+    ],
+    "entrance": [
+      0.0,
+      0.1400001049041748,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 5,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_iquitos_0.glb",
+    "region": 2,
+    "height": 7.430000305175781,
+    "yaw": 0.0,
+    "style": "iquitos",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 10.8,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      -3.806999921798706,
+      0.13999998569488525,
+      3.4800000190734863
+    ],
+    "foundation_size": [
+      10.8,
+      6.2
+    ],
+    "envelope": {
+      "openings": 24,
+      "sealed_panels": 13,
+      "ground_doors": 4
+    }
+  },
+  {
+    "file": "peru/selva_iquitos_1.glb",
+    "region": 2,
+    "height": 9.20674991607666,
+    "yaw": 0.0,
+    "style": "iquitos",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 6.1,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "rusty_painted_metal",
+      "painted_concrete",
+      "patterned_brick_wall"
+    ],
+    "entrance": [
+      0.0,
+      0.13999998569488525,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 10,
+      "sealed_panels": 6,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_iquitos_2.glb",
+    "region": 2,
+    "height": 13.001875877380371,
+    "yaw": 0.0,
+    "style": "iquitos",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 7.2,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "box_profile_metal_sheet",
+      "painted_concrete",
+      "whitewashed_brick"
+    ],
+    "entrance": [
+      0.0,
+      0.13999998569488525,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 29,
+      "sealed_panels": 9,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_iquitos_3.glb",
+    "region": 2,
+    "height": 6.296976566314697,
+    "yaw": 0.0,
+    "style": "iquitos",
+    "zones": [
+      "tradicional"
+    ],
+    "frontage": 8.3,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "rusty_painted_metal",
+      "painted_concrete",
+      "blue_floor_tiles_01"
+    ],
+    "entrance": [
+      0.0,
+      0.13999998569488525,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_tarapoto_0.glb",
+    "region": 2,
+    "height": 3.41104793548584,
+    "yaw": 0.0,
+    "style": "tarapoto",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 3.6,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.7919999957084656,
+      0.13999998569488525,
+      3.700000047683716
+    ],
+    "foundation_size": [
+      3.6,
+      6.8
+    ],
+    "envelope": {
+      "openings": 3,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_tarapoto_1.glb",
+    "region": 2,
+    "height": 3.41104793548584,
+    "yaw": 0.0,
+    "style": "tarapoto",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 4.0,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.8799999952316284,
+      0.13999998569488525,
+      3.700000047683716
+    ],
+    "foundation_size": [
+      4.0,
+      6.8
+    ],
+    "envelope": {
+      "openings": 3,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_tarapoto_2.glb",
+    "region": 2,
+    "height": 3.41104793548584,
+    "yaw": 0.0,
+    "style": "tarapoto",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 4.2,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.9240000247955322,
+      0.13999998569488525,
+      3.700000047683716
+    ],
+    "foundation_size": [
+      4.2,
+      6.8
+    ],
+    "envelope": {
+      "openings": 3,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_tarapoto_3.glb",
+    "region": 2,
+    "height": 3.41104793548584,
+    "yaw": 0.0,
+    "style": "tarapoto",
+    "zones": [
+      "residencial"
+    ],
+    "frontage": 3.4,
+    "roof": "flat",
+    "material_ids": [],
+    "entrance": [
+      0.7480000257492065,
+      0.13999998569488525,
+      3.700000047683716
+    ],
+    "foundation_size": [
+      3.4,
+      6.8
+    ],
+    "envelope": {
+      "openings": 3,
+      "sealed_panels": 0,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_tropical_actual_0.glb",
+    "region": 2,
+    "height": 6.346958637237549,
+    "yaw": 0.0,
+    "style": "tropical_actual",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 8.6,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.12000000476837158,
+      5.199999809265137
+    ],
+    "foundation_size": [
+      8.6,
+      7.0
+    ],
+    "envelope": {
+      "openings": 8,
+      "sealed_panels": 0,
+      "ground_doors": 2
+    }
+  },
+  {
+    "file": "peru/selva_tropical_actual_1.glb",
+    "region": 2,
+    "height": 7.6663594245910645,
+    "yaw": 0.0,
+    "style": "tropical_actual",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 9.0,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.18000006675720215,
+      4.059999942779541
+    ],
+    "foundation_size": [
+      9.0,
+      7.5
+    ],
+    "envelope": {
+      "openings": 7,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_tropical_actual_2.glb",
+    "region": 2,
+    "height": 6.399409294128418,
+    "yaw": 0.0,
+    "style": "tropical_actual",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 10.1,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.12000000476837158,
+      5.900000095367432
+    ],
+    "foundation_size": [
+      10.1,
+      8.4
+    ],
+    "envelope": {
+      "openings": 8,
+      "sealed_panels": 0,
+      "ground_doors": 2
+    }
+  },
+  {
+    "file": "peru/selva_tropical_actual_3.glb",
+    "region": 2,
+    "height": 7.64548921585083,
+    "yaw": 0.0,
+    "style": "tropical_actual",
+    "zones": [
+      "moderna"
+    ],
+    "frontage": 7.6,
+    "roof": "pitched",
+    "material_ids": [],
+    "entrance": [
+      0.0,
+      0.18000006675720215,
+      3.859999895095825
+    ],
+    "foundation_size": [
+      7.6,
+      7.1
+    ],
+    "envelope": {
+      "openings": 7,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    }
+  },
+  {
+    "file": "peru/selva_comunidad_0.glb",
+    "region": 2,
+    "height": 6.075738906860352,
+    "yaw": 0.0,
+    "style": "comunidad",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 5.2,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "rough_wood",
+      "reed_roof_03"
+    ],
+    "supports": [
+      [
+        -2.236,
+        0,
+        2.666
+      ],
+      [
+        -2.236,
+        0,
+        0
+      ],
+      [
+        -2.236,
+        0,
+        -2.666
+      ],
+      [
+        0,
+        0,
+        2.666
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -2.666
+      ],
+      [
+        2.236,
+        0,
+        2.666
+      ],
+      [
+        2.236,
+        0,
+        0
+      ],
+      [
+        2.236,
+        0,
+        -2.666
+      ]
+    ],
+    "entrance": [
+      0.0,
+      0.6400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    },
+    "approach": [
+      0,
+      0.06,
+      4.470000000000001
+    ]
+  },
+  {
+    "file": "peru/selva_comunidad_1.glb",
+    "region": 2,
+    "height": 6.413207530975342,
+    "yaw": 0.0,
+    "style": "comunidad",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 6.1,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "wood_planks_grey",
+      "rough_wood",
+      "reed_roof_04"
+    ],
+    "supports": [
+      [
+        -2.6229999999999998,
+        0,
+        2.8595
+      ],
+      [
+        -2.6229999999999998,
+        0,
+        0
+      ],
+      [
+        -2.6229999999999998,
+        0,
+        -2.8595
+      ],
+      [
+        0,
+        0,
+        2.8595
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -2.8595
+      ],
+      [
+        2.6229999999999998,
+        0,
+        2.8595
+      ],
+      [
+        2.6229999999999998,
+        0,
+        0
+      ],
+      [
+        2.6229999999999998,
+        0,
+        -2.8595
+      ]
+    ],
+    "entrance": [
+      0.0,
+      0.6400001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 3,
+      "ground_doors": 1
+    },
+    "approach": [
+      0,
+      0.06,
+      4.695
+    ]
+  },
+  {
+    "file": "peru/selva_comunidad_2.glb",
+    "region": 2,
+    "height": 6.785853385925293,
+    "yaw": 0.0,
+    "style": "comunidad",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 7.2,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "wooden_rough_planks",
+      "rough_wood",
+      "thatch_roof_angled"
+    ],
+    "supports": [
+      [
+        -3.096,
+        0,
+        3.0530000000000004
+      ],
+      [
+        -3.096,
+        0,
+        0
+      ],
+      [
+        -3.096,
+        0,
+        -3.0530000000000004
+      ],
+      [
+        0,
+        0,
+        3.0530000000000004
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -3.0530000000000004
+      ],
+      [
+        3.096,
+        0,
+        3.0530000000000004
+      ],
+      [
+        3.096,
+        0,
+        0
+      ],
+      [
+        3.096,
+        0,
+        -3.0530000000000004
+      ]
+    ],
+    "entrance": [
+      0.0,
+      0.6400001049041748,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 3,
+      "ground_doors": 1
+    },
+    "approach": [
+      0,
+      0.06,
+      4.92
+    ]
+  },
+  {
+    "file": "peru/selva_comunidad_3.glb",
+    "region": 2,
+    "height": 9.847015380859375,
+    "yaw": 0.0,
+    "style": "comunidad",
+    "zones": [
+      "rural"
+    ],
+    "frontage": 8.3,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "rough_wood",
+      "reed_roof_03"
+    ],
+    "supports": [
+      [
+        -3.5690000000000004,
+        0,
+        3.2465
+      ],
+      [
+        -3.5690000000000004,
+        0,
+        0
+      ],
+      [
+        -3.5690000000000004,
+        0,
+        -3.2465
+      ],
+      [
+        0,
+        0,
+        3.2465
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -3.2465
+      ],
+      [
+        3.5690000000000004,
+        0,
+        3.2465
+      ],
+      [
+        3.5690000000000004,
+        0,
+        0
+      ],
+      [
+        3.5690000000000004,
+        0,
+        -3.2465
+      ]
+    ],
+    "entrance": [
+      0.0,
+      0.6400001049041748,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 18,
+      "sealed_panels": 8,
+      "ground_doors": 1
+    },
+    "approach": [
+      0,
+      0.06,
+      5.1450000000000005
+    ]
+  },
+  {
+    "file": "peru/selva_belen_0.glb",
+    "region": 2,
+    "height": 6.1209917068481445,
+    "yaw": 0.0,
+    "style": "belen",
+    "zones": [
+      "ribereno"
+    ],
+    "frontage": 5.2,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "rough_wood",
+      "box_profile_metal_sheet"
+    ],
+    "supports": [
+      [
+        -2.236,
+        0,
+        2.666
+      ],
+      [
+        -2.236,
+        0,
+        0
+      ],
+      [
+        -2.236,
+        0,
+        -2.666
+      ],
+      [
+        0,
+        0,
+        2.666
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -2.666
+      ],
+      [
+        2.236,
+        0,
+        2.666
+      ],
+      [
+        2.236,
+        0,
+        0
+      ],
+      [
+        2.236,
+        0,
+        -2.666
+      ]
+    ],
+    "entrance": [
+      0.0,
+      1.6400001049041748,
+      3.5
+    ],
+    "foundation_size": [
+      5.2,
+      6.2
+    ],
+    "envelope": {
+      "openings": 9,
+      "sealed_panels": 2,
+      "ground_doors": 1
+    },
+    "approach": [
+      0,
+      0.06,
+      6.15
+    ]
+  },
+  {
+    "file": "peru/selva_belen_1.glb",
+    "region": 2,
+    "height": 9.35675048828125,
+    "yaw": 0.0,
+    "style": "belen",
+    "zones": [
+      "ribereno"
+    ],
+    "frontage": 6.1,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "wood_planks_grey",
+      "rough_wood",
+      "rusty_painted_metal"
+    ],
+    "supports": [
+      [
+        -2.6229999999999998,
+        0,
+        2.8595
+      ],
+      [
+        -2.6229999999999998,
+        0,
+        0
+      ],
+      [
+        -2.6229999999999998,
+        0,
+        -2.8595
+      ],
+      [
+        0,
+        0,
+        2.8595
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -2.8595
+      ],
+      [
+        2.6229999999999998,
+        0,
+        2.8595
+      ],
+      [
+        2.6229999999999998,
+        0,
+        0
+      ],
+      [
+        2.6229999999999998,
+        0,
+        -2.8595
+      ]
+    ],
+    "entrance": [
+      0.0,
+      1.8900001049041748,
+      3.7249999046325684
+    ],
+    "foundation_size": [
+      6.1,
+      6.65
+    ],
+    "envelope": {
+      "openings": 10,
+      "sealed_panels": 4,
+      "ground_doors": 1
+    },
+    "approach": [
+      0,
+      0.06,
+      6.655
+    ]
+  },
+  {
+    "file": "peru/selva_belen_2.glb",
+    "region": 2,
+    "height": 7.201876640319824,
+    "yaw": 0.0,
+    "style": "belen",
+    "zones": [
+      "ribereno"
+    ],
+    "frontage": 7.2,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "wooden_rough_planks",
+      "rough_wood",
+      "box_profile_metal_sheet"
+    ],
+    "supports": [
+      [
+        -3.096,
+        0,
+        3.0530000000000004
+      ],
+      [
+        -3.096,
+        0,
+        0
+      ],
+      [
+        -3.096,
+        0,
+        -3.0530000000000004
+      ],
+      [
+        0,
+        0,
+        3.0530000000000004
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -3.0530000000000004
+      ],
+      [
+        3.096,
+        0,
+        3.0530000000000004
+      ],
+      [
+        3.096,
+        0,
+        0
+      ],
+      [
+        3.096,
+        0,
+        -3.0530000000000004
+      ]
+    ],
+    "entrance": [
+      0.0,
+      2.140000104904175,
+      3.950000047683716
+    ],
+    "foundation_size": [
+      7.2,
+      7.1000000000000005
+    ],
+    "envelope": {
+      "openings": 5,
+      "sealed_panels": 4,
+      "ground_doors": 1
+    },
+    "approach": [
+      0,
+      0.06,
+      7.16
+    ]
+  },
+  {
+    "file": "peru/selva_belen_3.glb",
+    "region": 2,
+    "height": 10.446976661682129,
+    "yaw": 0.0,
+    "style": "belen",
+    "zones": [
+      "ribereno"
+    ],
+    "frontage": 8.3,
+    "roof": "pitched",
+    "material_ids": [
+      "wood_plank_wall",
+      "rough_wood",
+      "rusty_painted_metal"
+    ],
+    "supports": [
+      [
+        -3.5690000000000004,
+        0,
+        3.2465
+      ],
+      [
+        -3.5690000000000004,
+        0,
+        0
+      ],
+      [
+        -3.5690000000000004,
+        0,
+        -3.2465
+      ],
+      [
+        0,
+        0,
+        3.2465
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -3.2465
+      ],
+      [
+        3.5690000000000004,
+        0,
+        3.2465
+      ],
+      [
+        3.5690000000000004,
+        0,
+        0
+      ],
+      [
+        3.5690000000000004,
+        0,
+        -3.2465
+      ]
+    ],
+    "entrance": [
+      0.0,
+      2.390000104904175,
+      4.175000190734863
+    ],
+    "foundation_size": [
+      8.3,
+      7.550000000000001
+    ],
+    "envelope": {
+      "openings": 18,
+      "sealed_panels": 7,
+      "ground_doors": 1
+    },
+    "approach": [
+      0,
+      0.06,
+      7.945
+    ]
+  }
+]

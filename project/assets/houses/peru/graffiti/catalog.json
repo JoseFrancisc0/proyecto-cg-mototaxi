@@ -1,0 +1,30 @@
+[
+  {
+    "id": "chrome",
+    "source": "https://3dtexel.com/product/graffiti-decals-61/",
+    "author": "Lucas Anton Gomez",
+    "license": "CC0",
+    "resolution": 1024
+  },
+  {
+    "id": "urban",
+    "source": "https://3dtexel.com/product/graffiti-decals-60/",
+    "author": "Lucas Anton Gomez",
+    "license": "CC0",
+    "resolution": 1024
+  },
+  {
+    "id": "silent",
+    "source": "https://3dtexel.com/product/graffiti-decals-59/",
+    "author": "Lucas Anton Gomez",
+    "license": "CC0",
+    "resolution": 1024
+  },
+  {
+    "id": "wild",
+    "source": "https://3dtexel.com/product/graffiti-decals-58/",
+    "author": "Lucas Anton Gomez",
+    "license": "CC0",
+    "resolution": 1024
+  }
+]

@@ -826,7 +826,7 @@ func _build_vegetation() -> void:
 			snow = float(s)
 	vegetation.build(last_surface, last_terrain, {"seed": noise_seed, "snow_height": snow,
 		"sun_direction": (global_basis.inverse() * sun_direction()).normalized(), "chunk_cells": 128,
-		"blockers": vegetation_blockers})
+		"blockers": vegetation_blockers,"district_world":get_parent()})
 	_set_canopy(vegetation.canopy_texture)
 	if material_override is ShaderMaterial:
 		TerrainVegetation.sync_lighting(material_override, sun_direction())

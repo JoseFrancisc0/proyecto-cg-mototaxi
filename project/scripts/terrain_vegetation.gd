@@ -67,6 +67,7 @@ func build(builder: TerrainMesh, terrain: TerrainNoise, options := {}) -> int:
 		return 0
 	var opts := options.duplicate()
 	opts.erase("blockers")
+	opts.erase("district_world")
 	opts["density_scale"] = density
 	var t0 := Time.get_ticks_msec()
 	var result: Dictionary = builder.scatter_vegetation(terrain, SPECIES, opts)
@@ -77,6 +78,8 @@ func build(builder: TerrainMesh, terrain: TerrainNoise, options := {}) -> int:
 	var half := chunk_m * per_side * 0.5
 	var species: Dictionary = result["species"]
 	var blocked := _blocker_grid(options.get("blockers", []))
+	var district_world:=options.get("district_world") as TerrainWorld
+	var district_cache: Dictionary={}
 	for rule: Dictionary in SPECIES:
 		var name: String = rule["name"]
 		if not species.has(name):
@@ -103,16 +106,18 @@ func build(builder: TerrainMesh, terrain: TerrainNoise, options := {}) -> int:
 		var chunks: Dictionary = info["chunks"]
 		for chunk_id: int in chunks:
 			var buffer: PackedFloat32Array = chunks[chunk_id]
+			if district_world:buffer=_filter_districts(buffer,district_world,district_cache)
 			if not blocked.is_empty():
 				buffer = _remove_blocked(buffer, blocked)
 				if buffer.is_empty():
 					continue
-			if trunk > 0.0 and colliders:
-				colliders.add_trunks(buffer, trunk, variants[0].get_aabb().size.y)
 			var parts := _split_variants(buffer, variants.size())
 			for v in parts.size():
+				if not blocked.is_empty():parts[v]=_remove_blocked(parts[v],blocked,variants[v])
+				if district_world:parts[v]=_fit_ground(parts[v],district_world,variants[v])
 				if parts[v].is_empty():
 					continue
+				if trunk > 0.0 and colliders:colliders.add_trunks(parts[v],trunk,variants[v].get_aabb().size.y)
 				if lod:
 					_add_multimesh("%s_%d_%d" % [name, chunk_id, v], far[v], parts[v], rule, true)
 					if near:
@@ -139,6 +144,42 @@ func clear() -> void:
 
 const BLOCK_CELL := 16.0
 
+static func _fit_ground(buffer: PackedFloat32Array,world: TerrainWorld,mesh: Mesh) -> PackedFloat32Array:
+	var output:=PackedFloat32Array();var root:=_root_offset(mesh)
+	for i in range(0,buffer.size(),20):
+		var x:=buffer[i+3]+buffer[i]*root.x+buffer[i+1]*root.y+buffer[i+2]*root.z
+		var z:=buffer[i+11]+buffer[i+8]*root.x+buffer[i+9]*root.y+buffer[i+10]*root.z
+		# Native scattering precedes the final river/road grading. Reject wet roots
+		# and whole crowns near bridges, then ground the surviving model itself.
+		if world.is_water(x,z):continue
+		var bridge_clear:=true
+		for child in world.road_layout.get_children():
+			if not child is PeruBridges:continue
+			for span: Dictionary in child.spans:
+				var closest:=Geometry2D.get_closest_point_to_segment(Vector2(x,z),Vector2(span.a.x,span.a.z),Vector2(span.b.x,span.b.z))
+				if closest.distance_to(Vector2(x,z))<float(span.width)*.5+maxf(8,mesh.get_aabb().size.x*.6):bridge_clear=false;break
+			if not bridge_clear:break
+		if not bridge_clear:continue
+		var plant:=buffer.slice(i,i+20)
+		plant[7]=world._sample_height(x,z)-(buffer[i+4]*root.x+buffer[i+5]*root.y+buffer[i+6]*root.z)
+		output.append_array(plant)
+	return output
+
+static func _filter_districts(buffer: PackedFloat32Array,world: TerrainWorld,cache: Dictionary) -> PackedFloat32Array:
+	var output:=PackedFloat32Array()
+	for i in range(0,buffer.size(),20):
+		var p:=Vector3(buffer[i+3],buffer[i+7],buffer[i+11]);var key:=Vector2i(floori(p.x/40),floori(p.z/40))
+		if not cache.has(key):cache[key]=PeruDistricts.at(world,p)
+		var district: Dictionary=cache[key]
+		var keep:=1.0
+		if str(district.zone)=="popular":keep=.10
+		elif str(district.zone)=="ladera" and int(district.region)==0:keep=.015
+		elif str(district.zone) in ["moderna","residencial"]:keep=.50
+		elif str(district.zone)=="tradicional":keep=.30
+		var value:=float(posmod(hash("%d:%d:%d"%[world.world_seed,roundi(p.x*10),roundi(p.z*10)]),1000))/1000
+		if value<keep:output.append_array(buffer.slice(i,i+20))
+	return output
+
 ## Círculos [x, z, r] por celda de BLOCK_CELL m.
 static func _blocker_grid(circles: Array) -> Dictionary:
 	var grid := {}
@@ -153,12 +194,29 @@ static func _blocker_grid(circles: Array) -> Dictionary:
 
 
 ## Quita del buffer (20 floats por planta) las plantas que caen dentro de un círculo.
-static func _remove_blocked(buffer: PackedFloat32Array, grid: Dictionary) -> PackedFloat32Array:
+static var _root_offsets: Dictionary={}
+
+static func _root_offset(mesh: Mesh) -> Vector3:
+	if _root_offsets.has(mesh):return _root_offsets[mesh]
+	var box:=mesh.get_aabb();var centre:=Vector3.ZERO;var count:=0
+	for surface in mesh.get_surface_count():
+		var vertices: PackedVector3Array=mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+		for vertex in vertices:
+			if vertex.y<box.position.y+box.size.y*.055:centre+=vertex;count+=1
+	if count>0:centre/=count
+	_root_offsets[mesh]=centre
+	return centre
+
+static func _remove_blocked(buffer: PackedFloat32Array, grid: Dictionary,mesh: Mesh=null) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
 	var removed := false
+	var root:=_root_offset(mesh) if mesh else Vector3.ZERO
 	for i in range(0, buffer.size(), 20):
 		var x := buffer[i + 3]
 		var z := buffer[i + 11]
+		if mesh:
+			x+=buffer[i]*root.x+buffer[i+1]*root.y+buffer[i+2]*root.z
+			z+=buffer[i+8]*root.x+buffer[i+9]*root.y+buffer[i+10]*root.z
 		var inside := false
 		for c: Array in grid.get(Vector2i(floori(x / BLOCK_CELL), floori(z / BLOCK_CELL)), []):
 			if Vector2(x - c[0], z - c[1]).length_squared() < c[2] * c[2]:

@@ -136,6 +136,9 @@ uniform float fog_density : hint_range(0.0, 0.005, 0.00001) = 0.00008;
 
 group_uniforms Faros;
 uniform bool headlight_enabled = false;
+uniform int traffic_light_count=0;
+uniform vec4 traffic_light_origins[16];
+uniform vec4 traffic_light_directions[16];
 uniform vec3 headlight_origin;
 uniform vec3 headlight_direction = vec3(0.0, 0.0, 1.0);
 uniform float headlight_range = 36.0;
@@ -156,6 +159,13 @@ varying vec4 regions;
 varying float sky_visibility;
 varying vec2 road_coords;
 
+uniform bool local_channels_enabled=false;
+uniform bool road_cutout_enabled=false;
+uniform sampler2D road_cutout : filter_linear, repeat_disable;
+uniform float road_cutout_extent=1.0;
+uniform sampler2D local_channel_heights : filter_nearest, repeat_disable;
+uniform float local_channel_extent=1.0;
+uniform float local_channel_samples=2.0;
 const int LAYERS = 7;
 
 void vertex() {
@@ -301,6 +311,7 @@ vec3 checker(vec2 uv) {
 }
 
 void fragment() {
+
 	vec3 N = normalize(world_normal);
 	vec3 R = max(regions.xyz, vec3(0.0));
 	R /= max(R.x + R.y + R.z, 1e-5);
@@ -363,9 +374,10 @@ void fragment() {
 
 	// Caminos: alfa del color de vertice = mascara del camino.
 	float road = COLOR.a;
+	if(road_cutout_enabled)road=smoothstep(-.12,.12,texture(road_cutout,local_pos.xz/road_cutout_extent+vec2(.5)).r);
 	// Fine aggregate and shoulder edges give the asphalt a readable width.
 	float aggregate = value_noise(local_pos.xz * 6.0);
-	vec3 pavement = COLOR.rgb * mix(0.78, 1.20, aggregate);
+	vec3 pavement = road_cutout_enabled ? vec3(.075,.076,.079)*mix(.92,1.08,aggregate) : COLOR.rgb * mix(0.78, 1.20, aggregate);
 	vec3 dx_surface = dFdx(local_pos);
 	vec3 dy_surface = dFdy(local_pos);
 	vec3 face_normal = normalize(cross(dx_surface, dy_surface));
@@ -376,7 +388,7 @@ void fragment() {
 		abs(dy_road.y) / max(length(dy_surface.xz), 0.001));
 	// Interpolating the chainage between two roads creates false loops and lines.
 	float coherent = (1.0 - smoothstep(1.15, 2.3, along_stretch)) * smoothstep(0.92, 0.98, abs(face_normal.y));
-	if (road_coords.y > 0.0 && road > 0.70 && dist < 160.0 && coherent > 0.0) {
+	if (!road_cutout_enabled && road_coords.y > 0.0 && road > 0.70 && dist < 160.0 && coherent > 0.0) {
 		float lateral = abs(road_coords.x);
 		float aa = clamp(abs(dx_road.x) + abs(dy_road.x), 0.008, 0.09);
 		float edge = 1.0 - smoothstep(0.018, 0.018 + aa, abs(lateral - 0.72));
@@ -517,5 +529,15 @@ void fragment() {
 		color = vec3(1.0 - canopy);
 	}
 
+	for(int i=0;i<16;i++){
+		if(i>=traffic_light_count)break;
+		vec3 beam=local_pos-traffic_light_origins[i].xyz;
+		float d=length(beam),range=traffic_light_origins[i].w;
+		if(d>range)continue;
+		float cutoff=traffic_light_directions[i].w;
+		float spread=cutoff<0.0 ? 1.0 : smoothstep(cutoff,min(.99,cutoff+.10),dot(beam/max(.001,d),traffic_light_directions[i].xyz));
+		float attenuation=pow(1.0-smoothstep(1.0,range,d),2.0);
+		color+=albedo*vec3(1.0,.90,.70)*spread*attenuation*(cutoff<0.0?1.1:2.2);
+	}
 	ALBEDO = color;
 }

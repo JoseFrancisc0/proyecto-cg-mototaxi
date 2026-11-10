@@ -11,7 +11,7 @@ var _time := 0.0
 var _vehicle := 0
 var _turbo_mix := 0.0
 var _was_turbo := false
-const PITCH_RANGES := [1.25,1.9,1.1,1.3,0.85,1.25]
+const PITCH_RANGES := [.72,.94,.62,.84,.64,.58]
 
 func configure(index: int) -> void:
 	_vehicle = index
@@ -45,7 +45,7 @@ func configure(index: int) -> void:
 	idle.volume_db = -80
 	load_sound.volume_db = -80
 	turbo_sound.volume_db = -80
-	turbo_release.volume_db = -15
+	turbo_release.volume_db = -24
 	idle.pitch_scale = 0.85
 	load_sound.pitch_scale = 0.85
 	idle.play()
@@ -71,10 +71,10 @@ func update_engine(delta: float, speed: float, throttle: float, max_speed: float
 	idle.pitch_scale = pitch
 	load_sound.pitch_scale = pitch
 	# Equal-power crossfade keeps the engine present while lifting the accelerator.
-	idle.volume_db = linear_to_db(maxf(0.001,sqrt(1.0-_load_mix)*0.24))
-	load_sound.volume_db = linear_to_db(maxf(0.001,sqrt(_load_mix)*(0.35 if turbo else 0.29)))
+	idle.volume_db = linear_to_db(maxf(0.001,sqrt(1.0-_load_mix)*0.18))
+	load_sound.volume_db = linear_to_db(maxf(0.001,sqrt(_load_mix)*(0.26 if turbo else 0.22)))
 	_turbo_mix = move_toward(_turbo_mix,1.0 if turbo else 0.0,delta*7.0)
-	turbo_sound.volume_db = linear_to_db(maxf(0.0001,_turbo_mix*0.26))
+	turbo_sound.volume_db = linear_to_db(maxf(0.0001,_turbo_mix*0.10))
 	turbo_sound.pitch_scale = [1.0,1.0,0.9,0.95,1.0,0.85][_vehicle] + rpm*0.25
 	if _was_turbo and not turbo:
 		turbo_release.play()

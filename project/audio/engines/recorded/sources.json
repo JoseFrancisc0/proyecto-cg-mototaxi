@@ -1,0 +1,80 @@
+[
+  {
+    "vehicle": "neon_thunder",
+    "title": "Rieju MRT 125 AC",
+    "author": "Sulainar",
+    "source": "https://freesound.org/people/Sulainar/sounds/331895/",
+    "license": "CC0-1.0",
+    "file": "project/audio/engines/recorded/neon_thunder.mp3",
+    "media": "https://cdn.freesound.org/previews/331/331895_3385957-hq.mp3",
+    "segments_seconds": {
+      "idle": 9.0,
+      "load": 11.5
+    }
+  },
+  {
+    "vehicle": "faketaxi_drift",
+    "title": "Gilera Runner SP50",
+    "author": "lovretta",
+    "source": "https://freesound.org/people/lovretta/sounds/140384/",
+    "license": "CC0-1.0",
+    "file": "project/audio/engines/recorded/faketaxi_drift.mp3",
+    "media": "https://cdn.freesound.org/previews/140/140384_581937-hq.mp3",
+    "segments_seconds": {
+      "idle": 3.5,
+      "load": 10.0
+    }
+  },
+  {
+    "vehicle": "neon_shadow",
+    "title": "Thailand tuk tuk on board",
+    "author": "kyles",
+    "source": "https://freesound.org/people/kyles/sounds/177754/",
+    "license": "CC0-1.0",
+    "file": "project/audio/engines/recorded/neon_shadow.mp3",
+    "media": "https://cdn.freesound.org/previews/177/177754_612689-hq.mp3",
+    "segments_seconds": {
+      "idle": 141.5,
+      "load": 38.0
+    }
+  },
+  {
+    "vehicle": "silver_guardian",
+    "title": "Derbi GPR 50",
+    "author": "ahnoj",
+    "source": "https://freesound.org/people/ahnoj/sounds/127592/",
+    "license": "CC0-1.0",
+    "file": "project/audio/engines/recorded/silver_guardian.mp3",
+    "media": "https://cdn.freesound.org/previews/127/127592_2321845-hq.mp3",
+    "segments_seconds": {
+      "idle": 1.0,
+      "load": 14.5
+    }
+  },
+  {
+    "vehicle": "midnight_camper",
+    "title": "Vespa",
+    "author": "derjuli",
+    "source": "https://freesound.org/people/derjuli/sounds/448131/",
+    "license": "CC0-1.0",
+    "file": "project/audio/engines/recorded/midnight_camper.mp3",
+    "media": "https://cdn.freesound.org/previews/448/448131_2573247-hq.mp3",
+    "segments_seconds": {
+      "idle": 13.0,
+      "load": 1.5
+    }
+  },
+  {
+    "vehicle": "dusty",
+    "title": "Piaggio Ape",
+    "author": "nikitralala",
+    "source": "https://freesound.org/people/nikitralala/sounds/239927/",
+    "license": "CC0-1.0",
+    "file": "project/audio/engines/recorded/dusty.mp3",
+    "media": "https://cdn.freesound.org/previews/239/239927_2352202-hq.mp3",
+    "segments_seconds": {
+      "idle": 70.5,
+      "load": 53.0
+    }
+  }
+]

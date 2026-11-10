@@ -86,7 +86,10 @@ if __name__=='__main__':
  comparison=[]
  for key in KEYS:
   bank={kind:synth(key,kind) for kind in ('idle','load','turbo','release')}
-  for kind,signal in bank.items(): save(folder/(key+'_'+kind+'.wav'),signal)
+  # Recorded CC0 engines are the production bank; preserve them when regenerating effects.
+  for kind,signal in bank.items():
+   if kind in ('turbo','release') or '--synthetic-engines' in __import__('sys').argv:
+    save(folder/(key+'_'+kind+'.wav'),signal)
   # Identical audition sequence per bike: idle, acceleration, turbo, release.
   demo=[];cursor=0
   for i in range(RATE*6):

@@ -1,0 +1,11 @@
+import fs from 'node:fs/promises';
+import {createWriteStream} from 'node:fs';
+import {Readable} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
+const dir=new URL('./.worldgen/',import.meta.url);await fs.mkdir(dir,{recursive:true});
+const api=await (await fetch('https://huggingface.co/api/models/tencent/Hunyuan3D-2mini/tree/main?recursive=true')).json();
+await fs.writeFile(new URL('model_files.json',dir),JSON.stringify(api,null,2));
+for(const f of api)if(f.path?.startsWith('hunyuan3d-dit-v2-mini')||f.path?.includes('vae'))console.log(f.path,f.size);
+const response=await fetch('https://codeload.github.com/Tencent-Hunyuan/Hunyuan3D-2/zip/refs/heads/main');if(!response.ok)throw new Error(response.status);
+await pipeline(Readable.fromWeb(response.body),createWriteStream(new URL('source.zip',dir)));
+console.log('Source downloaded');

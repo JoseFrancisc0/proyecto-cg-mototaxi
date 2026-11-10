@@ -59,6 +59,7 @@ func wait_at(pos: Vector3, index := -1, portrait: Texture2D = null, head_model: 
 	var region := world.get_biome(pos.x, pos.z).max_axis_index() if world else 0
 	var palette: Array = REGIONAL_CLOTHING[region]
 	var chosen := index if index >= 0 else _rng.randi() % MODELS.size()
+	if portrait==null and head_model==null:chosen=region*2+posmod(chosen,2)
 	_set_model(PORTRAIT_MODEL if portrait or head_model else chosen, palette[_rng.randi_range(0, palette.size() - 1)], portrait, head_model)
 	_place(pos)
 	if moto:
@@ -144,6 +145,15 @@ func _set_model(index: int, outfit := Color.WHITE, portrait: Texture2D = null, h
 	model_index = index
 	_outfit = outfit
 	_portrait = portrait
+	if portrait==null and head_model==null:
+		var person:=PeruPersonVisual.new()
+		person.name="Model"
+		add_child(person)
+		person.setup(index/2,index%2)
+		_model=person
+		_anim=null
+		_custom_head=false
+		return
 	var scene: PackedScene = load("res://assets/characters/passenger_%s.glb" % MODELS[index])
 	_model = scene.instantiate()
 	_model.name = "Model"
@@ -220,6 +230,9 @@ func _apply_portrait(portrait: Texture2D) -> void:
 
 
 func _play(anim_name: String, blend := true) -> void:
+	if _model is PeruPersonVisual:
+		_model.play(anim_name)
+		return
 	if _anim == null or not _anim.has_animation(ANIM + anim_name):
 		return
 	if _anim.current_animation == ANIM + anim_name:

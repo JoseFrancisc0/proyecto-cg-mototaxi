@@ -1,0 +1,14 @@
+{
+  "version": 3,
+  "method": "pifuhd-clothed-reconstruction",
+  "reference": "photo.png",
+  "model": "driver.glb",
+  "surface_resolution": 512,
+  "game_triangles": 95000,
+  "albedo_resolution": 4096,
+  "automatic_skin_weights": true,
+  "local_inference": true,
+  "credits_used": 0,
+  "estimated_regions": ["back", "occluded_surfaces"],
+  "partial_photo_completion": false
+}

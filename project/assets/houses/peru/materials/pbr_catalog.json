@@ -1,0 +1,202 @@
+[
+  {
+    "id": "red_brick_03",
+    "region": "costa",
+    "source": "https://polyhaven.com/a/red_brick_03",
+    "license": "CC0",
+    "normal": "costa/red_brick_03_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/red_brick_03/red_brick_03_nor_gl_1k.png",
+    "arm": "costa/red_brick_03_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/red_brick_03/red_brick_03_arm_1k.png"
+  },
+  {
+    "id": "red_bricks_02",
+    "region": "costa",
+    "source": "https://polyhaven.com/a/red_bricks_02",
+    "license": "CC0",
+    "normal": "costa/red_bricks_02_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/red_bricks_02/red_bricks_02_nor_gl_1k.png",
+    "arm": "costa/red_bricks_02_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/red_bricks_02/red_bricks_02_arm_1k.png"
+  },
+  {
+    "id": "red_bricks_04",
+    "region": "costa",
+    "source": "https://polyhaven.com/a/red_bricks_04",
+    "license": "CC0",
+    "normal": "costa/red_bricks_04_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/red_bricks_04/red_bricks_04_nor_gl_1k.png",
+    "arm": "costa/red_bricks_04_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/red_bricks_04/red_bricks_04_arm_1k.png"
+  },
+  {
+    "id": "white_plaster_02",
+    "region": "costa",
+    "source": "https://polyhaven.com/a/white_plaster_02",
+    "license": "CC0",
+    "normal": "costa/white_plaster_02_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/white_plaster_02/white_plaster_02_nor_gl_1k.png",
+    "arm": "costa/white_plaster_02_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/white_plaster_02/white_plaster_02_arm_1k.png"
+  },
+  {
+    "id": "concrete_wall_001",
+    "region": "costa",
+    "source": "https://polyhaven.com/a/concrete_wall_001",
+    "license": "CC0",
+    "normal": "costa/concrete_wall_001_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/concrete_wall_001/concrete_wall_001_nor_gl_1k.png",
+    "arm": "costa/concrete_wall_001_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/concrete_wall_001/concrete_wall_001_arm_1k.png"
+  },
+  {
+    "id": "painted_metal_shutter",
+    "region": "costa",
+    "source": "https://polyhaven.com/a/painted_metal_shutter",
+    "license": "CC0",
+    "normal": "costa/painted_metal_shutter_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_metal_shutter/painted_metal_shutter_nor_gl_1k.png",
+    "arm": "costa/painted_metal_shutter_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/painted_metal_shutter/painted_metal_shutter_arm_1k.png"
+  },
+  {
+    "id": "rusty_metal_sheet",
+    "region": "costa",
+    "source": "https://polyhaven.com/a/rusty_metal_sheet",
+    "license": "CC0",
+    "normal": "costa/rusty_metal_sheet_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rusty_metal_sheet/rusty_metal_sheet_nor_gl_1k.png",
+    "arm": "costa/rusty_metal_sheet_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rusty_metal_sheet/rusty_metal_sheet_arm_1k.png"
+  },
+  {
+    "id": "clay_plaster",
+    "region": "sierra",
+    "source": "https://polyhaven.com/a/clay_plaster",
+    "license": "CC0",
+    "normal": "sierra/clay_plaster_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/clay_plaster/clay_plaster_nor_gl_1k.png",
+    "arm": "sierra/clay_plaster_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/clay_plaster/clay_plaster_arm_1k.png"
+  },
+  {
+    "id": "old_stone_wall",
+    "region": "sierra",
+    "source": "https://polyhaven.com/a/old_stone_wall",
+    "license": "CC0",
+    "normal": "sierra/old_stone_wall_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/old_stone_wall/old_stone_wall_nor_gl_1k.png",
+    "arm": "sierra/old_stone_wall_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/old_stone_wall/old_stone_wall_arm_1k.png"
+  },
+  {
+    "id": "rustic_stone_wall",
+    "region": "sierra",
+    "source": "https://polyhaven.com/a/rustic_stone_wall",
+    "license": "CC0",
+    "normal": "sierra/rustic_stone_wall_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rustic_stone_wall/rustic_stone_wall_nor_gl_1k.png",
+    "arm": "sierra/rustic_stone_wall_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rustic_stone_wall/rustic_stone_wall_arm_1k.png"
+  },
+  {
+    "id": "white_plaster_rough_01",
+    "region": "sierra",
+    "source": "https://polyhaven.com/a/white_plaster_rough_01",
+    "license": "CC0",
+    "normal": "sierra/white_plaster_rough_01_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/white_plaster_rough_01/white_plaster_rough_01_nor_gl_1k.png",
+    "arm": "sierra/white_plaster_rough_01_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/white_plaster_rough_01/white_plaster_rough_01_arm_1k.png"
+  },
+  {
+    "id": "clay_roof_tiles",
+    "region": "sierra",
+    "source": "https://polyhaven.com/a/clay_roof_tiles",
+    "license": "CC0",
+    "normal": "sierra/clay_roof_tiles_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/clay_roof_tiles/clay_roof_tiles_nor_gl_1k.png",
+    "arm": "sierra/clay_roof_tiles_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/clay_roof_tiles/clay_roof_tiles_arm_1k.png"
+  },
+  {
+    "id": "clay_roof_tiles_02",
+    "region": "sierra",
+    "source": "https://polyhaven.com/a/clay_roof_tiles_02",
+    "license": "CC0",
+    "normal": "sierra/clay_roof_tiles_02_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/clay_roof_tiles_02/clay_roof_tiles_02_nor_gl_1k.png",
+    "arm": "sierra/clay_roof_tiles_02_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/clay_roof_tiles_02/clay_roof_tiles_02_arm_1k.png"
+  },
+  {
+    "id": "clay_roof_tiles_03",
+    "region": "sierra",
+    "source": "https://polyhaven.com/a/clay_roof_tiles_03",
+    "license": "CC0",
+    "normal": "sierra/clay_roof_tiles_03_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/clay_roof_tiles_03/clay_roof_tiles_03_nor_gl_1k.png",
+    "arm": "sierra/clay_roof_tiles_03_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/clay_roof_tiles_03/clay_roof_tiles_03_arm_1k.png"
+  },
+  {
+    "id": "ceramic_roof_01",
+    "region": "sierra",
+    "source": "https://polyhaven.com/a/ceramic_roof_01",
+    "license": "CC0",
+    "normal": "sierra/ceramic_roof_01_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/ceramic_roof_01/ceramic_roof_01_nor_gl_1k.png",
+    "arm": "sierra/ceramic_roof_01_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/ceramic_roof_01/ceramic_roof_01_arm_1k.png"
+  },
+  {
+    "id": "wood_plank_wall",
+    "region": "selva",
+    "source": "https://polyhaven.com/a/wood_plank_wall",
+    "license": "CC0",
+    "normal": "selva/wood_plank_wall_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/wood_plank_wall/wood_plank_wall_nor_gl_1k.png",
+    "arm": "selva/wood_plank_wall_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/wood_plank_wall/wood_plank_wall_arm_1k.png"
+  },
+  {
+    "id": "dark_wooden_planks",
+    "region": "selva",
+    "source": "https://polyhaven.com/a/dark_wooden_planks",
+    "license": "CC0",
+    "normal": "selva/dark_wooden_planks_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/dark_wooden_planks/dark_wooden_planks_nor_gl_1k.png",
+    "arm": "selva/dark_wooden_planks_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/dark_wooden_planks/dark_wooden_planks_arm_1k.png"
+  },
+  {
+    "id": "box_profile_metal_sheet",
+    "region": "selva",
+    "source": "https://polyhaven.com/a/box_profile_metal_sheet",
+    "license": "CC0",
+    "normal": "selva/box_profile_metal_sheet_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/box_profile_metal_sheet/box_profile_metal_sheet_nor_gl_1k.png",
+    "arm": "selva/box_profile_metal_sheet_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/box_profile_metal_sheet/box_profile_metal_sheet_arm_1k.png"
+  },
+  {
+    "id": "rusty_painted_metal",
+    "region": "selva",
+    "source": "https://polyhaven.com/a/rusty_painted_metal",
+    "license": "CC0",
+    "normal": "selva/rusty_painted_metal_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rusty_painted_metal/rusty_painted_metal_nor_gl_1k.png",
+    "arm": "selva/rusty_painted_metal_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rusty_painted_metal/rusty_painted_metal_arm_1k.png"
+  },
+  {
+    "id": "whitewashed_brick",
+    "region": "selva",
+    "source": "https://polyhaven.com/a/whitewashed_brick",
+    "license": "CC0",
+    "normal": "selva/whitewashed_brick_normal.png",
+    "normal_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/whitewashed_brick/whitewashed_brick_nor_gl_1k.png",
+    "arm": "selva/whitewashed_brick_arm.png",
+    "arm_source": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/whitewashed_brick/whitewashed_brick_arm_1k.png"
+  }
+]

@@ -89,6 +89,7 @@ var _prev_velocity := Vector3.ZERO
 var _hit_grace := 0.0  # segundos sin daño tras aparecer o tras un golpe
 
 var wheel_visuals := VehicleWheelVisuals.new()
+var driver: DriverAvatar
 var engine_audio: VehicleEngineAudio
 # Profundidad del frontal de cada carrocería a la altura del faro (espacio del GLB).
 const HEADLIGHT_DEPTHS := [0.91, 0.92, 1.04, 0.79, 0.92, 0.87]
@@ -160,9 +161,11 @@ func select_vehicle(index: int) -> void:
 		engine_audio.name = "EngineAudio"
 		add_child(engine_audio)
 	engine_audio.configure(vehicle_index)
+	_refresh_driver()
 
 
 func _process(_delta: float) -> void:
+	if is_instance_valid(driver): driver.follow_vehicle(steering)
 	if _headlight == null or terrain == null or terrain.generator == null:
 		return
 	var generator := terrain.generator
@@ -458,3 +461,15 @@ static func _add_action(action: StringName, keys: Array, axes: Array, buttons: A
 		var jb := InputEventJoypadButton.new()
 		jb.button_index = b
 		InputMap.action_add_event(action, jb)
+
+
+func _refresh_driver() -> void:
+	if is_instance_valid(driver):
+		remove_child(driver)
+		driver.queue_free()
+	driver = DriverAvatar.new()
+	driver.name = "Conductor"
+	add_child(driver)
+	if not driver.setup(vehicle_index):
+		driver.queue_free()
+		driver = null

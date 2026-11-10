@@ -89,6 +89,8 @@ signal passenger_said(text: String)
 @export var pickup_color := Color(1.0, 0.8, 0.15)
 @export var dropoff_color := Color(0.2, 1.0, 0.45)
 
+var journeys: JourneyEvents
+var street_pickups := false
 var world: TerrainWorld
 var moto: Mototaxi
 
@@ -115,8 +117,6 @@ var pickup_zone: GlowZone
 var dropoff_zone: GlowZone
 
 var _pickup_id := -1
-var _next_portrait: Texture2D
-var _first_passenger := false
 var _dropoff_id := -1
 var _result_timer := 0.0
 var _rng := RandomNumberGenerator.new()
@@ -149,8 +149,6 @@ func start(rng_seed: int = -1) -> void:
 	failures = 0
 	earnings = 0.0
 	_result_timer = 0.0
-	_next_portrait = Passenger.load_portrait()
-	_first_passenger = true
 	_new_passenger()
 
 
@@ -159,7 +157,7 @@ func _physics_process(delta: float) -> void:
 		return
 	match state:
 		State.LIBRE:
-			if pickup_zone.contains(moto) and moto.get_speed_kmh() <= board_speed_kmh:
+			if pickup_zone.contains(moto) and moto.get_speed_kmh() <= board_speed_kmh and (journeys == null or not journeys.negotiating):
 				_board()
 		State.CON_PASAJERO:
 			if time_left > 0.0:
@@ -168,8 +166,8 @@ func _physics_process(delta: float) -> void:
 				late_time += delta
 			_update_mood()
 			if dropoff_zone.contains(moto):
-				_finish(true)
-			elif time_left <= 0.0 and late_time >= get_late_limit():
+				if journeys == null or not journeys.stop_before_finish(): _finish(true)
+			elif time_left <= 0.0 and late_time >= get_late_limit() and (journeys == null or journeys.kind != "peligroso"):
 				_finish(false)
 		State.ENTREGADO, State.FALLADO:
 			_result_timer -= delta
@@ -268,19 +266,17 @@ func _new_passenger() -> void:
 		push_warning("RaceManager: no hay landmarks para recoger pasajeros")
 		pickup_zone.activate(false)
 		return
-	var pickup := _landmark_pos(_pickup_id)
+	var pickup := _street_pickup(_landmark_pos(_pickup_id)) if street_pickups else _landmark_pos(_pickup_id)
 	pickup_zone.place(pickup)
 	_set_state(State.LIBRE)
 	var path := world.find_road_route(moto.global_position, pickup)
 	_show_route(path)
-	var head_model := Passenger.HeadModel.load_model() if _first_passenger else null
-	_first_passenger = false
-	passenger.wait_at(pickup + _roadside_offset(path, pickup), -1, _next_portrait, head_model)
-	_next_portrait = null
+	# El conductor usa la fotografía; los clientes conservan sus propios modelos.
+	passenger.wait_at(pickup + _roadside_offset(path, pickup))
 
 
 func _board() -> void:
-	var from := _landmark_pos(_pickup_id)
+	var from := pickup_zone.global_position
 	_dropoff_id = _pick_destination(from, _roll_ride_kind())
 	if _dropoff_id < 0:
 		return
@@ -300,11 +296,17 @@ func _board() -> void:
 	_impatient_said = false
 	_late_said = false
 
+	if journeys and not journeys.before_board(): return
+	_begin_ride()
+
+
+func _begin_ride() -> void:
 	pickup_zone.activate(false)
 	passenger.board()
-	dropoff_zone.place(to)
+	dropoff_zone.place(_landmark_pos(_dropoff_id))
 	_set_state(State.CON_PASAJERO)
 	_show_route(route)
+	if journeys: journeys.begin()
 	ride_started.emit(time_limit, route_length)
 	var destination := get_target_label()
 	if ride_kind == RideKind.LARGO:
@@ -323,6 +325,7 @@ func _finish(success: bool) -> void:
 		deliveries += 1
 		fare = ride_fare
 		pay = compute_payment(fare, get_late_fraction(), _comfort)
+		if journeys: pay = journeys.modify_payment(pay,success)
 		earnings += pay
 		if pay <= 0.0:
 			passenger_said.emit("¡Con este servicio no le pago nada!")
@@ -348,6 +351,7 @@ func _finish(success: bool) -> void:
 
 ## Detiene el ciclo (fin de partida): sin zonas ni ruta.
 func stop() -> void:
+	if journeys: journeys._finish()
 	passenger.hide_now()
 	pickup_zone.activate(false)
 	dropoff_zone.activate(false)
@@ -566,3 +570,21 @@ func _make_zone(zone_name: String, c: Color, marker := true) -> GlowZone:
 	add_child(z)
 	z.activate(false)
 	return z
+
+
+func _street_pickup(fallback: Vector3) -> Vector3:
+	var roads := world.get_roads()
+	for attempt in 36:
+		if roads.is_empty(): break
+		var road: Dictionary = roads[_rng.randi_range(0,roads.size()-1)]
+		var path: PackedVector3Array = road.path
+		if path.size()<2: continue
+		var i := _rng.randi_range(1,path.size()-1)
+		var p := path[i-1].lerp(path[i],_rng.randf_range(.15,.85))
+		var distance := Vector2(p.x-moto.global_position.x,p.z-moto.global_position.z).length()
+		if distance<pickup_min_dist or distance>pickup_max_dist: continue
+		if world.get_slope(p.x,p.z)>.22 or world.get_hazard(p.x,p.z)!=0: continue
+		if not world.is_reachable(p,moto.global_position): continue
+		p.y = world.get_height(p.x,p.z)
+		return p
+	return fallback
