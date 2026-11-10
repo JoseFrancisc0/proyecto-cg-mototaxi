@@ -58,8 +58,11 @@ func _init() -> void:
 	buttons.add_child(back)
 
 
-## Abre el panel con el escenario actual ya elegido.
-func open(title: String, note: String, confirm_text: String, choice: Dictionary) -> void:
+## Abre el panel con el escenario actual ya elegido. lock_difficulty: la partida sigue (fin del
+## día) y su dificultad no se cambia; free: Modo libre.
+func open(title: String, note: String, confirm_text: String, choice: Dictionary, lock_difficulty := false, free := false) -> void:
+	picker.free_mode = free
+	picker.lock_difficulty(lock_difficulty)
 	_title.text = title
 	_note.text = note
 	_note.visible = note != ""

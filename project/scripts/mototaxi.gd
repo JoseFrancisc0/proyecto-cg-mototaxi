@@ -15,6 +15,8 @@ signal was_reset
 signal damaged(amount: float, reason: String)
 ## La vida llegó a 0.
 signal destroyed
+## Tocó la bocina (H / B del mando): RoadAnimals aparta a los animales cercanos.
+signal honked
 
 @export_group("Motor")
 @export var max_engine_force := 650.0     ## Fuerza por rueda tractora (N).
@@ -90,6 +92,7 @@ var _hit_grace := 0.0  # segundos sin daño tras aparecer o tras un golpe
 
 var wheel_visuals := VehicleWheelVisuals.new()
 var engine_audio: VehicleEngineAudio
+var _horn: AudioStreamPlayer3D
 # Profundidad del frontal de cada carrocería a la altura del faro (espacio del GLB).
 const HEADLIGHT_DEPTHS := [0.91, 0.92, 1.04, 0.79, 0.92, 0.87]
 @onready var _headlight := get_node_or_null("Faro") as SpotLight3D
@@ -426,6 +429,41 @@ func _read_input() -> void:
 	steer_input = Input.get_axis("moto_right", "moto_left")
 	handbrake = Input.is_action_pressed("moto_handbrake")
 	turbo_requested = Input.is_action_pressed("moto_turbo")
+	if Input.is_action_just_pressed("moto_horn"):
+		honk()
+
+
+## Bocina: "piii-pii" corto y aviso a quien escuche (honked).
+func honk() -> void:
+	if _horn == null:
+		_horn = AudioStreamPlayer3D.new()
+		_horn.name = "Horn"
+		_horn.stream = _horn_stream()
+		_horn.unit_size = 12.0
+		_horn.volume_db = -4.0
+		add_child(_horn)
+	if not _horn.playing:
+		_horn.play()
+	honked.emit()
+
+
+## Dos tonos cuadrados suavizados (como la bocina eléctrica de una mototaxi).
+static func _horn_stream() -> AudioStreamWAV:
+	var rate := 22050
+	var data := PackedByteArray()
+	var length := int(rate * 0.42)
+	data.resize(length * 2)
+	for i in length:
+		var t := float(i) / rate
+		var on := t < 0.2 or t > 0.25
+		var env := clampf(minf(t, 0.42 - t) * 60.0, 0.0, 1.0) * (1.0 if on else 0.0)
+		var v := signf(sin(TAU * 440.0 * t)) * 0.5 + signf(sin(TAU * 554.0 * t)) * 0.5
+		data.encode_s16(i * 2, int(clampf(v * env * 0.35, -1.0, 1.0) * 32767.0))
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = rate
+	wav.data = data
+	return wav
 
 
 # Las acciones se registran por código para no depender de editar el Input Map a mano.
@@ -439,6 +477,7 @@ static func _ensure_input_actions() -> void:
 	_add_action("moto_headlights", [KEY_L], [], [])
 	_add_action("moto_reset", [KEY_R], [], [JOY_BUTTON_Y])
 	_add_action("moto_turbo", [KEY_SHIFT], [], [JOY_BUTTON_X])
+	_add_action("moto_horn", [KEY_H], [], [JOY_BUTTON_B])
 
 
 static func _add_action(action: StringName, keys: Array, axes: Array, buttons: Array) -> void:

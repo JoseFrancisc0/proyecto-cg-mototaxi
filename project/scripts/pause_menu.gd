@@ -139,11 +139,11 @@ func close() -> void:
 func open_scenario() -> void:
 	_box.visible = false
 	if free_mode:
-		_scenario.open("Cambiar escenario", "", "Explorar", current_choice)
+		_scenario.open("Cambiar escenario", "", "Explorar", current_choice, false, true)
 	else:
 		_scenario.open("Reiniciar partida",
 			"Empiezas de cero en el día 1 y pierdes los ahorros de la partida (S/ %.2f). Las mototaxis compradas se quedan.
-Puedes seguir en este escenario o elegir otro." % CareerSave.get_savings(),
+Puedes seguir en este escenario o elegir otro, y cambiar la dificultad." % CareerSave.get_savings(),
 			"Empezar de cero", current_choice)
 
 

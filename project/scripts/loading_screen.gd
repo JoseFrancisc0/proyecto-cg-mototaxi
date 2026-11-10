@@ -282,19 +282,6 @@ func _build_dialog() -> void:
 	_portrait_remove = _button("Quitar foto", _remove_portrait)
 	_options.add_child(_portrait_remove)
 	_options.add_child(HSeparator.new())
-	_options.add_child(_label("Obstáculos en las vías", 20, YELLOW))
-	var obstacles := OptionButton.new()
-	obstacles.name = "Obstaculos"
-	for level in RoadObstacles.LEVELS:
-		obstacles.add_item(level[0])
-	obstacles.custom_minimum_size.y = 40
-	obstacles.select(GameSettings.get_obstacle_level())
-	obstacles.item_selected.connect(GameSettings.set_obstacle_level)
-	_options.add_child(obstacles)
-	var obstacles_hint := _label("Rocas, troncos, obras, charcos, arena y baches según la región. Se aplica al cargar el mapa.", 15, MUTED)
-	obstacles_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_options.add_child(obstacles_hint)
-	_options.add_child(HSeparator.new())
 	_options.add_child(_label("Volumen de la música"))
 	_music_slider = HSlider.new()
 	_music_slider.min_value = 0
@@ -453,6 +440,8 @@ func _open_panel(title: String) -> void:
 ## Configuración de la carrera (solo sin partida guardada: hay una sola carrera). free: Modo libre.
 func _open_setup(free := false) -> void:
 	_free_setup = free
+	_picker.free_mode = free
+	_picker.lock_difficulty(false)
 	_open_panel("Modo libre" if free else "Jugar")
 	_notice.hide()
 	_play.text = "Explorar" if free else "Iniciar"
@@ -488,10 +477,10 @@ func _close_dialog() -> void:
 	_focus_first()
 
 func _show_controls() -> void:
-	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nShift / X del mando — Turbo (7 s, recarga automática)\nFuera de pista — Menos velocidad y agarre\nR — Enderezar la mototaxi\nL — Encender o apagar el faro\n\nRecoge al pasajero que te hace señas (detente a su lado, despacio) y llévalo a la zona verde.")
+	_show_dialog("Controles","W / ↑ — Acelerar\nS / ↓ — Frenar y retroceder\nA, D / ←, → — Girar\nEspacio — Freno de mano\nShift / X del mando — Turbo (7 s, recarga automática)\nFuera de pista — Menos velocidad y agarre\nR — Enderezar la mototaxi\nL — Encender o apagar el faro\nH / B del mando — Bocina (aparta a los animales)\n\nRecoge al pasajero que te hace señas (detente a su lado, despacio) y llévalo a la zona verde.")
 
 func _show_credits() -> void:
-	_show_dialog("Créditos","Rodrigo Felix Meza Gavilan\nJosep Ratzinger Castro Ferrer\nJose Francisco Wong Orrillo\nJose Joaquin Osnayo Matos\n\nComputación Gráfica · UTEC · 2026-II\n\nMenú: Maaack's Menus Template\nMarek Belski · MIT\nFotografía: referencia aportada al proyecto.\nMúsica: Cumbieton vs Reggaeton Old School (2020)\nDJ Pirata, Maxi Gen, El Kaio y DJ Juanchii\nDescarga publicada por DJ Juanchii en su canal.\nTipografía Bangers: Vernon Adams · SIL OFL\nTexturas: ambientCG · CC0\nPasajeros, árboles, palmeras y plantas: Quaternius · CC0\nViviendas: Quaternius, Kenney y CreativeTrio · CC0\n\"Small House\" by Jarlan Perez · CC-BY 3.0\n\"Cabin\" (2) by Poly by Google · CC-BY 3.0\n\"Pipe organ cactus\" by Poly by Google · CC-BY 3.0\n\nTerreno: Schott et al. (2024), Terrain Amplification using Multi-scale Erosion.")
+	_show_dialog("Créditos","Rodrigo Felix Meza Gavilan\nJosep Ratzinger Castro Ferrer\nJose Francisco Wong Orrillo\nJose Joaquin Osnayo Matos\n\nComputación Gráfica · UTEC · 2026-II\n\nMenú: Maaack's Menus Template\nMarek Belski · MIT\nFotografía: referencia aportada al proyecto.\nMúsica: Cumbieton vs Reggaeton Old School (2020)\nDJ Pirata, Maxi Gen, El Kaio y DJ Juanchii\nDescarga publicada por DJ Juanchii en su canal.\nTipografía Bangers: Vernon Adams · SIL OFL\nTexturas: ambientCG · CC0\nPasajeros, árboles, palmeras y plantas: Quaternius · CC0\nViviendas: Quaternius, Kenney y CreativeTrio · CC0\nAnimales, camión y camioneta: Quaternius · CC0\n\"Small House\" by Jarlan Perez · CC-BY 3.0\n\"Cabin\" (2) by Poly by Google · CC-BY 3.0\n\"Pipe organ cactus\" by Poly by Google · CC-BY 3.0\n\nTerreno: Schott et al. (2024), Terrain Amplification using Multi-scale Erosion.")
 
 func _responsive() -> void:
 	if not is_instance_valid(_root): return

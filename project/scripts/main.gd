@@ -6,7 +6,9 @@ extends Node3D
 ## Sin menú (pruebas o atajos): ejecutar con "-- --seed=123" (mundo nuevo desde la semilla)
 ## o "-- --editor" (terreno guardado en terrain_demo.tscn). "--erosion=0.35" cambia la erosión.
 ## "--region=costa|sierra|selva" elige la región (mayoría en un mundo nuevo, y donde se empieza)
-## y "--solo" deja solo esa región. "--libre" entra al Modo libre.
+## y "--solo" deja solo esa región. "--libre" entra al Modo libre. "--dificultad=0|1|2" elige
+## fácil, normal o difícil (Difficulty; se guarda con la partida). "--animales=F" cambia la
+## cantidad de animales y "--trafico=F" la de vehículos (0 = ninguno).
 ##
 ## La partida es una serie de jornadas con cuota fija (GameSession): si se junta la cuota, lo
 ## que sobra va a los ahorros de la partida y sigue el día siguiente (antes se puede pasar por
@@ -43,6 +45,8 @@ var session: GameSession
 var game_over_screen: GameOverScreen
 var pause_menu: PauseMenu
 var full_map: FullMap
+var animals: RoadAnimals
+var traffic: RoadTraffic
 ## Región elegida: 0 = mixta, 1 = costa, 2 = sierra, 3 = selva.
 var region := 0
 ## Lo elegido en el menú para este mundo (se guarda con la partida).
@@ -78,7 +82,9 @@ func _ready() -> void:
 		for key in ["load", "free", "vehicle"]:
 			_choice.erase(key)
 		_apply_region_bias(region, bool(choice.get("region_only", false)))
-		world.obstacle_level = int(choice.get("obstacles", GameSettings.get_obstacle_level()))
+		# Los obstáculos salen de la dificultad de la partida (--obstaculos=N los fuerza).
+		_choice["difficulty"] = Difficulty.of(choice)
+		world.obstacle_level = int(choice.get("obstacles", Difficulty.get_value(_choice["difficulty"], "obstacles")))
 		world.preview_size = 768
 		loading.show_progress()
 		var t0 := Time.get_ticks_msec()
@@ -113,6 +119,12 @@ func _choice_from_args(choice: Dictionary) -> bool:
 			choice["region_only"] = true
 		elif arg == "--libre":
 			choice["free"] = true
+		elif arg.begins_with("--dificultad="):
+			choice["difficulty"] = Difficulty.clamp_level(int(arg.get_slice("=", 1)))
+		elif arg.begins_with("--animales="):
+			choice["animals"] = maxf(float(arg.get_slice("=", 1)), 0.0)
+		elif arg.begins_with("--trafico="):
+			choice["traffic"] = maxf(float(arg.get_slice("=", 1)), 0.0)
 		elif arg.begins_with("--obstaculos="):
 			choice["obstacles"] = clampi(int(arg.get_slice("=", 1)), 0, RoadObstacles.LEVELS.size() - 1)
 	return found
@@ -140,6 +152,21 @@ func _start_game(save: Dictionary = {}) -> void:
 
 	race.world = world
 	race.moto = moto
+	var level := Difficulty.of(_choice)
+	race.time_factor = Difficulty.get_value(level, "time")
+	race.fare_factor = Difficulty.get_value(level, "fare")
+	animals = RoadAnimals.new()
+	animals.name = "Animales"
+	add_child(animals)
+	animals.process_mode = Node.PROCESS_MODE_PAUSABLE
+	animals.setup(world, moto, race, float(_choice.get("animals", Difficulty.get_value(level, "animals"))), world.world_seed)
+	traffic = RoadTraffic.new()
+	traffic.name = "Trafico"
+	add_child(traffic)
+	traffic.process_mode = Node.PROCESS_MODE_PAUSABLE
+	traffic.animals = animals
+	traffic.setup(world, moto, race, float(_choice.get("traffic", Difficulty.get_value(level, "traffic"))),
+		Difficulty.get_value(level, "oncoming"), world.world_seed)
 	hud.bind(race, moto)
 	hud.visible = true
 
@@ -204,7 +231,10 @@ func _start_game(save: Dictionary = {}) -> void:
 	elif not save.is_empty():
 		var how := "Escenario nuevo" if save.get("pos") == null else "Partida cargada"
 		hud.show_banner("DÍA %d · %s" % [session.day, session.get_clock_text()],
-			"%s · cuota de hoy: S/ %.2f" % [how, session.quota], Color(1.0, 0.85, 0.25))
+			"%s · %s · cuota de hoy: S/ %.2f" % [how, _difficulty_name(), session.quota], Color(1.0, 0.85, 0.25))
+	else:
+		hud.show_banner("DÍA 1 · %s" % _difficulty_name(),
+			"Cuota de hoy: S/ %.2f · hasta las %s" % [session.quota, session.get_closing_text()], Color(1.0, 0.85, 0.25))
 
 
 ## Nueva partida en el mismo mapa: vida llena, de vuelta al inicio, marcador en cero.
@@ -290,7 +320,11 @@ func next_day() -> void:
 	session.next_day()
 	get_tree().paused = false
 	hud.show_banner("DÍA %d · %s" % [session.day, session.get_clock_text()],
-		"Cuota de hoy: S/ %.2f · hasta las %s" % [session.quota, session.get_closing_text()], Color(1.0, 0.85, 0.25))
+		"%s · cuota de hoy: S/ %.2f · hasta las %s" % [_difficulty_name(), session.quota, session.get_closing_text()], Color(1.0, 0.85, 0.25))
+
+
+func _difficulty_name() -> String:
+	return Difficulty.level_name(Difficulty.of(_choice))
 
 
 ## Gira la mototaxi (en su lugar) hacia donde sale la ruta al primer pasajero.
@@ -412,6 +446,10 @@ func spawn() -> void:
 		pos = in_zone[0]["position"]
 	moto.place_at(pos, yaw)
 	cam.snap()
+	if animals:
+		animals.clear_all()
+	if traffic:
+		traffic.clear_all()
 
 
 ## Zona transitable con más landmarks; con una región, cuenta solo los de esa región

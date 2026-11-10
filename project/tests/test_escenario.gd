@@ -41,7 +41,7 @@ func _run() -> void:
 	_check(ScenarioPicker.same(a, {"mode": "editor", "region": 2, "seed": 9}), "terreno guardado: la semilla no importa")
 	_check(not ScenarioPicker.same(a, {"mode": "editor", "region": 1}), "otra región es otro escenario")
 	_check(not ScenarioPicker.same({"mode": "seed", "seed": 1}, {"mode": "seed", "seed": 2}), "otra semilla es otro escenario")
-	_check(ScenarioPicker.describe({"mode": "seed", "seed": 42, "region": 1, "region_only": true}) == "Semilla 42 · Costa (solo)", "resumen del escenario")
+	_check(ScenarioPicker.describe({"mode": "seed", "seed": 42, "region": 1, "region_only": true}) == "Semilla 42 · Costa (solo) · Normal", "resumen del escenario")
 
 	print("-- Cambiar de escenario al terminar el día")
 	CareerSave.launch = {"mode": "editor", "region": 0}

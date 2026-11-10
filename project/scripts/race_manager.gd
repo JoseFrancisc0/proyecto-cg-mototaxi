@@ -107,6 +107,11 @@ var ride_kind: RideKind = RideKind.CORTO  ## Tipo del viaje actual.
 var ride_fare := 0.0      ## Tarifa completa del viaje actual (se conoce al subir).
 ## Segundos que quedan para pedir un viaje (GameSession pone lo que le queda a la jornada).
 var time_budget := INF
+const VEHICLE_LINES := ["¡Casi nos matamos! ¡Fíjese en los carros!", "¡Oiga, maneje con cuidado!", "¡Ay! ¡Le dio al carro!"]
+const ANIMAL_LINES := ["¡Cuidado con el animal!", "¡Pobre animalito! ¿No lo vio?", "¡Oiga, frene para los animales!"]
+## Dificultad de la partida (Difficulty): multiplican el tiempo límite y la tarifa.
+var time_factor := 1.0
+var fare_factor := 1.0
 var route_line: RouteLine
 
 ## Persona que espera, sube y baja (modelo animado).
@@ -201,7 +206,7 @@ static func state_name(s: State) -> String:
 
 ## Tiempo límite para un largo en llano: fijo + lo que tarda a la velocidad de referencia.
 func compute_time_limit(length: float) -> float:
-	return base_time + length / (ref_speed_kmh / 3.6)
+	return (base_time + length / (ref_speed_kmh / 3.6)) * time_factor
 
 
 ## Tiempo límite para una ruta: como compute_time_limit, pero cada tramo en subida se
@@ -217,13 +222,13 @@ func compute_route_time(path: PackedVector3Array) -> float:
 			continue
 		var grade := maxf((b.y - a.y) / run, 0.0)
 		t += a.distance_to(b) / (v * maxf(1.0 - uphill_penalty * grade, min_speed_factor))
-	return t
+	return t * time_factor
 
 
 ## Tarifa de una carrera según el largo de la ruta recomendada (m), con recargo si es larga.
 func compute_fare(length: float) -> float:
 	var bonus := long_fare_bonus * smoothstep(long_bonus_from, long_bonus_full, length)
-	return fare_base + fare_per_km * length / 1000.0 * (1.0 + bonus)
+	return (fare_base + fare_per_km * length / 1000.0 * (1.0 + bonus)) * fare_factor
 
 
 static func ride_kind_name(k: RideKind) -> String:
@@ -376,6 +381,12 @@ func _on_moto_damaged(amount: float, reason: String) -> void:
 	if reason == "vuelco":
 		_comfort -= mood_flip_loss
 		passenger_said.emit("¡¿Qué le pasa?! ¡Casi me mata!")
+	elif reason == "animal":
+		_comfort -= amount * mood_hit_factor + 0.05
+		passenger_said.emit(ANIMAL_LINES[randi() % ANIMAL_LINES.size()])
+	elif reason == "vehiculo":
+		_comfort -= amount * mood_hit_factor + 0.08
+		passenger_said.emit(VEHICLE_LINES[randi() % VEHICLE_LINES.size()])
 	elif reason == "bache":
 		_comfort -= amount * mood_hit_factor + 0.03
 		if amount >= 3.0:

@@ -74,7 +74,7 @@ const Generator = preload("res://scripts/chunk_mesh.gd")
 ## Carteles 3D con el nombre de cada landmark tipado.
 @export var landmark_signs := true
 ## Obstáculos fijos en las vías (RoadObstacles.LEVELS: 0 ninguno, 1 pocos, 2 normal, 3 muchos).
-## El juego lo toma de Opciones (GameSettings); las pruebas lo dejan en 0 salvo que lo pidan.
+## El juego lo toma de la dificultad de la partida (Difficulty); las pruebas lo dejan en 0 salvo que lo pidan.
 @export_range(0, 3) var obstacle_level := 0
 ## Viviendas por región en pueblos, afueras y campo (TerrainHouses).
 @export var houses_enabled := true

@@ -84,14 +84,14 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
 | 2 | Minimapa estilo GTA como guía principal (ruta por las vías + punto del objetivo) | ✅ `Minimap` en `RaceHUD`; se quitó la flecha flotante |
 | 3 | Mapa completo (tecla M o en la pausa), estilo GTA, con el destino y la ruta | ✅ `FullMap` (M / Back): norte arriba, zoom y arrastre, lugares con nombre; pausa el juego |
 | 4 | Darle sentido al dinero (ver opciones abajo) y un fin de partida que no dependa solo de la vida | ✅ opciones 1 + 3: jornadas con cuota (`GameSession`) y ahorros para el garaje (`CareerSave`); sin propinas |
-| 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ⬜ es la fase 5 del pendiente 10 (plan abajo) |
-| 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | 🟡 2026-11-08 obstáculos fijos ✅ (`RoadObstacles`, ver abajo); faltan vehículos lentos (combis, otras mototaxis) |
+| 5 | Obstáculos en el camino: animales que cruzan o caminan por la vía (estilo Mario Kart), según región: costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas; chocar = daño y enojo del pasajero | ✅ 2026-11-08 `RoadAnimals` (ver "Pendiente 13 — fase B, cómo quedó") |
+| 6 | Otros obstáculos en la vía: piedras de huaico, baches, charcos, otras mototaxis o combis lentas | ✅ 2026-11-08 obstáculos fijos (`RoadObstacles`, ver abajo); 2026-11-10 vehículos (`RoadTraffic`, pendiente 13 fase C) |
 | 7 | Ordenar partidas (opción B, decidida 2026-11-06): una sola carrera continua + Modo libre; quitar "Nueva partida"; elegir el escenario al terminar el día o al reiniciar (ver abajo) | ✅ `ScenarioPicker`/`ScenarioPanel`, `CareerSave.launch`, `GameSession.free_mode` |
 | 8 | Destinos por todo el mapa: viajes corto/medio/largo (≈50/32/18 %), los largos pagan más por km (hasta el doble) y rinden más por minuto; no se piden si no alcanza la jornada; en los largos se prefieren lugares con nombre | ✅ `RaceManager._pick_destination`, `compute_fare`, `time_budget`; prueba `tests/test_destinos.gd` |
 | 9 | Minimapa para viajes largos: (a) la distancia del HUD es la que falta de la **ruta**, en km desde 1000 m; (b) el punto del objetivo pegado al borde se dibuja como flechita hacia afuera (como en GTA); (c) opcional, alejar más el minimapa a toda velocidad (p. ej. 300 m) si al jugar hace falta | ⬜ propuesto 2026-11-06 (a y b recomendados) |
-| 10 | Red vial, paradas y ambientación: ver el plan "Red vial, paradas y ambientación" abajo | 🟡 fases 1–3 ✅; fase 4 🟡 (viviendas ✅, ambientación por tipo de parada ⬜); fase 5 ⬜ |
+| 10 | Red vial, paradas y ambientación: ver el plan "Red vial, paradas y ambientación" abajo | 🟡 fases 1–3 ✅; fase 4 🟡 (viviendas ✅, ambientación por tipo de parada ⬜); fase 5 ✅ (animales) |
 | 11 | Elegir escenario con **vista previa** (costa, sierra, selva, mixto) en vez de solo el nombre, como en un juego | ✅ 2026-11-06 (revisado y aprobado por el usuario): `ScenarioPicker` con 4 tarjetas con foto (en una fila si hay espacio, si no 2×2); fotos del juego real con `tools/capture_scenario_previews.gd` → `ui/scenarios/*.jpg`; Mixta = collage diagonal de las tres |
-| 13 | **Dificultad** fácil / normal / difícil (pedido 2026-11-08) en vez de elegir directamente la cantidad de obstáculos: que regule la frecuencia de obstáculos fijos **y de animales** (fase 5). Se hace cuando estén los animales; mientras tanto queda "Obstáculos en las vías" en Opciones (por defecto Normal) | ⬜ |
+| 13 | **Dificultad** fácil / normal / difícil (pedido 2026-11-08) en vez de elegir directamente la cantidad de obstáculos: que regule la frecuencia de obstáculos fijos, **animales** (fase 5) y **tráfico** (pendiente 6). Plan ordenado 2026-11-08: ver "Pendiente 13 — plan Dificultad y obstáculos que se mueven" abajo | 🟡 fase A ✅ y B ✅ 2026-11-08 (`Difficulty` por partida; animales `RoadAnimals`); C ✅ 2026-11-10 (tráfico `RoadTraffic`); falta D balance |
 | 12 | Garaje dentro del **Modo libre** (cambiar de vehículo al momento, sin volver al menú), como ya se hace con el escenario | ✅ 2026-11-06: botón "Garaje" en la pausa del Modo libre (`PauseMenu.open_garage`, el mismo `VehicleGarage`); al volver o continuar se usa la mototaxi elegida (`garage_closed` → `Main._use_active_vehicle`) |
 
 **Pendiente 6 — obstáculos fijos en las vías (hecho 2026-11-08)**
@@ -109,8 +109,9 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
   centro) pero siempre queda un carril libre de ≥ 2.8 m (`FREE_LANE`); solo en tramos casi rectos (±20 m,
   < 34°) y con pendiente < 0.14, para verlos venir. Ninguno a < 16 m de una parada (recogida, destino,
   inicio), a < 14 m de un cruce, sobre un puente o cauce, ni a < 45 m de otro. Sale de la semilla del mundo.
-- Cantidad en **Opciones → Obstáculos en las vías**: Ninguno / Pocos / Normal / Muchos (`GameSettings`,
-  `user://settings.cfg`; se aplica al cargar el mapa). Argumento `--obstaculos=0..3`. `TerrainWorld`
+- Cantidad: Ninguno / Pocos / Normal / Muchos. Desde el 2026-11-08 la da la **dificultad de la partida**
+  (Fácil = Pocos, Normal = Normal, Difícil = Muchos; ver pendiente 13); se quitó la opción "Obstáculos en las
+  vías" de Opciones y `GameSettings`. Argumento `--obstaculos=0..3` para forzarla. `TerrainWorld`
   trae 0 por defecto (las pruebas no los ven salvo que los pidan).
 - Mallas generadas por código, juntas por baldosas de 192 m (3 capas: sólido, agua brillante, manchas con
   borde transparente); colisión con cilindros. Construirlos: ~0.15 s en el mapa guardado.
@@ -121,6 +122,141 @@ Idea general: copiar la *jugabilidad* de GTA (no su escala). Orden sugerido de a
   los esquiva: 8/8 a tiempo). Capturas: `tests/capture_obstaculos.gd -- --editor --obstaculos=2` (con
   ventana) → `output/obstaculos/`.
 - Ideas para después: vehículos lentos (combis, otras mototaxis), bocina que espanta animales (fase 5).
+
+**Pendiente 13 — plan "Dificultad y obstáculos que se mueven" (planteado 2026-11-08)**
+
+Pregunta del usuario: ¿hacen falta animales y otros vehículos si los obstáculos fijos ya dan dificultad?
+Meta: en Difícil debe ser posible llegar tarde con una probabilidad considerable, y que eso salga de lo que
+hay en el camino (esquivar, frenar, adelantar), no sobre todo de recortar el tiempo.
+
+*Análisis*
+- Los obstáculos fijos sirven, pero **se aprenden**: salen de la semilla (mismo mapa = mismo lugar), solo en
+  tramos rectos para verlos venir, siempre con un carril libre de ≥ 2.8 m. El piloto automático los esquiva
+  8/8 a tiempo. Le cuestan poco tiempo a un jugador que ya los conoce → no bastan para que Difícil falle.
+- Lo que se mueve **no se aprende**: cada viaje es distinto. Es lo que da la tensión del taxi de GTA
+  (gente y tráfico). Por eso sí hacen falta, pero con papeles distintos:
+  - **Animales** = riesgo de **choque** (aparecen de costado, cruzan; daño + enojo). Eventos cortos. Le dan
+    identidad a cada región (costa perros/gallinas, sierra llamas/alpacas/ovejas, selva chanchos/gallinas).
+  - **Tráfico** (combis y otras mototaxis) = pérdida de **tiempo**: una combi lenta en una vía angosta obliga
+    a ir detrás o arriesgarse a adelantar; los que vienen de frente hacen peligroso adelantar. Es lo que más
+    pesa en llegar tarde. Ejemplo: 200 m detrás de una combi a 20 km/h en vez de 30 → ~12 s perdidos, casi
+    todo el margen fijo de 15 s de un viaje corto.
+- **Tiempo.** El límite (15 s + ruta a 30 km/h con castigo por subida) no cuenta los obstáculos, así que más
+  obstáculos ya lo vuelven más estrecho solo. No se recorta más en Normal/Difícil; Fácil da algo de aire.
+
+*Tabla de dificultad (valores iniciales, se ajustan en la fase D)*
+
+| | Fácil | Normal | Difícil |
+|---|---|---|---|
+| Obstáculos fijos (`RoadObstacles.LEVELS`) | Pocos | Normal | Muchos |
+| Animales | pocos, lentos, se apartan antes | algunos | frecuentes; rebaños en la sierra |
+| Tráfico | poco, siempre en su carril | algo | más; combis que paran en paraderos, de frente en vías angostas |
+| Tiempo límite | × 1.2 | × 1.0 | × 1.0 (× 0.9 solo si las pruebas muestran que no alcanza) |
+| Pago (decidido 2026-11-08) | × 0.9 | × 1.0 | × 1.25 (premio por el riesgo) |
+
+*Fases (en este orden)*
+- **A. Dificultad de la partida** ✅ (2026-11-08). Decidido: es **de la partida**, no una opción general (se
+  elige al empezar y se mantiene; para cambiarla hay que empezar otra), y más difícil paga más.
+  - `Difficulty` (`project/scripts/difficulty.gd`): tabla `LEVELS` con nombre, texto, `obstacles`, `time`,
+    `fare`, `animals` y `traffic` (estos dos para B y C, todavía sin efecto).
+  - Viaja en el escenario elegido (`choice["difficulty"]`) y se guarda con la partida (`data["choice"]`);
+    partidas viejas sin ella = Normal.
+  - `ScenarioPicker`: fila "Dificultad" con su explicación. Se elige en Jugar, al perder ("Empezar en otro
+    escenario"), en la pausa ("Reiniciar partida") y en el Modo libre; al terminar el día ("Escenario del día
+    N") sale **bloqueada** con el aviso "para cambiarla, empieza una partida nueva". `same()` la compara:
+    otra dificultad = otro escenario (se regenera el mapa, cambian los obstáculos). `describe()` la agrega
+    ("Terreno guardado · Selva · Difícil").
+  - `Main`: `world.obstacle_level` sale de la dificultad (o de `--obstaculos`), `RaceManager.time_factor` y
+    `fare_factor` multiplican el tiempo límite y la tarifa; el anuncio de cada día muestra la dificultad.
+    Argumento `--dificultad=0|1|2`. En el Modo libre solo cambia lo que hay en el camino.
+  - Prueba: `tests/test_dificultad.gd` (tabla, factores, selector bloqueado, Main en Difícil y guardado).
+- **B. Animales** ✅ (2026-11-08) = la fase 5 del pendiente 10, con su cantidad tomada de la tabla. Ver
+  "Pendiente 13 — fase B, cómo quedó" abajo.
+- **C. Tráfico** ✅ (2026-11-10; ver "Pendiente 13 — fase C, cómo quedó" abajo). Plan original: vehículos que recorren la red vial (`RoadRouter`) por su carril:
+  - Cinemáticos (`AnimatableBody3D` que sigue la línea de la vía con la altura de `get_height`), no
+    `VehicleBody3D`: barato y no se vuelcan. Frenan si hay algo delante (la mototaxi, un obstáculo, otro
+    vehículo); esquivan los obstáculos fijos por el carril libre.
+  - Tipos: otras mototaxis (se pueden reusar los modelos del garaje), combi lenta (más ancha), en sierra
+    algún camión. Aparecen a 80–200 m de la mototaxi y se quitan lejos, como los animales.
+  - Chocarlos = daño y enojo (`apply_damage(…, "vehiculo")`), con tiempo de gracia entre golpes.
+  - Nunca tapan la recogida ni el destino.
+- **D. Balance y medición.** Prueba sin ventana por dificultad (`tests/test_dificultad.gd`): el piloto hace
+  N viajes por nivel y anota % a tiempo, segundos perdidos por km y golpes. Meta orientativa: Fácil ≈ todos a
+  tiempo, Normal la mayoría, Difícil con una parte clara tarde (≈ 25–40 %). Además probarlo jugando.
+- Modo libre: también con animales y tráfico (según la dificultad), sin reloj.
+
+**Pendiente 13 — fase C, cómo quedó (tráfico, 2026-11-10)**
+- Criterio (conversado con el usuario): en este juego el tráfico es **escaso pero con intención**, no un flujo
+  urbano. Se generan "encuentros" cerca de la mototaxi, como los animales, y cada vehículo plantea una
+  decisión: ir detrás o adelantar.
+- `RoadTraffic` (`project/scripts/road_traffic.gd`), lo crea `Main` al empezar (también en el Modo libre).
+  Cantidad = `Difficulty` "traffic" (Fácil 0.4, Normal 1, Difícil 1.7; `--trafico=F` la fuerza, 0 = ninguno):
+  hasta `round(3 × cantidad)` vehículos a la vez (1 / 3 / 5). Nuevo `Difficulty` "oncoming" = parte que viene
+  **de frente** (0.1 / 0.35 / 0.5): sin ellos adelantar no costaría nada.
+- **Dónde**: un lugar posible cada 25 m de vía; más en avenidas y calles del pueblo, poco en carreteras, casi
+  nada en trochas (`ROAD_WEIGHT`). Aparecen 90–220 m adelante, nunca a < 40 m de la recogida o el destino ni
+  a < 50 m de otro; se quitan a > 270 m (o > 110 m detrás) o si quedan atascados 25 s lejos de la mototaxi.
+- **Tipos** (`TYPES`, `KIND_TYPES` por tipo de vía, `REGION_BIAS` por región):
+  - Otras mototaxis (modelos del garaje, distinto del que usa el jugador), 20–28 km/h; abundan en el pueblo
+    y en la selva.
+  - Combi (hecha por código, `make_combi`: blanca con franja de color, letrero de ruta, parrilla),
+    24–34 km/h; **para 3–6 s en los paraderos** (landmarks `paradero`).
+  - Camioneta (Quaternius, CC0), 28–38 km/h. Camión (Quaternius, CC0), 16–24 km/h, **sube muy lento** las
+    cuestas; más en la sierra. Modelos en `project/assets/traffic/` con su `SOURCE.md`; en Créditos. No hay
+    combi CC0 en Poly Pizza (solo CC-BY), por eso se hizo por código.
+- **Manejo**: `AnimatableBody3D` cinemático que sigue el trazo de la vía por su **carril derecho** (¼ del
+  ancho, sin salirse del borde), con la altura de `get_height` e inclinado con la pendiente. Frena con ~1.1 s
+  de distancia ante lo que tenga delante en su carril (la mototaxi, otro vehículo, animales): no embiste a
+  la mototaxi parada. Ante un obstáculo fijo se corre lo mínimo hacia el lado libre (mira 30 m adelante) y
+  frena si todavía no alcanzó a correrse. Al final de una vía sigue por otra que pase por ese punto (las
+  trochas casi solo para mototaxis y camionetas); si no hay, da media vuelta.
+- **Golpe**: si la mototaxi lo toca a > 8 km/h de diferencia, daño `(km/h − 8) ×` factor (mototaxi 0.45,
+  camioneta 0.7, combi 0.8, camión 1.0; a 35 km/h contra una camioneta ≈ 19), razón `"vehiculo"`: el
+  pasajero se enoja más que por un golpe normal, con frase ("¡Casi nos matamos! ¡Fíjese en los carros!"…).
+  1.2 s de gracia y se apaga el "choque" de la física en ese golpe (no cuenta doble). El chofer se detiene
+  2.5 s. Además el cuerpo tiene colisión: la mototaxi no lo atraviesa.
+- **Costo**: ~1.7 ms por paso de física sin ventana (con la física de la mototaxi).
+- Pruebas: `tests/test_trafico.gd [-- semilla]` (aparecen, de frente y en el mismo sentido, tope, sobre la
+  vía, carril derecho, pegados al suelo, avanzan, frenan detrás de la mototaxi sin dañarla, golpe y ánimo,
+  gracia, esquivan 5 obstáculos fijos sin atravesarlos, se quitan, densidad 0). Pasa en el mapa guardado.
+  Capturas: `tests/capture_trafico.gd -- --editor` (con ventana) → `output/trafico/` (cada tipo de frente y
+  vista de juego desde atrás).
+- Pendiente para la fase D: el piloto automático (`test_drive_routes`) no ve el tráfico (no usa `Main`);
+  la bocina todavía no hace nada con los vehículos.
+
+**Pendiente 13 — fase B, cómo quedó (animales, 2026-11-08)**
+- `RoadAnimals` (`project/scripts/road_animals.gd`), lo crea `Main` al empezar (también en el Modo libre).
+  Cantidad = `Difficulty` "animals" (Fácil 0.5, Normal 1, Difícil 1.8; `--animales=F` la fuerza, 0 = ninguno);
+  hasta `ceil(6 × cantidad)` grupos a la vez.
+- **Modelos** (el usuario prefirió importados, comunes en Perú y livianos): 7 animales animados de Quaternius
+  (CC0), de Poly Pizza, en `project/assets/animals/` con su `SOURCE.md`; en Créditos. 800–3600 triángulos.
+  - Costa: perro, gallina, algún burro. Sierra: alpaca, oveja (rebaños), burro, vaca. Selva: gallina,
+    chancho, vaca, algún perro. La región es la de `get_biome` en ese punto.
+  - Se descartó la llama de Quaternius: solo trae "quieta" y "salto".
+- **Dónde**: un lugar posible cada 20 m de vía (no en puentes); más en trochas y calles, pocos en
+  carreteras. Aparecen adelante de la mototaxi a 55–150 m, nunca a < 35 m de la recogida o el destino, y se
+  quitan a > 210 m (o > 90 m detrás). Los modelos se reusan desde un pozo (no se instancian cada vez).
+- **Comportamiento**:
+  - Grupos que **pastan** al borde y **cruzan** cuando la mototaxi llega a 22–48 m (perros y gallinas
+    corriendo). Solo pastan en un costado con suelo parejo, no en la ladera de una vía cortada en el
+    cerro. Si el otro costado es ladera, se meten a la vía y luego vuelven.
+  - Grupos que **caminan por la vía** siguiendo su trazo (ovejas, alpacas, vacas, burros; si ningún
+    costado sirve, todos). Ocupan el carril hasta que la mototaxi se acerca a < 15 km/h o toca la bocina;
+    ahí se apartan a un costado parejo (o a la berma). Es lo que más tiempo hace perder.
+  - Si la mototaxi pasa rozando a > 20 km/h, huyen corriendo (sin subir laderas).
+- **Bocina** nueva: H / B del mando (`Mototaxi.honk`, señal `honked`, sonido generado por código); aparta a
+  los que estén a < 35 m. En Controles.
+- **Golpe** por cercanía, sin física (una gallina no frena en seco a la mototaxi): daño `(km/h − 6) ×` factor
+  de la especie (a 30 km/h: gallina ≈ 2, oveja ≈ 8, vaca ≈ 15), razón `"animal"`. El pasajero se enoja más que
+  por un golpe normal, con una frase ("¡Cuidado con el animal!"…). Los grandes frenan la mototaxi (hasta
+  35 %). Cada animal golpea una vez; 1.2 s de gracia entre golpes; el animal huye.
+- **Costo**: 1–2 ms por paso de física sin ventana (con la física de la mototaxi); con ventana, 144 FPS con
+  y sin animales (tope de la pantalla).
+- Pruebas: `tests/test_animales.gd [-- semilla región]` (lugares, región, no en laderas, lejos del
+  destino, golpe y ánimo, gracia, bocina, se quitan y se reusan, densidad 0). Pasa en el mapa guardado,
+  `42 sierra` y `7 costa`. Capturas: `tests/capture_animales.gd -- --seed=42 --region=sierra` (con ventana) →
+  `output/animales/` (una por especie y vista de juego), y mide FPS.
+- El piloto automático (`test_drive_routes`) no los ve: no usa `Main`.
 
 **Pendiente 10 — plan "Red vial, paradas y ambientación" (planteado 2026-11-06)**
 
@@ -179,7 +315,7 @@ carreras": más de un camino en tierra llana (en la montaña es lógico que haya
 4. 🟡 **Ambientación: casas y objetos por región y por tipo de parada.** Viviendas ✅ (2026-11-08, ver
    "Fase 4 — viviendas, cómo quedó"); falta la ambientación por tipo de parada (bancas de la plaza, puestos
    del mercado, techito del paradero, surtidor del grifo, muelle...). Ver "Fase 4 — cómo pedirla" abajo.
-5. ⬜ **Obstáculos de animales** (pendiente 5). Ver "Fase 5 — cómo pedirla" abajo.
+5. ✅ **Obstáculos de animales** (pendiente 5), 2026-11-08: ver "Pendiente 13 — fase B, cómo quedó".
 
 *Fase 4 — cómo pedirla* (pedir en sesión nueva: "haz la fase 4 del pendiente 10", en la rama `juego`)
 - **Objetivo.** Que los pueblos y paradas no se vean desérticos: las cuadras de la fase 2 se llenan de
@@ -510,6 +646,9 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/t
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_race.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_passenger.gd
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_jornada.gd    # cuota, ahorros, garaje, mapa
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_dificultad.gd # dificultad de la partida
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_animales.gd   # animales [-- semilla región]
+Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_trafico.gd    # tráfico [-- semilla]
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_partida.gd    # guardar/cargar, reloj
 Godot_v4.7.2-stable_win64_console.exe --headless --fixed-fps 60 --path project -s res://tests/test_escenario.gd  # cambiar escenario, Modo libre
 Godot_v4.7.2-stable_win64_console.exe --headless --path project -s res://tests/test_destinos.gd   # viajes corto/medio/largo y su pago
@@ -638,3 +777,8 @@ para que Godot registre la clase.
 - **2026-11-06** — El usuario revisó y aprobó los pendientes 11 y 12. Las fases 4 (casas y ambientación) y
   5 (animales) del pendiente 10 quedan descritas para pedirlas en una sesión nueva ("Fase 4 — cómo
   pedirla", "Fase 5 — cómo pedirla").
+- **2026-11-10** — Pendiente 13, fase C: tráfico (`RoadTraffic`): pocos vehículos según tipo de vía y
+  dificultad, en tu sentido (más lentos) y de frente (`Difficulty` "oncoming"); otras mototaxis, combi
+  hecha por código que para en paraderos, camioneta y camión de Quaternius (CC0, `assets/traffic/`). Frenan,
+  esquivan obstáculos fijos, siguen por otras vías; chocarlos = razón `"vehiculo"`. `--trafico=F`. Prueba
+  `tests/test_trafico.gd`, capturas `tests/capture_trafico.gd`.

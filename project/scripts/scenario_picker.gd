@@ -1,9 +1,11 @@
 class_name ScenarioPicker
 extends VBoxContainer
-## Elección del escenario: terreno (guardado o nuevo con semilla), región y calidad de generación.
+## Elección del escenario: terreno (guardado o nuevo con semilla), región, calidad de generación
+## y dificultad de la partida (Difficulty). La dificultad se elige solo al empezar una partida:
+## al cambiar de escenario a mitad de ella se muestra bloqueada (lock_difficulty).
 ## Se usa en el menú principal (Jugar y Modo libre), al terminar el día, al perder y en la pausa
 ## (Reiniciar partida). get_choice() entrega el mismo diccionario que recibe Main:
-## {"mode": "editor"|"seed", "seed", "erosion_scale", "region", "region_only"}.
+## {"mode": "editor"|"seed", "seed", "erosion_scale", "region", "region_only", "difficulty"}.
 
 const MUTED := Color("a7abb7")
 const REGIONS := ["Mixta (costa, sierra y selva)", "Costa", "Sierra", "Selva"]
@@ -27,6 +29,15 @@ var seed_row: VBoxContainer
 var seed_edit: LineEdit
 var quality_row: VBoxContainer
 var quality: OptionButton
+var difficulty: OptionButton
+var difficulty_note: Label
+## true: la partida sigue y su dificultad no se cambia.
+var difficulty_locked := false
+## Modo libre: sin reloj ni pago, la dificultad solo cambia lo que hay en el camino.
+var free_mode := false:
+	set(v):
+		free_mode = v
+		update_mode()
 
 
 func _init() -> void:
@@ -81,8 +92,20 @@ func _init() -> void:
 	var note := _label("La misma semilla y los mismos ajustes generan el mismo terreno. La generación completa tarda más.", 15, MUTED)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	quality_row.add_child(note)
+	add_child(_label("Dificultad"))
+	var names: Array = []
+	for level in Difficulty.LEVELS:
+		names.append(level["name"])
+	difficulty = _option(names)
+	difficulty.name = "Dificultad"
+	difficulty.select(Difficulty.NORMAL)
+	add_child(difficulty)
+	difficulty_note = _label("", 15, MUTED)
+	difficulty_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(difficulty_note)
 	mode.item_selected.connect(update_mode)
 	region.item_selected.connect(update_mode)
+	difficulty.item_selected.connect(update_mode)
 	update_mode()
 
 
@@ -94,6 +117,14 @@ func set_choice(choice: Dictionary) -> void:
 	quality.select(0 if scale <= 0.15 else (1 if scale <= 0.5 else 2))
 	region.select(clampi(int(choice.get("region", region.selected)), 0, 3))
 	share.select(1 if choice.get("region_only", share.selected == 1) else 0)
+	difficulty.select(Difficulty.of(choice) if choice.has("difficulty") else difficulty.selected)
+	update_mode()
+
+
+## Bloquea la dificultad (cambio de escenario dentro de la partida) o la deja elegir.
+func lock_difficulty(locked: bool) -> void:
+	difficulty_locked = locked
+	difficulty.disabled = locked
 	update_mode()
 
 
@@ -110,12 +141,15 @@ func get_choice() -> Dictionary:
 	return {"mode": "editor" if mode.selected == 0 else "seed",
 		"seed": int(seed_text) if seed_text.is_valid_int() else 67,
 		"erosion_scale": QUALITY_SCALES[quality.selected], "region": region.selected,
-		"region_only": share.selected == 1}
+		"region_only": share.selected == 1, "difficulty": difficulty.selected}
 
 
-## true si dos escenarios generan el mismo mapa y se empieza en la misma región.
+## true si dos escenarios generan el mismo mapa (con los mismos obstáculos) y se empieza en la
+## misma región con la misma dificultad.
 static func same(a: Dictionary, b: Dictionary) -> bool:
 	if a.get("mode", "editor") != b.get("mode", "editor") or int(a.get("region", 0)) != int(b.get("region", 0)):
+		return false
+	if Difficulty.of(a) != Difficulty.of(b):
 		return false
 	if a.get("mode", "editor") == "editor":
 		return true
@@ -124,15 +158,16 @@ static func same(a: Dictionary, b: Dictionary) -> bool:
 		and (int(a.get("region", 0)) == 0 or bool(a.get("region_only", false)) == bool(b.get("region_only", false)))
 
 
-## Resumen corto, p. ej. "Terreno guardado · Sierra" o "Semilla 42 · Costa (solo)".
+## Resumen corto, p. ej. "Terreno guardado · Sierra · Normal" o "Semilla 42 · Costa (solo) · Difícil".
 static func describe(choice: Dictionary) -> String:
 	var r := int(choice.get("region", 0))
 	var region_text: String = "Mixta" if r <= 0 else REGIONS[r]
+	var level := Difficulty.level_name(Difficulty.of(choice))
 	if choice.get("mode", "editor") == "editor":
-		return "Terreno guardado · %s" % region_text
+		return "Terreno guardado · %s · %s" % [region_text, level]
 	if r > 0 and choice.get("region_only", false):
 		region_text += " (solo)"
-	return "Semilla %d · %s" % [int(choice.get("seed", 67)), region_text]
+	return "Semilla %d · %s · %s" % [int(choice.get("seed", 67)), region_text, level]
 
 
 func update_mode(_index := 0) -> void:
@@ -148,6 +183,12 @@ func update_mode(_index := 0) -> void:
 	else:
 		region_note.text = "El mapa se genera con esa región como protagonista y empiezas en ella."
 	region_note.visible = region_note.text != ""
+	if free_mode:
+		difficulty_note.text = "En el Modo libre solo cambia cuánto hay en el camino."
+	elif difficulty_locked:
+		difficulty_note.text = "Se mantiene en toda la partida. Para cambiarla, empieza una partida nueva."
+	else:
+		difficulty_note.text = Difficulty.get_value(difficulty.selected, "hint") + " Se mantiene en toda la partida."
 
 
 ## Tarjeta de una región: foto, nombre y una línea; borde amarillo si está elegida.

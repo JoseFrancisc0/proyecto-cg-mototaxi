@@ -117,7 +117,7 @@ func open_scenario() -> void:
 		var next := int(_last_stats.get("day", 1)) + 1
 		_scenario.open("Escenario del día %d" % next,
 			"Se genera el mapa elegido y el día %d empieza ahí. Tus ahorros se quedan." % next,
-			"Ir al día %d" % next, current_choice)
+			"Ir al día %d" % next, current_choice, true)
 	else:
 		_scenario.open("Empezar en otro escenario",
 			"La partida empieza de cero en el día 1 en el escenario elegido.",
