@@ -45,6 +45,7 @@ void TerrainMesh::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("rebuild_surface", "terrain", "roads", "grid_size", "cell_size", "road_cfg"), &TerrainMesh::rebuild_surface);
 	ClassDB::bind_method(D_METHOD("get_ground_heights"), &TerrainMesh::get_ground_heights);
 	ClassDB::bind_method(D_METHOD("get_surface_heights"), &TerrainMesh::get_surface_heights);
+	ClassDB::bind_method(D_METHOD("grade_road_profile", "path", "max_grade"), &TerrainMesh::grade_road_profile);
 	ClassDB::bind_method(D_METHOD("set_ground_heights", "heights", "grid_size", "cell_size"), &TerrainMesh::set_ground_heights);
 
 	// Erosion de cualquier heightfield (validacion, DEM).
@@ -141,6 +142,8 @@ std::vector<float> sky_visibility(const std::vector<double> &H, int n, double ce
 struct RibbonMesh {
 	PackedVector3Array points, normals;
 	void triangle(Vector3 a, Vector3 b, Vector3 c) {
+		if ((b - a).cross(c - a).length_squared() < 1e-12)
+			return;
 		// Godot fronts use clockwise winding (the terrain indices do too).
 		// Lighting normals point upward, opposite the clockwise geometric cross.
 		if ((b - a).cross(c - a).y > 0)
@@ -246,6 +249,22 @@ static void limit_road_grade(const std::vector<Vector3> &pts, std::vector<double
 		// Banda vacia = extremos incompatibles: se reparte el desnivel en linea recta.
 		h[i] = lo <= hi ? std::clamp(mid, lo, hi) : lerp_d(e0, e1, total > 0.0 ? s[i] / total : 0.0);
 	}
+}
+
+PackedVector3Array TerrainMesh::grade_road_profile(PackedVector3Array path, double max_grade) const {
+	std::vector<Vector3> points;
+	std::vector<double> profile;
+	for (int i = 0; i < path.size(); i++) {
+		points.push_back(path[i]);
+		profile.push_back(path[i].y);
+	}
+	limit_road_grade(points, profile, max_grade);
+	for (int i = 0; i < path.size(); i++) {
+		Vector3 p = path[i];
+		p.y = profile[i];
+		path.set(i, p);
+	}
+	return path;
 }
 
 // Juego: ajusta la altura de los cruces para que cada tramo entre cruces pueda cumplir
@@ -855,6 +874,7 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	const bool shaped_roads = bool(road_cfg.get("hierarchical_roads", false));
 	std::vector<float> ground_delta(shaped_roads ? H.size() : 0, 0.0f);
 	std::vector<float> ground_weight(shaped_roads ? H.size() : 0, 0.0f);
+	std::vector<float> ground_blend(shaped_roads ? H.size() : 0, 0.0f);
 	std::vector<double> influence(H.size(), 0.0);
 	std::vector<int> kinds(H.size(), 0);
 	PackedVector2Array road_uv;
@@ -870,7 +890,13 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 			for (size_t segment = 0; segment + 1 < road.pts.size(); segment++) {
 				const Vector3 &a = road.pts[segment], &b = road.pts[segment + 1];
 				double width = road.half_width > 0 ? road.half_width : road_width;
-				double radius = width + (shaped_roads ? std::max(road_fade, 21.0) : road_fade);
+				// Keep the existing route/profile. Extend its earthwork shoulder to
+				// the actual cut/fill instead of clipping every correction to 5 m.
+				const double mid_ground = grid_sample(H, n, cell_size, (a.x + b.x) * .5, (a.z + b.z) * .5);
+				const double cut_fill = std::max({ std::abs(road.h[segment] - grid_sample(H, n, cell_size, a.x, a.z)),
+					std::abs(road.h[segment + 1] - grid_sample(H, n, cell_size, b.x, b.z)),
+					std::abs((road.h[segment] + road.h[segment + 1]) * .5 - mid_ground) });
+				double radius = width + (shaped_roads ? std::max(road_fade, std::min(75.0, 2.0 * cell_size + cut_fill * 2.4)) : road_fade);
 				int x0 = std::clamp(int(std::floor((std::min(a.x, b.x) - radius + offset) / cell_size)), 0, n - 1);
 				int x1 = std::clamp(int(std::ceil((std::max(a.x, b.x) + radius + offset) / cell_size)), 0, n - 1);
 				int z0 = std::clamp(int(std::floor((std::min(a.z, b.z) - radius + offset) / cell_size)), 0, n - 1);
@@ -883,16 +909,18 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 						double t = len2 > 0 ? std::clamp(((wx - a.x) * abx + (wz - a.z) * abz) / len2, 0.0, 1.0) : 0.0;
 						double distance = std::hypot(wx - a.x - t * abx, wz - a.z - t * abz);
 						size_t i = size_t(z) * n + x;
-						double weight = 1.0 - smoothstep_d(width, width + road_fade, distance);
+						const double support_width = shaped_roads ? width + cell_size * .75 : width;
+						double weight = 1.0 - smoothstep_d(support_width, support_width + road_fade, distance);
 						const double level = lerp_d(road.h[segment], road.h[segment + 1], t);
 						const bool elevated = !road.elevated.empty() && (road.elevated[segment] || road.elevated[segment + 1]);
 						if (shaped_roads && distance < radius) {
-							const double delta = std::clamp(level - H[i], -5.0, 5.0);
-							const double shoulder = std::max(road_fade, 2.0 * cell_size + 2.4 * std::abs(delta));
+							const double delta = level - H[i];
+							const double shoulder = std::max(road_fade, std::min(75.0, 2.0 * cell_size + 2.4 * std::abs(delta)));
 							const double blend = 1.0 - smoothstep_d(width, width + shoulder, distance);
-							const double near = blend * std::exp(-2.6 * distance * distance / (width * width));
+							const double near = blend / std::max(1.0, distance);
 							ground_delta[i] += float(near * delta);
 							ground_weight[i] += float(near);
+							ground_blend[i] = std::max(ground_blend[i], float(blend));
 						}
 						if (weight <= 0.0)
 							continue;
@@ -926,11 +954,15 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 			if (shaped_roads && ground_weight[i] > 0.0f && !(hydrology && drainage.protected_water[i])) {
 				// Smoothly combine competing profiles in junctions and hairpins. Away
 				// from the lane the accumulated weight fades into the existing slope.
-				base_h += ground_delta[i] / std::max(0.11f, ground_weight[i]);
+				base_h += ground_delta[i] / ground_weight[i] * ground_blend[i];
 			}
 			if (w > 0.0) {
 				if (!shaped_roads)
 					base_h = lerp_d(base_h, road_height[i], w);
+				else
+					// The drivable core must reach the grade-limited profile too.
+					// Blending shoulders alone left steep bumps under a smooth GPS path.
+					base_h = lerp_d(base_h, road_height[i], w * w);
 				col = col.lerp(kinds[i] == 0 ? Color(0.40, 0.28, 0.16) : (kinds[i] == 3 ? Color(0.27, 0.28, 0.29) : Color(0.13, 0.14, 0.16)), w);
 			}
 
@@ -947,15 +979,15 @@ Ref<ArrayMesh> TerrainMesh::build_surface(Ref<TerrainNoise> terrain, Ref<RoadNet
 	// already meets the road profile doesn't need a second surface on top.
 	if (roads_ptr) {
 		for (const auto &road : *roads_ptr) {
-			if (road.elevated.empty())
-				continue;
 			const double width = road.half_width > 0 ? road.half_width : road_width;
 			auto side_at = [&](size_t k) {
 				const Vector3 tangent = road.pts[std::min(k + 1, road.pts.size() - 1)] - road.pts[k > 0 ? k - 1 : 0];
 				return Vector3(-tangent.z, 0, tangent.x).normalized() * width;
 			};
 			for (size_t k = 0; k + 1 < road.pts.size(); k++) {
-				if (!road.elevated[k] && !road.elevated[k + 1])
+				// Dry roads use the graded terrain. A separate ribbon is reserved
+				// for the elevated crossing and its approaches.
+				if (shaped_roads && (road.elevated.empty() || (!road.elevated[k] && !road.elevated[k + 1])))
 					continue;
 				auto a = road.pts[k], b = road.pts[k + 1];
 				const auto sa = side_at(k), sb = side_at(k + 1);

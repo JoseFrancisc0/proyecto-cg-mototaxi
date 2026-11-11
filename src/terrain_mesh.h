@@ -112,6 +112,7 @@ public:
 	PackedFloat32Array get_ground_heights() const;
 	// Alturas de la malla final (con rios y caminos). El shader las usa para el ray tracing de sombras.
 	PackedFloat32Array get_surface_heights() const;
+	PackedVector3Array grade_road_profile(PackedVector3Array path, double max_grade) const;
 	bool set_ground_heights(const PackedFloat32Array &heights, int grid_size, double cell_size);
 
 	// --- Erosion de cualquier heightfield (validacion contra el repo oficial, DEM externos).

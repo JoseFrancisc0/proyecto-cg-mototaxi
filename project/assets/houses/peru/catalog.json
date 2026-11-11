@@ -26,7 +26,10 @@
       "openings": 9,
       "sealed_panels": 0,
       "ground_doors": 1
-    }
+    },
+    "graffiti_wall": true,
+    "graffiti_side": 1,
+    "graffiti_source": "materials/graffiti_references/wall_0.png"
   },
   {
     "file": "peru/costa_invasion_1.glb",
@@ -87,7 +90,10 @@
       "openings": 5,
       "sealed_panels": 0,
       "ground_doors": 1
-    }
+    },
+    "graffiti_wall": true,
+    "graffiti_side": 0,
+    "graffiti_source": "materials/graffiti_references/wall_1.png"
   },
   {
     "file": "peru/costa_invasion_3.glb",
@@ -144,7 +150,10 @@
       "openings": 17,
       "sealed_panels": 23,
       "ground_doors": 1
-    }
+    },
+    "graffiti_wall": true,
+    "graffiti_side": 1,
+    "graffiti_source": "materials/graffiti_references/wall_1.png"
   },
   {
     "file": "peru/costa_barrio_1.glb",
@@ -198,7 +207,10 @@
       "openings": 8,
       "sealed_panels": 0,
       "ground_doors": 1
-    }
+    },
+    "graffiti_wall": true,
+    "graffiti_side": 0,
+    "graffiti_source": "materials/graffiti_references/wall_2.png"
   },
   {
     "file": "peru/costa_barrio_3.glb",
@@ -820,7 +832,10 @@
       "openings": 9,
       "sealed_panels": 2,
       "ground_doors": 1
-    }
+    },
+    "graffiti_wall": true,
+    "graffiti_side": 1,
+    "graffiti_source": "materials/graffiti_references/wall_2.png"
   },
   {
     "file": "peru/sierra_andina_urbana_1.glb",
@@ -882,7 +897,10 @@
       "openings": 13,
       "sealed_panels": 2,
       "ground_doors": 1
-    }
+    },
+    "graffiti_wall": true,
+    "graffiti_side": 0,
+    "graffiti_source": "materials/graffiti_references/wall_0.png"
   },
   {
     "file": "peru/sierra_andina_urbana_3.glb",
@@ -1033,7 +1051,7 @@
       7.550000000000001
     ],
     "envelope": {
-      "openings": 19,
+      "openings": 9,
       "sealed_panels": 2,
       "ground_doors": 1
     }
@@ -1060,8 +1078,8 @@
       8.1
     ],
     "envelope": {
-      "openings": 14,
-      "sealed_panels": 2,
+      "openings": 11,
+      "sealed_panels": 5,
       "ground_doors": 1
     }
   },
@@ -1087,8 +1105,8 @@
       8.1
     ],
     "envelope": {
-      "openings": 13,
-      "sealed_panels": 2,
+      "openings": 10,
+      "sealed_panels": 5,
       "ground_doors": 1
     }
   },
@@ -1114,8 +1132,8 @@
       8.1
     ],
     "envelope": {
-      "openings": 13,
-      "sealed_panels": 2,
+      "openings": 11,
+      "sealed_panels": 4,
       "ground_doors": 1
     }
   },
@@ -1141,8 +1159,8 @@
       8.1
     ],
     "envelope": {
-      "openings": 13,
-      "sealed_panels": 2,
+      "openings": 10,
+      "sealed_panels": 5,
       "ground_doors": 1
     }
   },
@@ -1518,7 +1536,10 @@
       "openings": 9,
       "sealed_panels": 2,
       "ground_doors": 1
-    }
+    },
+    "graffiti_wall": true,
+    "graffiti_side": 1,
+    "graffiti_source": "materials/graffiti_references/wall_0.png"
   },
   {
     "file": "peru/selva_pucallpa_1.glb",
@@ -1580,7 +1601,10 @@
       "openings": 13,
       "sealed_panels": 6,
       "ground_doors": 1
-    }
+    },
+    "graffiti_wall": true,
+    "graffiti_side": 0,
+    "graffiti_source": "materials/graffiti_references/wall_1.png"
   },
   {
     "file": "peru/selva_pucallpa_3.glb",
@@ -1866,7 +1890,7 @@
       7.0
     ],
     "envelope": {
-      "openings": 8,
+      "openings": 9,
       "sealed_panels": 0,
       "ground_doors": 2
     }
@@ -1893,7 +1917,7 @@
       7.5
     ],
     "envelope": {
-      "openings": 7,
+      "openings": 8,
       "sealed_panels": 2,
       "ground_doors": 1
     }
@@ -1920,7 +1944,7 @@
       8.4
     ],
     "envelope": {
-      "openings": 8,
+      "openings": 9,
       "sealed_panels": 0,
       "ground_doors": 2
     }
@@ -1947,7 +1971,7 @@
       7.1
     ],
     "envelope": {
-      "openings": 7,
+      "openings": 8,
       "sealed_panels": 2,
       "ground_doors": 1
     }
@@ -2013,6 +2037,16 @@
         2.236,
         0,
         -2.666
+      ],
+      [
+        -2.236,
+        0,
+        4.4
+      ],
+      [
+        2.236,
+        0,
+        4.4
       ]
     ],
     "entrance": [
@@ -2032,7 +2066,7 @@
     "approach": [
       0,
       0.06,
-      4.470000000000001
+      5.97
     ]
   },
   {
@@ -2097,6 +2131,16 @@
         2.6229999999999998,
         0,
         -2.8595
+      ],
+      [
+        -2.6229999999999998,
+        0,
+        4.625
+      ],
+      [
+        2.6229999999999998,
+        0,
+        4.625
       ]
     ],
     "entrance": [
@@ -2116,7 +2160,7 @@
     "approach": [
       0,
       0.06,
-      4.695
+      6.195
     ]
   },
   {
@@ -2181,6 +2225,16 @@
         3.096,
         0,
         -3.0530000000000004
+      ],
+      [
+        -3.096,
+        0,
+        4.8500000000000005
+      ],
+      [
+        3.096,
+        0,
+        4.8500000000000005
       ]
     ],
     "entrance": [
@@ -2200,7 +2254,7 @@
     "approach": [
       0,
       0.06,
-      4.92
+      6.420000000000001
     ]
   },
   {
@@ -2264,6 +2318,16 @@
         3.5690000000000004,
         0,
         -3.2465
+      ],
+      [
+        -3.5690000000000004,
+        0,
+        5.075
+      ],
+      [
+        3.5690000000000004,
+        0,
+        5.075
       ]
     ],
     "entrance": [
@@ -2283,7 +2347,7 @@
     "approach": [
       0,
       0.06,
-      5.1450000000000005
+      6.6450000000000005
     ]
   },
   {
@@ -2347,6 +2411,16 @@
         2.236,
         0,
         -2.666
+      ],
+      [
+        -2.236,
+        0,
+        4.4
+      ],
+      [
+        2.236,
+        0,
+        4.4
       ]
     ],
     "entrance": [
@@ -2366,7 +2440,7 @@
     "approach": [
       0,
       0.06,
-      6.15
+      7.65
     ]
   },
   {
@@ -2431,6 +2505,16 @@
         2.6229999999999998,
         0,
         -2.8595
+      ],
+      [
+        -2.6229999999999998,
+        0,
+        4.625
+      ],
+      [
+        2.6229999999999998,
+        0,
+        4.625
       ]
     ],
     "entrance": [
@@ -2450,7 +2534,7 @@
     "approach": [
       0,
       0.06,
-      6.655
+      8.155000000000001
     ]
   },
   {
@@ -2515,6 +2599,16 @@
         3.096,
         0,
         -3.0530000000000004
+      ],
+      [
+        -3.096,
+        0,
+        4.8500000000000005
+      ],
+      [
+        3.096,
+        0,
+        4.8500000000000005
       ]
     ],
     "entrance": [
@@ -2534,7 +2628,7 @@
     "approach": [
       0,
       0.06,
-      7.16
+      8.66
     ]
   },
   {
@@ -2598,6 +2692,16 @@
         3.5690000000000004,
         0,
         -3.2465
+      ],
+      [
+        -3.5690000000000004,
+        0,
+        5.075
+      ],
+      [
+        3.5690000000000004,
+        0,
+        5.075
       ]
     ],
     "entrance": [
@@ -2617,7 +2721,7 @@
     "approach": [
       0,
       0.06,
-      7.945
+      9.445
     ]
   }
 ]

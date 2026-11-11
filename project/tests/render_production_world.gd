@@ -21,6 +21,7 @@ func _run() -> void:
 	await world.generate_async(67)
 	var details:=PeruNeighborhoodDetails.new();stage.add_child(details);details.build(world)
 	check(world._generated_ok,"Mapa con resolución y erosión de la partida real")
+	if world.houses==null:check(false,"Viviendas disponibles");quit(failures);return
 	if not is_instance_valid(world.water_system):
 		check(false,"Sistema de agua disponible");quit(failures);return
 	var districts: Dictionary={};var regions: Dictionary={};var hillside:=0

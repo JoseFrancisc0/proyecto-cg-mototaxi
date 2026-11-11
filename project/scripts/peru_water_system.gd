@@ -8,6 +8,9 @@ var changed_cells:=0
 var sea_level:=0.0
 var original_heights:=PackedFloat32Array()
 var _levels:=PackedFloat32Array()
+var _channel_distance:=PackedFloat32Array()
+var _shore_bed:=PackedFloat32Array()
+var _bank_weights:=PackedFloat32Array()
 var _wet_cells: Dictionary={}
 const CELL:=64.0
 
@@ -16,6 +19,8 @@ func build(w: TerrainWorld) -> void:
 	name="RiosYMar"
 	original_heights=world._heights.duplicate()
 	_levels.resize(original_heights.size());_levels.fill(-INF)
+	_channel_distance.resize(original_heights.size());_channel_distance.fill(INF)
+	_bank_weights.resize(original_heights.size());_bank_weights.fill(0)
 	var data:=world._surface.get_hydrology_data()
 	var n:=int(data.get("samples",0))
 	if n>1:
@@ -27,14 +32,16 @@ func build(w: TerrainWorld) -> void:
 		var candidates:Array[int]=[]
 		for i in channels.size():
 			if int(data.lakes[i])!=0:
-				_levels[i]=levels[i]+.025
+				var lx: float=(i%n)*world.cell_size-world._half;var lz: float=(i/n)*world.cell_size-world._half
+				_levels[i]=minf(levels[i]+.025,world.native_road_surface.water_ceiling(lx,lz))
+				_channel_distance[i]=0
+				_bank_weights[i]=1
 				var x:=i%n;var z:=i/n
 				for dz in [-1,0]:
 					for dx in [-1,0]:
 						if x+dx>=0 and x+dx<n-1 and z+dz>=0 and z+dz<n-1:_wet_cells[Vector2i(x+dx,z+dz)]=true
 			if channels[i]!=0 and receivers[i]>=0:candidates.append(i)
 		candidates.sort_custom(func(a,b):return accumulation[a]>accumulation[b])
-		var stream:=SurfaceTool.new();stream.begin(Mesh.PRIMITIVE_TRIANGLES)
 		var half:=world.get_world_size()*.5
 		var visited:={}
 		var upstream:={}
@@ -55,7 +62,7 @@ func build(w: TerrainWorld) -> void:
 			if flat<.1 or absf(a.y-b.y)/flat>.16:continue
 			var biome:=world.get_biome(a.x,a.z).max_axis_index()
 			var maximum:=42.0 if biome==2 else (13.0 if biome==0 else 10.0)
-			var width:=clampf((5.5 if biome==2 else 3.2)*sqrt(accumulation[i]/threshold),3.0,maximum)
+			var width:=clampf((5.5 if biome==2 else 3.2)*sqrt(accumulation[i]/threshold),minf(maximum,maxf(3.0,world.cell_size*.8)),maximum)
 			var key:=Vector2i(roundi(a.x/4),roundi(a.z/4))
 			if visited.has(key):continue
 			visited[key]=true
@@ -63,16 +70,16 @@ func build(w: TerrainWorld) -> void:
 			reaches.append(reach)
 			_index(reach)
 			_carve(a,b,width,n)
-	_rebuild_surface()
-	_build_ocean()
+	_prepare_shore()
 	print("Hidrografía: %d tramos, %d muestras ajustadas localmente"%[reaches.size(),changed_cells])
 
 func _hydro_point(index: int,n: int,levels: PackedFloat64Array,half: float) -> Vector3:
-	return Vector3((index%n)*world.cell_size-half,levels[index]+.10,(index/n)*world.cell_size-half)
+	var x: float=(index%n)*world.cell_size-half;var z: float=(index/n)*world.cell_size-half
+	return Vector3(x,minf(levels[index]+.10,world.native_road_surface.water_ceiling(x,z)),z)
 
 func _carve(a: Vector3,b: Vector3,width: float,n: int) -> void:
-	var radius:=width+minf(10,width*.5)
 	var half:=world.get_world_size()*.5
+	var radius:=width+minf(10,width*.5)
 	var x0:=maxi(0,floori((minf(a.x,b.x)-radius+half)/world.cell_size))
 	var x1:=mini(n-1,ceili((maxf(a.x,b.x)+radius+half)/world.cell_size))
 	var z0:=maxi(0,floori((minf(a.z,b.z)-radius+half)/world.cell_size))
@@ -87,17 +94,22 @@ func _carve(a: Vector3,b: Vector3,width: float,n: int) -> void:
 			var t:=clampf((nearest-aa).dot(bb-aa)/maxf((bb-aa).length_squared(),.001),0,1)
 			var level:=lerpf(a.y,b.y,t)
 			var index:=z*n+x
-			_levels[index]=maxf(_levels[index],level)
-			for oz in [-1,0]:
-				for ox in [-1,0]:
-					if x+ox>=0 and x+ox<n-1 and z+oz>=0 and z+oz<n-1:_wet_cells[Vector2i(x+ox,z+oz)]=true
+			var bank:=smoothstep(width,radius,distance)
+			_bank_weights[index]=maxf(_bank_weights[index],1-bank)
+			# Cut the bank without extending the water onto it. At overlapping
+			# reaches the nearest axis owns the sample; lakes keep their level.
+			if distance<=width:
+				if distance<_channel_distance[index]:
+					_channel_distance[index]=distance;_levels[index]=level
+				for oz in [-1,0]:
+					for ox in [-1,0]:
+						if x+ox>=0 and x+ox<n-1 and z+oz>=0 and z+oz<n-1:_wet_cells[Vector2i(x+ox,z+oz)]=true
 			var original:=original_heights[index]
 			# Se dejan intactos altos paredones: el ensanche se limita al fondo del valle.
 			var bank_limit:=maxf(18,width*.95)
 			if original-level>bank_limit:continue
 			var depth:=clampf(width*.10,1.0,4.5)
 			var bed:=level-depth*clampf(1-pow(distance/width,2),.10,1)
-			var bank:=smoothstep(width,radius,distance)
 			# Fade the excavation before the high-bank limit, instead of a vertical cut.
 			var bank_weight:=1.0-smoothstep(bank_limit*.70,bank_limit,maxf(0,original-level))
 			var height:=lerpf(original,lerpf(bed,original,bank),bank_weight)
@@ -115,17 +127,33 @@ func _apply_displacement() -> void:
 		var native:=world.generator.get_node_or_null(name)
 		if native:native.visible=false
 	_rebuild_surface()
+	_build_ocean()
 	_build_bank_stones()
 
 func _water_level(index: int) -> float:
-	if is_finite(_levels[index]):return _levels[index]
-	var x:=index%world._n;var z:=index/world._n
-	var best:=-INF
-	for dz in range(-1,2):
-		for dx in range(-1,2):
-			var nx:=clampi(x+dx,0,world._n-1);var nz:=clampi(z+dz,0,world._n-1)
-			best=maxf(best,_levels[nz*world._n+nx])
-	return best
+	return _levels[index]
+
+func bank_weight(index: int) -> float:
+	return _bank_weights[index]
+
+func _prepare_shore() -> void:
+	_shore_bed=world._heights.duplicate()
+	for cell: Vector2i in _wet_cells:
+		var i:=cell.y*world._n+cell.x
+		var corners: Array[int]=[i,i+1,i+world._n,i+world._n+1]
+		var nearby:=INF
+		for index in corners:
+			if is_finite(_levels[index]):nearby=minf(nearby,_levels[index])
+		for index in corners:
+			# A high dry bank must not pull the interpolated river uphill.
+			if not is_finite(_levels[index]):_shore_bed[index]=minf(_shore_bed[index],nearby)
+
+func _shore_level(index: int) -> float:
+	var level:=_water_level(index)
+	if is_finite(level):return level
+	# A dry corner clips the shoreline. Raising a later road or town here
+	# must not also lift the river in the wet part of the triangle.
+	return minf(_shore_bed[index],world._heights[index])-.1
 
 func _rebuild_surface() -> void:
 	var previous:=get_node_or_null("CaucesMayores")
@@ -136,10 +164,10 @@ func _rebuild_surface() -> void:
 		var i:=cell.y*world._n+cell.x
 		# Match the terrain's clockwise winding so back-face lighting cannot blacken water.
 		for triangle in [[i,i+1,i+world._n],[i+1,i+world._n+1,i+world._n]]:
+			if not is_finite(_levels[triangle[0]]) and not is_finite(_levels[triangle[1]]) and not is_finite(_levels[triangle[2]]):continue
 			var polygon: Array[Vector3]=[];var depths: Array[float]=[]
 			for index: int in triangle:
-				var level:=_water_level(index)
-				if not is_finite(level):level=world._heights[index]-.1
+				var level:=_shore_level(index)
 				polygon.append(Vector3((index%world._n)*world.cell_size-world._half,level,(index/world._n)*world.cell_size-world._half))
 				depths.append(level-world._heights[index]-.025)
 			var clipped: Array[Vector3]=[]
@@ -206,12 +234,12 @@ func surface_level_at(x: float,z: float,include_dry_banks:=false) -> float:
 	if not _wet_cells.has(Vector2i(ix,iz)):return -INF
 	var i:=iz*world._n+ix
 	var a:=_water_level(i);var b:=_water_level(i+1);var c:=_water_level(i+world._n);var d:=_water_level(i+world._n+1)
-	# Match _rebuild_surface, including its per-corner shoreline fallback. Testing
-	# four finite corners discarded valid wet triangles beside a dry corner.
-	if not is_finite(a):a=world._heights[i]-.1
-	if not is_finite(b):b=world._heights[i+1]-.1
-	if not is_finite(c):c=world._heights[i+world._n]-.1
-	if not is_finite(d):d=world._heights[i+world._n+1]-.1
+	# Use the same triangle and dry-corner clipping as the visible water mesh.
+	if not is_finite(b) and not is_finite(c) and not is_finite(a if tx+tz<=1 else d):return -INF
+	if not is_finite(a):a=_shore_level(i)
+	if not is_finite(b):b=_shore_level(i+1)
+	if not is_finite(c):c=_shore_level(i+world._n)
+	if not is_finite(d):d=_shore_level(i+world._n+1)
 	var level:=a+tx*(b-a)+tz*(c-a) if tx+tz<=1 else d+(1-tx)*(c-d)+(1-tz)*(b-d)
 	return level if include_dry_banks or level>world._sample_height(x,z)+.025 else -INF
 

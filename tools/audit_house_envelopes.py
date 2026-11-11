@@ -16,17 +16,19 @@ for item in catalog:
         return [struct.unpack_from('<'+fmt*n,binary,offset+i*stride) for i in range(a['count'])]
     boundaries=0;triangles=0
     for mesh in doc.get('meshes',[]):
+        # A closed wall can have different finishes on adjacent faces. glTF
+        # splits those faces into material primitives, not physical holes.
+        edges=collections.Counter()
         for primitive in mesh['primitives']:
             positions=accessor(primitive['attributes']['POSITION'])
             canonical=[tuple(round(c,5) for c in point) for point in positions]
             indices=[v[0] for v in accessor(primitive['indices'])]
-            edges=collections.Counter()
             for i in range(0,len(indices),3):
                 p=[canonical[j] for j in indices[i:i+3]]
                 if len(set(p))<3:continue
                 triangles+=1
                 for a,b in [(p[0],p[1]),(p[1],p[2]),(p[2],p[0])]:edges[tuple(sorted((a,b)))]+=1
-            boundaries+=sum(n==1 for n in edges.values())
+        boundaries+=sum(n==1 for n in edges.values())
     assert boundaries==0,(item['file'],boundaries)
     assert item.get('entrance') and item.get('foundation_size'),item['file']
     report.append({'file':item['file'],'triangles':triangles,'open_edges':boundaries,'entrance':item['entrance']})

@@ -51,6 +51,18 @@ func _initialize() -> void:
  var duplicate := RoadNetwork.new()
  duplicate.generate_roads(terrain,1024,1.5,config)
  if paths != duplicate.get_road_paths(): errors+=1
+ # Sin enlaces opcionales, la red troncal conecta los poblados con un árbol.
+ # Una carretera adicional aquí formaba bucles y duplicaba las subidas.
+ var trunks := RoadNetwork.new()
+ var trunk_config := config.duplicate()
+ trunk_config["grow_network"] = false
+ trunks.generate_roads(terrain,1024,1.5,trunk_config)
+ var highway_count := 0
+ for road: Dictionary in trunks.get_road_metadata():
+  if road.kind == 1: highway_count += 1
+ if highway_count != towns.size() - 1:
+  push_error("La red troncal agregó un enlace redundante entre poblados")
+  errors += 1
  var export_paths: Array = []
  for road: Dictionary in metadata:
   var points: Array = []

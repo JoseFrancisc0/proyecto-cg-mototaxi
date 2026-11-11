@@ -13,6 +13,8 @@ extends Node3D
 
 var _groups := {}            # Mesh -> {"mmi": MultiMeshInstance3D, "grid": {Vector2i: PackedFloat32Array}}
 var _last := Vector3.INF
+var _pending: Array = []
+var _pending_index := 0
 var visible_count := 0       # árboles en los MultiMesh cercanos tras el último refresco
 
 
@@ -44,31 +46,44 @@ func _process(_delta: float) -> void:
 	if cam == null:
 		return
 	var p := cam.global_position
-	if p.distance_to(_last) > refresh_distance:
+	if not _last.is_finite() or p.distance_to(_last) > radius*.5:
 		refresh(p)
+	elif _pending_index >= _pending.size() and p.distance_to(_last) > refresh_distance:
+		_last = p
+		_pending = _groups.values()
+		_pending_index = 0
+	if _pending_index < _pending.size():
+		_refresh_group(_pending[_pending_index],_last)
+		_pending_index += 1
 
 
 ## Llena los MultiMesh cercanos con las plantas a menos de radius de p.
 func refresh(p: Vector3) -> void:
 	_last = p
-	visible_count = 0
+	_pending.clear()
+	_pending_index = 0
+	for group: Dictionary in _groups.values():
+		_refresh_group(group,p)
+
+func _refresh_group(group: Dictionary,p: Vector3) -> void:
 	var r_cells := ceili(radius / cell_size)
 	var c0 := Vector2i(floori(p.x / cell_size), floori(p.z / cell_size))
 	var r2 := radius * radius
-	for mesh in _groups:
-		var g: Dictionary = _groups[mesh]
-		var grid: Dictionary = g["grid"]
-		var out := PackedFloat32Array()
-		for dz in range(-r_cells, r_cells + 1):
-			for dx in range(-r_cells, r_cells + 1):
-				var arr: PackedFloat32Array = grid.get(c0 + Vector2i(dx, dz), PackedFloat32Array())
-				for i in range(0, arr.size(), 20):
-					var ddx := arr[i + 3] - p.x
-					var ddz := arr[i + 11] - p.z
-					if ddx * ddx + ddz * ddz < r2:
-						out.append_array(arr.slice(i, i + 20))
-		var mm: MultiMesh = (g["mmi"] as MultiMeshInstance3D).multimesh
-		mm.instance_count = out.size() / 20
-		if mm.instance_count > 0:
-			mm.buffer = out
-		visible_count += mm.instance_count
+	var grid: Dictionary = group["grid"]
+	var out := PackedFloat32Array()
+	for dz in range(-r_cells, r_cells + 1):
+		for dx in range(-r_cells, r_cells + 1):
+			var cell := c0 + Vector2i(dx, dz)
+			if not grid.has(cell):continue
+			var arr: PackedFloat32Array = grid[cell]
+			for i in range(0, arr.size(), 20):
+				var ddx := arr[i + 3] - p.x
+				var ddz := arr[i + 11] - p.z
+				if ddx * ddx + ddz * ddz < r2:
+					out.append_array(arr.slice(i, i + 20))
+	var mm: MultiMesh = (group["mmi"] as MultiMeshInstance3D).multimesh
+	visible_count-=mm.instance_count
+	var count := out.size()/20
+	if mm.instance_count!=count:mm.instance_count=count
+	if count>0:mm.buffer=out
+	visible_count+=count

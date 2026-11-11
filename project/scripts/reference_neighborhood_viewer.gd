@@ -37,7 +37,7 @@ func _ready() -> void:
 			button.pressed.connect(_set_view.bind(float(item[1]),float(item[2])))
 	var split:=HSplitContainer.new();split.split_offset=0;split.size_flags_vertical=Control.SIZE_EXPAND_FILL;layout.add_child(split)
 	var left:=VBoxContainer.new();left.custom_minimum_size.x=360;left.size_flags_horizontal=Control.SIZE_EXPAND_FILL;split.add_child(left)
-	var label:=Label.new();label.text="REFERENCIA INDIVIDUAL" if individual_houses else "FOTO REAL";label.add_theme_font_size_override("font_size",18);left.add_child(label)
+	var label:=Label.new();label.text="REFERENCIA DE CASA O ACABADO" if individual_houses else "FOTO REAL";label.add_theme_font_size_override("font_size",18);left.add_child(label)
 	_photo=TextureRect.new();_photo.name="FotoReal";_photo.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;_photo.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;_photo.size_flags_vertical=Control.SIZE_EXPAND_FILL;left.add_child(_photo)
 	_status=Label.new();_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;_status.add_theme_color_override("font_color",Color("e9bd70"));left.add_child(_status)
 	var note:=Label.new();note.text="Se muestra el edificio completo utilizado por el juego. Comprueba también laterales, espalda y cubierta. El parecido se revisa por separado de sus cierres y apoyos." if individual_houses else "La distribución de estas muestras se preparó para comparar las fotos. Los edificios también se usan en el mapa generado.";note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;note.add_theme_color_override("font_color",Color("aebac4"));left.add_child(note)
@@ -61,6 +61,7 @@ func _select(index: int) -> void:
 	if individual_houses:_block.build_house(item.model)
 	else:_block.build_reference(str(item.key))
 	_target=_block.camera_target;var offset:=_block.camera_position-_target;_radius=offset.length();_yaw=atan2(offset.x,offset.z);_pitch=asin(offset.y/_radius);_camera.fov=rad_to_deg(2*atan(tan(deg_to_rad(_block.camera_fov)*.5)*1.6))
+	if individual_houses and bool(item.model.get("graffiti_wall",false)):_yaw=PI*.5*int(item.model.get("graffiti_side",1));_pitch=.12
 	_photo.texture=load(str(item.photo)) if not str(item.photo).is_empty() else null
 	_picker.select(index)
 	if _photo.texture:_aspect.ratio=float(_photo.texture.get_width())/_photo.texture.get_height()
@@ -92,7 +93,11 @@ func _house_entries() -> Array:
 		if not photo.is_empty() and status=="Sin referencia individual asignada":status="Referencia de tipo; parecido pendiente"
 		var note:="Referencia: "+str(ref.get("title","pendiente"))+". Revisar proporciones, materiales y detalles; no aprobado como réplica."
 		if photo.is_empty():note="Pendiente de una referencia individual adecuada; no se sustituye por una fotografía general de barrio."
-		entries.append({"key":file.get_file().get_basename(),"model":model,"title":StopNames.REGIONS[int(model.region)]+" · "+style.replace("_"," ")+" · "+str(variant+1),"photo":photo,"status":status,"note":note})
+		if bool(model.get("graffiti_wall",false)):
+			photo="res://assets/houses/peru/"+str(model.graffiti_source);status="Acabado integrado en el muro"
+			note="Referencia de pared aportada por el usuario. El grafiti pertenece al material de la fachada, detrás de sus ventanas; no es una foto de referencia de la casa completa."
+		var suffix:=" · grafiti" if bool(model.get("graffiti_wall",false)) else ""
+		entries.append({"key":file.get_file().get_basename(),"model":model,"title":StopNames.REGIONS[int(model.region)]+" · "+style.replace("_"," ")+" · "+str(variant+1)+suffix,"photo":photo,"status":status,"note":note})
 	return entries
 
 func _orbit_input(event: InputEvent) -> void:

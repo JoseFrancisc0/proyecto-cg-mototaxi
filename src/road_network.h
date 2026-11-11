@@ -37,6 +37,8 @@ private:
 	void _generate_hierarchy(Ref<TerrainNoise> terrain, double area_half, Dictionary config);
 	void _add_road(const PackedVector3Array &path, int kind, const Dictionary &config);
 	void _round_path(Ref<TerrainNoise> terrain, PackedVector3Array &path, double spacing) const;
+	void _straighten_main_roads(Ref<TerrainNoise> terrain, size_t trunk_count, double spacing, double grade);
+	void _straighten_short_bends(Ref<TerrainNoise> terrain, PackedVector3Array &path, const std::vector<bool> &junctions, double spacing, double grade, bool corners_only = false) const;
 	void _grow_network(Ref<TerrainNoise> terrain, double area_half, const Dictionary &config, const std::vector<Vector2> &centers);
 	PackedVector3Array _find_path(Ref<TerrainNoise> terrain, Vector2 start, Vector2 goal, double area_half, double max_slope, const std::vector<double> *field, int field_n, double field_cell, double window = 0.0) const;
 

@@ -32,7 +32,7 @@ func configure(index: int) -> void:
 			var lens:=MeshInstance3D.new();var shape:=SphereMesh.new();shape.radius=width*.045;shape.height=shape.radius*2;shape.radial_segments=12;shape.rings=6;lens.mesh=shape
 			lens.position=Vector3(side*width*.34,height*(.31 if rear else .38),length*(-.51 if rear else .51));lens.scale=Vector3(1,.7,.3)
 			var material:=StandardMaterial3D.new();material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED;material.albedo_color=Color("ff3020") if rear else Color("fff1c9");material.emission_enabled=true;material.emission=material.albedo_color;material.emission_energy_multiplier=1.5;lens.material_override=material;add_child(lens);lenses.append(lens)
-		horn=AudioStreamPlayer3D.new();horn.stream=load("res://audio/world/horn.wav");horn.volume_db=-12 if kind<2 else -8;horn.pitch_scale=.9 if kind<2 else .62;horn.max_distance=65;add_child(horn)
+	horn=AudioStreamPlayer3D.new();horn.stream=load("res://audio/world/horn.wav");horn.volume_db=-4 if kind<2 else 0;horn.pitch_scale=.9 if kind<2 else .62;horn.max_distance=65;add_child(horn)
 	voice=AudioStreamPlayer3D.new();voice.volume_db=-10;voice.max_distance=38;add_child(voice)
 	message=Label3D.new();message.position=Vector3(0,height+.5,0);message.billboard=BaseMaterial3D.BILLBOARD_ENABLED;message.font_size=42;message.pixel_size=.008;message.outline_size=7;message.visible=false;add_child(message)
 	var route_anchor:=find_child("RouteAnchor",true,false) as Node3D

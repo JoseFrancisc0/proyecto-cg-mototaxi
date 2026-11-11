@@ -5,16 +5,16 @@ chunk; a shared content-addressed library avoids embedding the same maps in
 every building. Buffer views and accessor references are rebuilt explicitly.
 """
 from pathlib import Path
-import hashlib,json,struct
+import hashlib,json,struct,os
 
-def share(path):
+def share(path,texture_folder=None):
     raw=path.read_bytes();json_size=struct.unpack_from('<I',raw,12)[0]
     doc=json.loads(raw[20:20+json_size]);bin_start=20+json_size
     binary=raw[bin_start+8:]
     images=doc.get('images',[])
     embedded={image['bufferView'] for image in images if 'bufferView' in image}
     if not embedded:return 0
-    folder=path.parent/'shared_textures';folder.mkdir(exist_ok=True)
+    folder=texture_folder or path.parent/'shared_textures';folder.mkdir(exist_ok=True)
     views=doc['bufferViews']
     for image in images:
         if 'bufferView' not in image:continue
@@ -23,7 +23,8 @@ def share(path):
         extension={'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[image['mimeType']]
         name=hashlib.sha256(encoded).hexdigest()+extension
         target=folder/name
-        if not target.exists():target.write_bytes(encoded)
+        if not target.exists():
+            temporary=target.with_suffix(target.suffix+'.tmp');temporary.write_bytes(encoded);os.replace(temporary,target)
         image['uri']='shared_textures/'+name
     output=bytearray();mapping={};retained=[]
     for index,view in enumerate(views):

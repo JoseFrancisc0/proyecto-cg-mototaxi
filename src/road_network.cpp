@@ -429,7 +429,8 @@ void RoadNetwork::_generate_hierarchy(Ref<TerrainNoise> terrain, double half, Di
 		}
 	}
 	auto add = [&](PackedVector3Array path, int kind) { _add_road(path, kind, cfg); };
-	// Arbol conectado entre poblados y una conexion alternativa cuando hay tres o mas.
+	// Primero se conectan los poblados. Los enlaces opcionales se evalúan en
+	// _grow_network sobre los trazados reales, no sobre distancias en línea recta.
 	std::vector<bool> connected(centers.size(), false);
 	if (!centers.empty())
 		connected[0] = true;
@@ -453,47 +454,22 @@ void RoadNetwork::_generate_hierarchy(Ref<TerrainNoise> terrain, double half, Di
 			links.insert({ std::min(a, b), std::max(a, b) });
 		}
 	}
-	if (centers.size() > 2) {
-		const int towns = int(centers.size());
-		const double inf = std::numeric_limits<double>::infinity();
-		std::vector<std::vector<double>> network_dist(towns, std::vector<double>(towns, inf));
-		for (int i = 0; i < towns; i++)
-			network_dist[i][i] = 0;
-		for (const auto &[i, j] : links)
-			network_dist[i][j] = network_dist[j][i] = centers[i].distance_to(centers[j]);
-		for (int k = 0; k < towns; k++)
-			for (int i = 0; i < towns; i++)
-				for (int j = 0; j < towns; j++)
-					network_dist[i][j] = std::min(network_dist[i][j], network_dist[i][k] + network_dist[k][j]);
-		double best = -inf;
-		std::pair<int, int> extra(-1, -1);
-		for (int i = 0; i < towns; i++)
-			for (int j = i + 1; j < towns; j++)
-				if (!links.count({ i, j })) {
-					const double direct = centers[i].distance_to(centers[j]);
-					const double saved = network_dist[i][j] - direct;
-					if (saved > best) {
-						best = saved;
-						extra = { i, j };
-					}
-				}
-		if (extra.first >= 0)
-			links.insert(extra);
-	}
-	const double grade = double(cfg.get("road_max_grade", .16));
+	const double configured_grade = double(cfg.get("road_max_grade", .16));
+	const double grade = configured_grade > 0.0 ? configured_grade : .16;
 	for (auto link : links) {
-		auto path = _find_path(terrain, centers[link.first], centers[link.second], half, grade > 0.0 ? grade : .16, nullptr, 0, 1.0);
+		auto path = _find_path(terrain, centers[link.first], centers[link.second], half, grade, nullptr, 0, 1.0);
 		_round_path(terrain, path, spacing);
 		add(path, 1);
 	}
+	const size_t trunk_count = _roads.size();
 	// Pendiente 10, fase 2: red mas residencial (mas enlaces, cuadras, trochas).
 	if (bool(cfg.get("grow_network", true))) {
 		_grow_network(terrain, half, cfg, centers);
+		_straighten_main_roads(terrain, trunk_count, spacing, grade);
 		return;
 	}
 	// Only add a local street if it connects two roads through buildable ground.
 	// Mountain junctions keep their through routes instead of gaining dead-end spurs.
-	const size_t trunk_count = _roads.size();
 	for (const auto &c : centers) {
 		std::vector<Vector3> entrances;
 		for (size_t r = 0; r < trunk_count; r++) {
@@ -537,6 +513,7 @@ void RoadNetwork::_generate_hierarchy(Ref<TerrainNoise> terrain, double half, Di
 				}
 			}
 	}
+	_straighten_main_roads(terrain, trunk_count, spacing, grade);
 }
 
 void RoadNetwork::_add_road(const PackedVector3Array &path, int kind, const Dictionary &cfg) {
@@ -698,6 +675,132 @@ struct RoadGraph {
 };
 
 } // namespace
+
+void RoadNetwork::_straighten_main_roads(Ref<TerrainNoise> terrain, size_t trunk_count, double spacing, double grade) {
+	std::map<VertexKey, int> uses;
+	for (const auto &road : _roads)
+		for (const Vector3 &p : road.pts)
+			uses[vertex_key(p)]++;
+	for (size_t i = 0; i < trunk_count; i++) {
+		auto &road = _roads[i];
+		PackedVector3Array path;
+		std::vector<bool> junctions;
+		for (const Vector3 &p : road.pts) {
+			path.push_back(p);
+			junctions.push_back(uses[vertex_key(p)] > 1);
+		}
+		_straighten_short_bends(terrain, path, junctions, spacing, grade);
+		junctions.clear();
+		for (int j = 0; j < path.size(); j++) {
+			const auto used = uses.find(vertex_key(path[j]));
+			junctions.push_back(used != uses.end() && used->second > 1);
+		}
+		_straighten_short_bends(terrain, path, junctions, spacing, grade, true);
+		road.pts.clear();
+		road.h.clear();
+		for (int j = 0; j < path.size(); j++) {
+			road.pts.push_back(path[j]);
+			road.h.push_back(path[j].y);
+		}
+	}
+}
+
+void RoadNetwork::_straighten_short_bends(Ref<TerrainNoise> terrain, PackedVector3Array &path, const std::vector<bool> &junctions, double spacing, double grade, bool corners_only) const {
+	if (path.size() < 5)
+		return;
+	// Keep the same route corridor and endpoints. Replace a short detour only
+	// where it can connect smoothly within the existing cut/fill budget.
+	const auto flat = [](Vector3 p) { return Vector2(p.x, p.z); };
+	std::vector<double> distance(path.size(), 0.0);
+	for (int i = 1; i < path.size(); i++)
+		distance[i] = distance[i - 1] + flat_distance(path[i - 1], path[i]);
+	const double total = distance.back();
+	const double climb = std::abs(path[path.size() - 1].y - path[0].y);
+	double available = total - std::min(total * .94, climb / grade);
+	auto alignment = [&](Vector3 a, Vector3 b, Vector2 incoming, Vector2 outgoing, double t) {
+		const double handle = flat_distance(a, b) * .24;
+		const double u = 1.0 - t;
+		const Vector2 center = flat(a) * (u * u * (1 + 2 * t)) + flat(b) * (t * t * (1 + 2 * u)) +
+				(incoming * u - outgoing * t) * (3 * t * u * handle);
+		return Vector3(center.x, a.y + (b.y - a.y) * t, center.y);
+	};
+	PackedVector3Array result;
+	result.push_back(path[0]);
+	for (int start = 0; start + 1 < path.size();) {
+		int end = start + 1;
+		double best_saved = 0.0;
+		const Vector3 a = path[start];
+		Vector2 best_incoming, best_outgoing;
+		bool sharp_corner = false;
+		for (int j = start + 1; j < path.size(); j++) {
+			if (j > start + 1 && junctions[j - 1])
+				break;
+			const Vector3 b = path[j];
+			const double run = distance[j] - distance[start];
+			if (run > (corners_only ? 34.0 : 52.0) || sample_water(b.x, b.z) > 0)
+				break;
+			if (corners_only && j > start + 1) {
+				const Vector2 before = flat(path[j - 1]) - flat(path[j - 2]);
+				const Vector2 after = flat(b) - flat(path[j - 1]);
+				sharp_corner |= before.normalized().dot(after.normalized()) < .76;
+				if (!sharp_corner)
+					continue;
+			} else if (corners_only) {
+				continue;
+			}
+			const double chord = flat_distance(a, b);
+			const double saved = run - chord;
+			if (chord < 9.0 || saved < std::max(1.5, .08 * run) || saved <= best_saved || saved > available ||
+					distance[start] < 14.0 || total - distance[j] < 14.0 || sample_water(a.x, a.z) > 0)
+				continue;
+			const Vector2 direction = (flat(b) - flat(a)).normalized();
+			const Vector2 incoming = start > 0 ? (flat(a) - flat(result[result.size() - 2])).normalized() : direction;
+			const Vector2 outgoing = j + 1 < path.size() ? (flat(path[j + 1]) - flat(b)).normalized() : direction;
+			const double alignment_limit = corners_only ? .53 : .65;
+			if (incoming.dot(direction) < alignment_limit || outgoing.dot(direction) < alignment_limit)
+				continue;
+			double earthwork = 0.0;
+			double deviation = 0.0;
+			for (int k = start + 1; k < j; k++) {
+				const double walked = distance[k] - distance[start];
+				earthwork = std::max(earthwork, std::abs(path[k].y - (a.y + (b.y - a.y) * walked / run)));
+				const Vector2 rel = flat(path[k]) - flat(a);
+				deviation = std::max(deviation, double(rel.distance_to(direction * std::clamp(double(rel.dot(direction)), 0.0, chord))));
+			}
+			if (deviation > 9.0)
+				continue;
+			const int samples = int(std::ceil(chord / std::min(spacing, 1.5)));
+			bool buildable = true;
+			for (int k = 1; k < samples; k++) {
+				const Vector3 p = alignment(a, b, incoming, outgoing, double(k) / samples);
+				if (sample_water(p.x, p.z) > 0 ||
+						std::abs(sample_height(terrain, p.x, p.z) - p.y) > std::clamp(earthwork + 2.0, 5.0, 10.0)) {
+					buildable = false;
+					break;
+				}
+			}
+			if (buildable) {
+				end = j;
+				best_saved = saved;
+				best_incoming = incoming;
+				best_outgoing = outgoing;
+			}
+		}
+		const Vector3 b = path[end];
+		if (end > start + 1) {
+			const int samples = int(std::ceil(flat_distance(a, b) / spacing));
+			for (int k = 1; k < samples; k++) {
+				Vector3 p = alignment(a, b, best_incoming, best_outgoing, double(k) / samples);
+				p.y = sample_height(terrain, p.x, p.z);
+				result.push_back(p);
+			}
+			available -= best_saved;
+		}
+		result.push_back(b);
+		start = end;
+	}
+	path = result;
+}
 
 // Pendiente 10, fase 2. Sobre las carreteras entre pueblos agrega:
 //  2a. enlaces que ahorran mucho rodeo (pueblo-pueblo y pueblo-via), solo si el trazo no es

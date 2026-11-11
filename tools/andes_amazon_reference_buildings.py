@@ -31,7 +31,7 @@ def wedge_room(x,y,z,w,d,h0,h1,mat):
 def huayoccari_reference(v,w,d):
     global wall
     stone=materials['sierra'][5 if v%2==0 else 3]
-    timber=materials['selva'][0 if v%2==0 else 4]
+    timber=honey_wood
     frame=material('Carpinteria Huayoccari',color=rgb('503e2c'))
     wall=stone;base=.22;level=2.75
     box('Basamento de piedra',(0,0,.16),(w+.15,d+.15,.32),stone)
@@ -53,7 +53,19 @@ def huayoccari_reference(v,w,d):
         ww=w*.25 if j==1 else w*.20
         h0=.50 if j==1 and v==0 else 1.4;h1=2.55 if j==1 else 2.1
         wedge_room(x,-d*.18,base+level,ww,d*.56,h0,h1,timber)
-        window(x+ww*.18,-d*.46-.04,base+level+1.30,ww*.47,1.65,False,frame,4,reference_dark_glass)
+        # The glazing follows the asymmetric roof instead of poking through
+        # the low corner of the wedge as a rectangular window did.
+        y=-d*.46-.045;floor=base+level;margin=.16
+        left=x-ww*.5+margin;right=x+ww*.5-margin;bottom=floor+.22
+        top_left=floor+h0+(h1-h0)*margin/ww-.15
+        top_right=floor+h1-(h1-h0)*margin/ww-.15
+        points=[(left,y,bottom),(right,y,bottom),(right,y,top_right),(left,y,top_left)]
+        polygon('Vidrio ajustado a cubierta inclinada',points,reference_dark_glass)
+        edges=[(points[k],points[(k+1)%4],.035) for k in range(4)]
+        for t in [.33,.66]:
+            xx=left+(right-left)*t;top=top_left+(top_right-top_left)*t
+            edges.append(((xx,y-.025,bottom),(xx,y-.025,top),.022))
+        rail_segments('Carpinteria de cubierta inclinada',edges,frame)
     box('Alero de madera continuo',(0,-d*.5-.20,base+level+.02),(w+.35,.62,.15),timber)
     box('Chimenea de piedra',(-w*.44,d*.20,base+level+1.1),(.67,.75,2.2),stone)
     for j in range(4):box('Grada de acceso',(w*.12,-d*.5-.35-j*.32,base-.055-j*.055),(2.1,.38,.11),stone)
@@ -112,17 +124,33 @@ def tropical_gallery_reference(v,w,d):
     box('Piso de galeria',(0,-.20,base+level+.04),(w+.55,d+.55,.18),timber)
     box('Habitaciones de madera',(0,d*.18,base+level+1.18),(w*.86,d*.65,2.36),timber)
     for x in [-w*.26,w*.26]:window(x,-d*.145-.03,base+level+1.30,w*.30,1.65,False,frame,4,reference_curtain)
+    door(0,-d*.145-.04,base+level+.13,frame,w=1.05,h=2.20,kind=1)
     # Open veranda in front of enclosed rooms, with complete corner returns.
     top=base+level+2.7
-    for x in [-w*.47,0,w*.47]:pole('Pilar de galeria',(x,-d*.5-.25,base+level),(x,-d*.5-.25,top),.075,frame)
-    for x in [-w*.47,w*.47]:pole('Pilar lateral',(x,d*.45,base+level),(x,d*.45,top),.075,frame)
+    def ceiling(x,y):return top+.95*(1-abs(x)/(w*.5+.6))-.06 if v%2 else top+.20+math.sin(.075)*y-.08
+    for x in [-w*.47,0,w*.47]:pole('Pilar de galeria',(x,-d*.5-.25,base+level),(x,-d*.5-.25,ceiling(x,-d*.5-.25)),.075,frame)
+    for x in [-w*.47,w*.47]:pole('Pilar lateral',(x,d*.45,base+level),(x,d*.45,ceiling(x,d*.45)),.075,frame)
     perimeter_rail(outline(w+.12,d+.18,.06),base+level+.13,frame)
     if v%2:
         wall=timber;gable(w+.6,d+.7,top,.95,materials['selva'][8+v%2])
+        box('Cierre superior de habitaciones',(0,d*.18,(base+level+2.36+top)*.5),(w*.86,d*.65,top-(base+level+2.36)),timber)
+        box('Cielo de galeria cerrado',(0,0,top-.06),(w+.6,d+.7,.12),timber)
     else:
         roof=box('Gran cubierta tropical',(0,0,top+.20),(w+1.6,d+2.0,.16),materials['selva'][8+v%2]);roof.rotation_euler.x=.075
-    for x in [-w*.46,0,w*.46]:pole('Viga de alero',(x,-d*.5-1,top+.13),(x,d*.5+.8,top+.13),.065,frame)
+        soffit=box('Cielo inclinado de galeria',(0,0,top+.09),(w+1.6,d+2.0,.06),timber);soffit.rotation_euler.x=.075
+        # Complete the occupied rooms up to the sloping soffit. The veranda
+        # remains open above its rail, while its rooms and roof have no slit.
+        low=base+level+2.36;y0=-d*.145;y1=d*.505
+        z0=ceiling(0,y0)-.06;z1=ceiling(0,y1)-.06
+        vertices=[(-w*.43,y0,low),(w*.43,y0,low),(w*.43,y1,low),(-w*.43,y1,low),(-w*.43,y0,z0),(w*.43,y0,z0),(w*.43,y1,z1),(-w*.43,y1,z1)]
+        mesh=bpy.data.meshes.new('Remate de habitaciones bajo cubierta');mesh.from_pydata(vertices,[],[(0,3,2,1),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7),(4,5,6,7)]);mesh.update()
+        obj=bpy.data.objects.new('Remate de habitaciones bajo cubierta',mesh);bpy.context.collection.objects.link(obj);obj.data.materials.append(timber)
+    for x in [-w*.46,0,w*.46]:pole('Viga de alero',(x,-d*.5-1,ceiling(x,-d*.5-1)),(x,d*.5+.8,ceiling(x,d*.5+.8)),.065,frame)
     if v in [0,2]:
-        for x,size in [(-w*.33,w*.33),(w*.32,w*.35)]:box('Muro de acceso',(x,-d*.5-1.4,.90),(size,.18,1.8),wall if v==2 else materials['costa'][0])
-        door(0,-d*.5-1.45,.12,frame,w=1.15,h=1.8,kind=1)
+        boundary=-d*.5-1.4;gate_half=1.15*.5+.09
+        boundary_material=wall if v==2 else materials['costa'][0]
+        for a,b in [(-w*.5,-gate_half),(gate_half,w*.5)]:box('Muro de acceso unido a porton',((a+b)*.5,boundary,.90),(b-a,.20,1.8),boundary_material)
+        for sign in [-1,1]:box('Retorno cerrado de jardin',(sign*(w*.5-.10),-d*.5-.70,.90),(.20,1.4,1.8),boundary_material)
+        box('Paso entre porton y puerta',(0,-d*.5-.70,.06),(1.35,1.4,.12),materials['costa'][10])
+        door(0,boundary-.05,.12,frame,w=1.15,h=1.8,kind=1)
     rear_windows(w,d,1.6,joinery[2],2)

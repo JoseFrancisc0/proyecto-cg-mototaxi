@@ -2,7 +2,6 @@ class_name DriverStudio
 extends VBoxContainer
 ## Selección de foto completa y generación asíncrona del conductor; nunca se recorta a un cuadrado.
 var photo_picker: FileDialog
-var model_picker: FileDialog
 var status_label: Label
 var progress: ProgressBar
 var photo_preview: TextureRect
@@ -13,6 +12,7 @@ var generate_button: Button
 var use_button: Button
 var _pid := -1
 var _job_folder := ""
+var _photo_changed_during_job := false
 var _draft_path := ""
 var _last_stage := ""
 var _poll := 0.0
@@ -26,7 +26,7 @@ func _ready() -> void:
 	title.add_theme_color_override("font_color",Color("ffdb38"))
 	add_child(title)
 	var hint := Label.new()
-	hint.text = "Reconstruye cuerpo y vestimenta desde una foto de cuerpo entero. Usa una pose de frente con brazos separados. Las fotos parciales quedan como referencia; esta versión aún no completa esas partes con la misma calidad."
+	hint.text = "Para generar el conductor, elige una foto de cuerpo entero, de frente y con los brazos separados del torso."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size",14)
 	add_child(hint)
@@ -86,21 +86,8 @@ func _ready() -> void:
 	photo_picker.filters = PackedStringArray(["*.jpg,*.jpeg,*.png,*.webp ; Fotografía"])
 	photo_picker.file_selected.connect(import_photo)
 	add_child(photo_picker)
-	model_picker = FileDialog.new()
-	model_picker.access = FileDialog.ACCESS_FILESYSTEM
-	model_picker.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	model_picker.use_native_dialog = true
-	model_picker.filters = PackedStringArray(["*.glb ; Personaje 3D articulado"])
-	model_picker.file_selected.connect(import_model)
-	add_child(model_picker)
 	_button("Elegir foto de referencia…",func(): photo_picker.popup_centered_ratio(.8))
 	generate_button = _button("Transformar foto en personaje 3D",generate)
-	var note := Label.new()
-	note.text = "Gratis y local con PIFuHD: no envía la foto ni consume créditos. Reconstruye el volumen de la persona y la ropa. La espalda es estimada. Necesita el generador instalado y tarjeta gráfica."
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.add_theme_font_size_override("font_size",12)
-	add_child(note)
-	_button("Importar un personaje GLB ya generado…",func(): model_picker.popup_centered_ratio(.8))
 	use_button = _button("Usar este conductor",apply_model)
 	use_button.disabled = true
 	progress = ProgressBar.new()
@@ -111,7 +98,6 @@ func _ready() -> void:
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.add_theme_font_size_override("font_size",14)
 	add_child(status_label)
-	status_label.text = "El personaje se coloca al volante; no cambia a tus pasajeros."
 	if FileAccess.file_exists(DriverAvatar.PHOTO_PATH):
 		var image := Image.load_from_file(DriverAvatar.PHOTO_PATH)
 		if image: photo_preview.texture = ImageTexture.create_from_image(image)
@@ -130,14 +116,22 @@ func _button(text: String, action: Callable) -> Button:
 	return button
 
 func import_photo(path: String) -> void:
-	if _pid>0 and OS.is_process_running(_pid): return
 	var file := FileAccess.open(path,FileAccess.READ)
 	if file==null or file.get_length()>12*1024*1024:
 		status_label.text = "Usa una imagen de hasta 12 MB."
 		return
-	var image := Image.load_from_file(path)
-	if image==null or mini(image.get_width(),image.get_height())<80:
-		status_label.text = "No se pudo leer la foto o es demasiado pequeña."
+	var bytes := file.get_buffer(file.get_length())
+	var image := Image.new()
+	var decoded := ERR_FILE_UNRECOGNIZED
+	# Downloaded photos can carry an extension that differs from their format.
+	if bytes.size() >= 12 and bytes.slice(0,4).get_string_from_ascii()=="RIFF" and bytes.slice(8,12).get_string_from_ascii()=="WEBP":
+		decoded = image.load_webp_from_buffer(bytes)
+	elif bytes.size() >= 8 and bytes.slice(0,8)==PackedByteArray([137,80,78,71,13,10,26,10]):
+		decoded = image.load_png_from_buffer(bytes)
+	elif bytes.size() >= 3 and bytes[0]==255 and bytes[1]==216 and bytes[2]==255:
+		decoded = image.load_jpg_from_buffer(bytes)
+	if decoded!=OK or image.is_empty():
+		status_label.text = "No se pudo abrir la imagen."
 		return
 	if maxi(image.get_width(),image.get_height())>3072:
 		var factor := 3072.0/maxi(image.get_width(),image.get_height())
@@ -147,25 +141,36 @@ func import_photo(path: String) -> void:
 		status_label.text = "No se pudo guardar la referencia."
 		return
 	photo_preview.texture = ImageTexture.create_from_image(image)
-	status_label.text = "Foto completa cargada. Genera el personaje para conservar rostro y vestimenta."
+	_draft_path = ""
+	_photo_changed_during_job = _pid>0
+	status_label.text = "Nueva foto cargada. Podrás generar el conductor cuando termine el proceso anterior." if _photo_changed_during_job else "Foto cargada. Puedes generar el conductor."
 	use_button.disabled = true
 
 func generate() -> void:
+	if _pid>0: return
 	if not FileAccess.file_exists(DriverAvatar.PHOTO_PATH):
 		import_photo(ProjectSettings.globalize_path("res://assets/driver/photo.png"))
 		if not FileAccess.file_exists(DriverAvatar.PHOTO_PATH): return
 	var helper := ProjectSettings.globalize_path("res://../tools/create_driver.mjs")
 	if not FileAccess.file_exists(helper):
-		status_label.text = "Esta instalación no incluye el generador. Puedes importar el personaje GLB."
+		status_label.text = "La generación de personajes no está disponible en esta instalación."
 		return
-	_job_folder = ProjectSettings.globalize_path(DriverAvatar.FOLDER+"generation_%d" % Time.get_unix_time_from_system())
+	if mini(photo_preview.texture.get_width(),photo_preview.texture.get_height())<80:
+		status_label.text = "Para generar el conductor, elige una imagen de al menos 80 × 80 píxeles."
+		return
+	_job_folder = ProjectSettings.globalize_path(DriverAvatar.FOLDER+"generation_%d_%d" % [Time.get_unix_time_from_system(),Time.get_ticks_usec()])
 	DirAccess.make_dir_recursive_absolute(_job_folder)
-	_pid = OS.create_process("node",PackedStringArray([helper,ProjectSettings.globalize_path(DriverAvatar.PHOTO_PATH),_job_folder]),false)
+	var input_path := _job_folder.path_join("input.png")
+	if DirAccess.copy_absolute(ProjectSettings.globalize_path(DriverAvatar.PHOTO_PATH),input_path)!=OK:
+		status_label.text = "No se pudo preparar la foto para la generación."
+		return
+	_photo_changed_during_job = false
+	_pid = OS.create_process("node",PackedStringArray([helper,input_path,_job_folder]),false)
 	if _pid<0:
 		status_label.text = "No se pudo iniciar el generador local. Revisa que Node y Blender estén instalados."
 		return
 	generate_button.disabled = true
-	status_label.text = "Iniciando generación; puedes dejar este panel abierto."
+	status_label.text = "Generando el personaje…"
 
 func import_model(path: String) -> void:
 	if _pid>0 and OS.is_process_running(_pid): return
@@ -216,6 +221,14 @@ func _process(delta: float) -> void:
 	_poll += delta
 	if _poll<.5: return
 	_poll = 0
+	if _photo_changed_during_job:
+		if not OS.is_process_running(_pid):
+			_pid = -1
+			_photo_changed_during_job = false
+			generate_button.disabled = false
+			progress.value = 0
+			status_label.text = "Foto cargada. Puedes generar el conductor."
+		return
 	var path := _job_folder.path_join("status.json")
 	if FileAccess.file_exists(path):
 		var data = JSON.parse_string(FileAccess.get_file_as_string(path))

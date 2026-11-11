@@ -1,4 +1,4 @@
-"""72 reference-led buildings, six recognizable district families per region."""
+"""76 reference-led buildings with individually studied houses and closed envelopes."""
 from pathlib import Path
 import json,math,random
 ROOT=Path(__file__).resolve().parent.parent
@@ -70,6 +70,7 @@ def modern_volume(w,d,top,v,region):
     box('Alero en voladizo',(-w*.1,-d*.12,top+1.98),(w*.85,d*.85,.15),white)
     for k in range(9):box('Celosia de acceso',(w*.33,-d*.5-.20,.8+k*.19),(w*.18,.14,.07),wood if region!='costa' else iron)
 exec((ROOT/'tools/house_envelope.py').read_text(encoding='utf8'),globals())
+exec((ROOT/'tools/house_wall_finishes.py').read_text(encoding='utf8'),globals())
 exec((ROOT/'tools/regional_facade_components.py').read_text(encoding='utf8'),globals())
 exec((ROOT/'tools/reference_facades.py').read_text(encoding='utf8'),globals())
 exec((ROOT/'tools/coastal_reference_buildings.py').read_text(encoding='utf8'),globals())
@@ -82,17 +83,32 @@ from share_gltf_textures import share as share_textures
 _export=export
 house_metadata={}
 def export(key):
+    global OUT
     count=[2,2,2,1][v] if style=='barrio' else 2 if style=='iquitos' and v==0 else floors
     if style not in ['miraflores','jardin','valle_sagrado','andina_ladera','tarapoto','tropical_actual','casa_moderna','andina_actual']:back_and_corner_elevations(style,v,w,d,base,level,count)
+    finishes=graffiti_wall_finish(style,v)
     house_metadata[key]=finalize_house(key,w,d)
+    house_metadata[key].update(finishes)
     if raised:
-        house_metadata[key]['approach']=[0,.06,d*.5+.28*math.ceil(base/.18)+.25]
+        house_metadata[key]['approach']=[0,.06,d*.5+1.5+.28*math.ceil(base/.18)+.25]
     bpy.context.view_layer.update()
     bottom=min((o.matrix_world@Vector(c)).z for o in bpy.context.scene.objects if o.type=='MESH' for c in o.bound_box)
     if bottom<-.30:raise ValueError(f'{key}: geometry below its foundation ({bottom:.3f} m)')
-    height=_export(key)
-    repair_paint(OUT/(key+'.glb'))
-    share_textures(OUT/(key+'.glb'))
+    # Do not expose an embedded/intermediate GLB to an open Godot editor.
+    # Publish only the checked, compact final file in one atomic replacement.
+    import os,time
+    destination=OUT/(key+'.glb');library_folder=OUT/'shared_textures';original_out=OUT
+    staging=ROOT/'tools/.worldgen/house_export';staging.mkdir(parents=True,exist_ok=True)
+    try:
+        OUT=staging;height=_export(key)
+    finally:OUT=original_out
+    ready=staging/(key+'.glb')
+    repair_paint(ready);share_textures(ready,library_folder)
+    for attempt in range(40):
+        try:os.replace(ready,destination);break
+        except OSError:
+            if attempt==39:raise
+            time.sleep(.25)
     return height
 
 districts={
@@ -173,7 +189,16 @@ for region,families in districts.items():
                 n=math.ceil(base/.18)
                 for j in range(n):
                     h=base*(n-j)/n
-                    box('Escalera apoyada',(0,-d*.5-.14-j*.28,h*.5),(1.25,.285,h),mats[3])
+                    box('Escalera apoyada',(0,-d*.5-1.64-j*.28,h*.5),(1.25,.285,h),mats[3])
+                box('Piso cerrado de galeria',(0,-d*.5-.75,base-.08),(w+.10,1.5,.16),mats[3])
+                for x in [-w*.43,w*.43]:pole('Pilote de galeria',(x,-d*.5-1.30,0),(x,-d*.5-1.30,base),.10,mats[3])
+                segments=[];front_y=-d*.5-1.5
+                for a,b in [((-w*.5,front_y),(-.66,front_y)),((.66,front_y),(w*.5,front_y)),((-w*.5,front_y),(-w*.5,-d*.5)),((w*.5,front_y),(w*.5,-d*.5))]:
+                    segments.append(((a[0],a[1],base+1.05),(b[0],b[1],base+1.05),.035))
+                    count=max(1,math.ceil((Vector(a)-Vector(b)).length/.12))
+                    for k in range(count+1):
+                        p=Vector(a).lerp(Vector(b),k/count);segments.append(((p.x,p.y,base+.10),(p.x,p.y,base+1.04),.015))
+                rail_segments('Proteccion completa de galeria',segments,joinery[0])
             else:box('Zocalo',(0,0,.13),(w,d,.26),cement if region==0 else mats[5] if region==1 else mats[13])
             for f in range(floors):
                 z=base+f*level
@@ -184,7 +209,8 @@ for region,families in districts.items():
                 box('Muro principal',(0,0,z+level*.5),(floor_w,d,level),floor_wall)
                 if style in ['barrio','andina_urbana','andina_ladera']:
                     concrete=mats[10+v%3] if region==0 else cement
-                    for x in [-floor_w*.5,floor_w*.5]:box('Columna de concreto',(x,0,z+level*.5),(.18,d+.025,level),concrete)
+                    for x in [-floor_w*.5,floor_w*.5]:
+                        for y in [-d*.5,d*.5]:box('Columna de concreto',(x,y,z+level*.5),(.18,.18,level),concrete)
                     box('Viga',(0,0,z+level),(floor_w+.03,d+.03,.13),cement)
                 count=3 if style=='iquitos' else 2 if style=='andina_actual' else 2 if v%2==0 else 3
                 for j in range(count):
@@ -200,7 +226,8 @@ for region,families in districts.items():
                     carp=joinery[0] if style=='san_blas' else joinery[(v+j+family)%6] if zone=='tradicional' else joinery[0] if region==2 else joinery[2] if v%2 else iron
                     if style=='invasion':carp=iron;kind=2
                     opening_w=min(1.6,floor_w*.25) if f==0 and count==2 else min(1.35,floor_w/(count+1.6)) if style=='invasion' else floor_w/(count+1.6)
-                    window(x,-d*.5-.035,z+level*.59,opening_w,1.0 if style=='invasion' else 1.75 if style=='iquitos' else 1.1 if style=='adobe' else 1.45 if style=='barranco' else 1.25,zone in ['popular','ladera'],carp,kind)
+                    if style=='san_blas':opening_w=min(1.15,opening_w)
+                    window(x,-d*.5-.035,z+level*.59,opening_w,1.55 if style=='san_blas' else 1.0 if style=='invasion' else 1.75 if style=='iquitos' else 1.1 if style=='adobe' else 1.45 if style=='barranco' else 1.25,zone in ['popular','ladera'],carp,kind)
                 if f==0:door(0,-d*.5-.15,z,joinery[4] if style=='san_blas' else iron if zone in ['popular','ladera','moderna'] and region==0 else joinery[(v+family)%6],w=1.0 if v%2==0 else 1.35,h=2.5 if style=='iquitos' else 2.1,kind=(v%2)*3 if zone in ['popular','ladera','moderna'] else (v+family)%5)
                 if style=='andina_actual':
                     for x in [-w*.47,w*.47]:box('Marco de madera',(x,-d*.5-.14,z+1.3),(.12,.16,2.6),wood)
@@ -243,7 +270,7 @@ for region,families in districts.items():
             used={m.name for o in bpy.context.scene.objects if o.type=='MESH' for m in o.data.materials}
             height=export(key)
             entry=dict(file='peru/'+key+'.glb',region=region,height=height,yaw=0.0,style=style,zones=[zone],frontage=w,roof='pitched' if region else 'flat',material_ids=[m['id'] for m in library if m['region']==label and m['id'] in used])
-            if raised:entry['supports']=[[x,0,-y] for x in [-w*.43,0,w*.43] for y in [-d*.43,0,d*.43]]
+            if raised:entry['supports']=[[x,0,-y] for x in [-w*.43,0,w*.43] for y in [-d*.43,0,d*.43]]+[[x,0,d*.5+1.30] for x in [-w*.43,w*.43]]
             catalog.append(entry)
 for entry in catalog:entry.update(house_metadata.get(Path(entry['file']).stem,{}))
 (OUT/'catalog.json').write_text(json.dumps(catalog,indent=2),encoding='utf8')

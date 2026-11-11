@@ -90,6 +90,7 @@ const Generator = preload("res://scripts/chunk_mesh.gd")
 @export var landmark_spacing := 60.0
 
 var road_layout: PeruRoadLayout
+var native_road_surface: NativeRoadSurface
 var water_system: PeruWaterSystem
 var _roads_override: Array=[]
 var _regional_towns:=PackedVector3Array()
@@ -227,11 +228,8 @@ func _configure_generator() -> void:
 	generator.erosion_iteration_scale = erosion_scale
 	generator.retarget_enabled = retarget_enabled
 	generator.road_max_grade = road_max_grade
-	# Balanced regional territory and inhabitable Andean valleys between the peaks.
-	generator.biome_bias=Vector3(.25,.50,.25)
-	generator.region_patches=8
-	generator.transition_width=.22
-	generator.mountain_amplitude=55.0
+	# Width is part of CG rasterization, never widened afterwards over slopes.
+	generator.avenue_width = 12.6
 	for key in generator_overrides:
 		generator.set(key, generator_overrides[key])
 
@@ -289,12 +287,13 @@ func _finish_generate_async() -> void:
 func _collect_surface() -> bool:
 	_build_road_index()
 	_surface = generator.last_surface
-	# Start from the eroded ground, before native road rasterization/breaching.
-	# The shared river/road pass below owns grading once, including collision.
-	_heights = _surface.get_ground_heights() if _surface else PackedFloat32Array()
+	# Keep CG's final curves, junctions, grading and bridge approaches.
+	_heights = _surface.get_surface_heights() if _surface else PackedFloat32Array()
 	if _heights.size() != _n * _n:
 		push_error("TerrainWorld: el generador no devolvió alturas (%d de %d)" % [_heights.size(), _n * _n])
 		return false
+	native_road_surface=NativeRoadSurface.new()
+	native_road_surface.capture(self)
 	return true
 
 
@@ -329,6 +328,7 @@ func _copy_editor_scene() -> bool:
 	add_child(generator)  # _ready aplica los parámetros guardados en terrain_snapshot.
 	# Opciones del juego encima de las del editor.
 	generator.road_max_grade = road_max_grade
+	generator.avenue_width = 12.6
 	for key in generator_overrides:
 		generator.set(key, generator_overrides[key])
 	grid_size = generator.grid_size
@@ -643,7 +643,7 @@ func _build_collision() -> void:
 	if _bridge_body != null:
 		_bridge_body.queue_free()
 		_bridge_body = null
-	var bridges: Mesh = null if is_instance_valid(road_layout) else _surface.get_bridge_mesh()
+	var bridges: Mesh = _surface.get_bridge_mesh()
 	if bridges != null and bridges.get_surface_count() > 0:
 		_bridge_body = StaticBody3D.new()
 		_bridge_body.name = "BridgeBody"
@@ -758,7 +758,10 @@ func _build_landmarks() -> void:
 			extra.append({"label": f["label"], "feature": f["position"]})
 	var towns := get_town_centers()
 	for t in towns.size():
-		points.push_front(towns[t])
+		var town := towns[t]
+		if is_instance_valid(road_layout):
+			town = road_layout.trimmed_ends.get(Vector2(town.x,town.z),town)
+		points.push_front(town)
 		types.push_front("pueblo")
 		extra.push_front({"town": t})
 	# Lugares de la red que piden un tipo de parada (cuadras, cruces, trochas, orillas).
@@ -1108,11 +1111,12 @@ func _build_water_system() -> void:
 	water_system=PeruWaterSystem.new()
 	add_child(water_system)
 	water_system.build(self)
+	native_road_surface.restore_after_water(self)
 
 func _build_peru_roads() -> void:
 	road_layout=PeruRoadLayout.new()
 	add_child(road_layout)
-	road_layout.build(self,PeruRegionalSettlements.extend(self,generator.last_roads.get_road_metadata()))
+	road_layout.build(self,PeruRegionalSettlements.extend(self,native_road_surface.roads))
 	water_system._apply_displacement()
 	if generator.material_override is ShaderMaterial:generator._update_height_map(generator.material_override,_heights)
 	if not chunks_enabled and generator.mesh:generator.mesh=_conform_chunk(generator.mesh,_n*_n)
@@ -1122,7 +1126,10 @@ func _build_peru_roads() -> void:
 	road_layout.add_child(bridges)
 	bridges.build(self)
 	var native_bridge:=generator.get_node_or_null("PuentesGenerados")
-	if native_bridge:native_bridge.visible=false
+	if native_bridge:
+		native_bridge.visible=true
+		native_bridge.mesh=native_road_surface.lit_deck_mesh(native_bridge.mesh,generator.mesh,self)
+		native_bridge.material_override=generator.material_override
 
 func is_water(x: float,z: float) -> bool:
 	return is_instance_valid(water_system) and not water_system.water_at(x,z).is_empty()

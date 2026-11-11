@@ -95,14 +95,21 @@ def iquitos_reference(w,d):
     simple_roof(w,d,top,cement)
 
 def diamond_grilles(w,d,base,level,floors,v):
-    # San Blas reference: teal diagonal ironwork over brown timber joinery.
+    # Use the actual openings, including the reserved door bay. Recomputing a
+    # second window layout displaced grilles towards the door and outside frames.
     teal=joinery[3]
-    count=2
-    for f in range(floors):
-        z=base+f*level+level*.59
-        for j in range(count):
-            x=(j-.5)*w/(count+.5);ww=w/(count+1.6);hh=1.25
-            for k in range(3):
-                cz=z-hh*.33+k*hh*.33
-                pts=[(x,-d*.5-.30,cz+hh*.30),(x+ww*.43,-d*.5-.30,cz),(x,-d*.5-.30,cz-hh*.30),(x-ww*.43,-d*.5-.30,cz)]
-                for n in range(4):pole('Reja romboidal',pts[n],pts[(n+1)%4],.012,teal)
+    bpy.context.view_layer.update()
+    for anchor in [o for o in bpy.context.scene.objects if o.get('opening_kind')=='window']:
+        if abs(anchor.location.y+d*.5)>.15:continue
+        x,y,z=anchor.location;hw=anchor['width']*.5-.065;hh=anchor['height']*.5-.065
+        depth=y-.205;segments=[]
+        corners=[(x-hw,depth,z-hh),(x+hw,depth,z-hh),(x+hw,depth,z+hh),(x-hw,depth,z+hh)]
+        for j in range(4):segments.append((corners[j],corners[(j+1)%4],.014))
+        for slope in [-1.15,1.15]:
+            count=math.ceil((hh+abs(slope)*hw)*2/.34)
+            for j in range(count+1):
+                c=-hh-abs(slope)*hw+j*.34
+                bounds=sorted([(-hh-c)/slope,(hh-c)/slope]);a=max(-hw,bounds[0]);b=min(hw,bounds[1])
+                if b-a<.025:continue
+                segments.append(((x+a,depth,z+slope*a+c),(x+b,depth,z+slope*b+c),.008))
+        rail_segments('Reja romboidal ajustada al marco',segments,teal)

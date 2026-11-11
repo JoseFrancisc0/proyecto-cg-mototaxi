@@ -7,6 +7,8 @@ func _run() -> void:
 	var viewer: Control=load("res://scenes/house_study_viewer.tscn").instantiate();root.add_child(viewer)
 	var views: Array=[["frente",0.0,.08],["izquierda",-PI*.5,.12],["derecha",PI*.5,.12],["atras",PI,.12],["arriba",.6,1.1]]
 	for index in viewer._entries.size():
+		var requested:=OS.get_cmdline_user_args()
+		if not requested.is_empty() and not str(viewer._entries[index].model.style) in requested:continue
 		viewer._select(index)
 		var key: String=viewer._entries[index].key
 		for view: Array in views:
@@ -14,8 +16,9 @@ func _run() -> void:
 			for frame in 4:await process_frame
 			await RenderingServer.frame_post_draw
 			viewer._viewport.get_texture().get_image().save_png(output+"/"+key+"_"+str(view[0])+".png")
-		if str(viewer._entries[index].model.style) in ["casa_moderna","andina_actual","tropical_actual"]:
-			viewer._yaw=.45;viewer._pitch=.18;viewer._update_camera()
+		if str(viewer._entries[index].model.style) in ["casa_moderna","andina_actual","tropical_actual","san_blas","valle_sagrado"] or bool(viewer._entries[index].model.get("graffiti_wall",false)):
+			viewer._yaw=PI*.5*int(viewer._entries[index].model.get("graffiti_side",1)) if bool(viewer._entries[index].model.get("graffiti_wall",false)) else .45
+			viewer._pitch=.18;viewer._update_camera()
 			for frame in 3:await process_frame
 			await RenderingServer.frame_post_draw
 			root.get_texture().get_image().save_png(output+"/comparacion_"+key+".png")

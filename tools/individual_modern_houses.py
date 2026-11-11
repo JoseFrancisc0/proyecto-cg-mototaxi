@@ -88,7 +88,16 @@ def modern_individual(v,w,d):
         box('Pantalla alta blanca',(-w*.03,front+.92,4.90),(w*.18,.26,3.80),whitewall)
         loggia(-w*.27,front+.70,3.20,w*.40,1.1,whitewall,paleglass)
         boundary=front-1.8
-        for x,ww in [(-w*.39,w*.22),(w*.30,w*.40)]:box('Muro de jardin',(x,boundary,.95),(ww,.22,1.90),whitewall)
+        gate_x=-w*.05;gate_half=1.75*.5+.09
+        for a,b in [(-w*.5,gate_x-gate_half),(gate_x+gate_half,w*.5)]:
+            height=.80 if b<gate_x else 1.90
+            box('Muro de jardin cerrado',((a+b)*.5,boundary,height*.5),(b-a,.22,height),whitewall)
+            if height<1:
+                bars=[((a,boundary,.84),(b,boundary,.84),.025),((a,boundary,1.90),(b,boundary,1.90),.025)]
+                count=math.ceil((b-a)/.115)
+                for k in range(count+1):
+                    xx=a+(b-a)*k/count;bars.append(((xx,boundary,.84),(xx,boundary,1.90),.012))
+                rail_segments('Reja cerrada de jardin',bars,iron)
         for sign in [-1,1]:box('Retorno de cerco',(sign*(w*.5-.1),front-.28,.95),(.22,3.25,1.90),whitewall)
         door(-w*.05,boundary-.08,.12,honey_wood,w=1.75,h=2.45,kind=1)
         for sign in [-1,1]:box('Pilar de portico',(sign*w*.43,boundary,1.50),(.22,.40,3.0),materials['costa'][10])
@@ -102,16 +111,21 @@ def modern_individual(v,w,d):
         box('Pabellon oscuro izquierdo',(-w*.33,d*.10,4.55),(w*.27,d*.80,5.9),indigo)
         box('Pabellon oscuro central',(-w*.01,d*.23,4.9),(w*.30,d*.53,6.6),indigo)
         box('Ala blanca',(w*.31,d*.12,4.75),(w*.36,d*.76,3.0),whitewall)
+        box('Sala frontal cerrada',(w*.10,front+1.5,4.65),(w*.60,3.0,2.98),whitewall)
+        box('Revestimiento continuo de madera',(w*.10,front-.04,4.65),(w*.54,.08,2.85),honey_wood)
         for x,y in [(-w*.33,-d*.30-.04),(-w*.01,-d*.035-.04)]:window(x,y,5.4,w*.18,2.65,False,whitewall,4,reference_curtain)
-        window(w*.31,-d*.26-.04,4.55,w*.25,2.10,False,frame,4,reference_curtain)
-        for j in range(26):box('Celosia vertical de madera',(-w*.15+j*w*.019,front-.03,4.45),(.085,.16,2.45),honey_wood)
-        box('Marco de terraza',(w*.20,front-.24,6.15),(w*.65,.70,.28),whitewall)
+        window(w*.45,-d*.26-.04,4.55,w*.08,2.10,False,frame,4,reference_curtain)
+        for j in range(26):box('Celosia vertical de madera',(-w*.15+j*w*.019,front-.10,4.65),(.085,.16,2.98),honey_wood)
+        box('Marco de terraza',(w*.10,front-.24,6.15),(w*.60+.20,.70,.28),whitewall)
         loggia(w*.26,front+1.2,6.34,w*.45,3.15,whitewall,paleglass)
         boundary=front-.65
-        for x,ww in [(-w*.43,w*.14),(-w*.11,w*.30)]:box('Muro de esquina',(x,boundary,1.25),(ww,.30,2.50),materials['costa'][10])
+        gate_x=-w*.29;gate_half=1.15*.5+.09;garage_x=w*.29;garage_half=w*.20
+        for a,b in [(-w*.5,gate_x-gate_half),(gate_x+gate_half,garage_x-garage_half),(garage_x+garage_half,w*.5)]:
+            if b-a>.01:box('Muro de esquina cerrado',((a+b)*.5,boundary,1.25),(b-a,.30,2.50),materials['costa'][10])
         door(-w*.29,boundary-.08,.14,honey_wood,w=1.15,h=2.35,kind=1)
         garage(w*.29,boundary-.07,.14,w*.40,2.35)
-        box('Retorno lateral de esquina',(-w*.49,0,1.25),(.28,d,2.50),materials['costa'][10])
+        for sign in [-1,1]:box('Retorno lateral de esquina',(sign*(w*.5-.10),-.325,1.25),(.20,d+.65,2.50),materials['costa'][10])
+        box('Cierre sobre portones',(0,boundary,2.53),(w,.30,.12),materials['costa'][10])
     if v!=0:box('Losa superior',(0,.15,6.54 if v!=3 else 3.25),(w+.10,d+.10,.18),whitewall)
     for sign in [-1,1]:
         for y in [-d*.14,d*.27]:side_opening(sign,y,1.6,1.20,1.35,frame)

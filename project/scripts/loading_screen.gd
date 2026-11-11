@@ -163,12 +163,6 @@ func _build_ui() -> void:
 	_garage_button.pressed.connect(_open_garage)
 	_navigation.add_child(_garage_button)
 	_navigation.move_child(_garage_button, _free_button.get_index() + 1)
-	var references:=Button.new();references.name="ReferenceNeighborhoodsButton";references.text="Comparar barrios"
-	references.pressed.connect(func():get_tree().change_scene_to_file("res://scenes/reference_neighborhood_viewer.tscn"))
-	_navigation.add_child(references);_navigation.move_child(references,_garage_button.get_index()+1)
-	var house_studies:=Button.new();house_studies.name="HouseStudyButton";house_studies.text="Revisar casas"
-	house_studies.pressed.connect(func():get_tree().change_scene_to_file("res://scenes/house_study_viewer.tscn"))
-	_navigation.add_child(house_studies);_navigation.move_child(house_studies,references.get_index()+1)
 	_refresh_continue()
 	_paper = _root.get_node("VersionMargin/VersionContainer/VersionLabel")
 	_paper.text = "Schott et al. (2024) · Terrain Amplification using Multi-scale Erosion"

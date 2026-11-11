@@ -4,7 +4,7 @@ Abrir `output/comparacion/index.html`. Contiene 18 familias de barrios y cuatro 
 
 ## Recursos activos
 
-- 72 viviendas, 24 por región. Costa: ladera, popular, Barranco/tradicional, residencial, moderna y rural. Sierra: urbana, San Blas/tradicional, valle residencial, contemporánea, adobe rural y ladera. Selva: popular urbana, Iquitos tradicional, residencial, contemporánea tropical, comunidad rural y ribereña.
+- 76 viviendas: 28 en costa y 24 en cada una de sierra y selva. Costa: ladera, popular, Barranco/tradicional, residencial, moderna y rural. Sierra: urbana, San Blas/tradicional, valle residencial, contemporánea, adobe rural y ladera. Selva: popular urbana, Iquitos tradicional, residencial, contemporánea tropical, comunidad rural y ribereña.
 - Biblioteca de 60 superficies fotográficas originales de Poly Haven, 20 por región. Se eligen por función arquitectónica; no se fuerza su uso para cumplir una cantidad. Autores y CC0 en `project/assets/houses/peru/materials/catalog.json`. El nombre heredado `dimensions_cm` contiene los milímetros de la API; el generador convierte correctamente a metros.
 - Las pintadas activas son trazos de pintura sobre el muro, con capas y goteos, sin el logotipo rectangular anterior. Los cuatro diseños CC0 descargados se conservan como biblioteca, pero ya no se colocan automáticamente. La basura se agrupa en pocos puntos, con bolsas, cartones, papeles y botellas de formas diferentes.
 - Cuatro carrocerías nuevas modeladas en Blender, con paneles, cristales, interior y llantas independientes. No utilizan las proyecciones fotográficas deformadas de la versión anterior.

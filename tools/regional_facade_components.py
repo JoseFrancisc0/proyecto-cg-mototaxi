@@ -191,7 +191,7 @@ def facade_details(style,v,w,d,base,level,floors,region):
         else:
             for j in range(11):box('Celosia vertical',(w*.30+j*.13,-d*.5-.18,base+1.25),(.055,.22,2.5),joinery[1])
     if style in ['san_blas','valle_sagrado','adobe','andina_ladera']:
-        if style in ['san_blas','valle_sagrado'] and v%2:
+        if style in ['san_blas','valle_sagrado'] and v%2 and floors>1:
             balcony(w*.76,-d*.5-.55,base+level,joinery[4] if style=='san_blas' else joinery[0],1 if v==1 else 2)
         if style in ['adobe','andina_ladera']:
             for j in range(4):pole('Viga saliente',(-w*.40+j*w*.26,-d*.5+.15,top),(-w*.40+j*w*.26,-d*.5-.45,top),.065,joinery[0])

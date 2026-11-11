@@ -58,11 +58,12 @@ func build(w: TerrainWorld) -> void:
 		var front:=Node3D.new();front.transform=Transform3D(Basis(Vector3.UP,float(house.yaw)),house.position);add_child(front)
 		var size: Vector3=house.size
 		if district in ["popular","ladera"]:
-			if _rng.randf()<.22:
+			if _rng.randf()<.22 and not bool(world.houses._models[int(house.model)].model.get("graffiti_wall",false)):
 				# Painted boundary wall; avoid pasting art over house joinery.
 				var side:=-1.0 if _rng.randf()<.5 else 1.0
-				var wall:=Node3D.new();wall.position=Vector3(side*(size.x*.5+.05),0,size.z*.22);wall.rotation.y=side*PI*.5;front.add_child(wall)
-				add_graffiti(wall,Vector3(0,.52,0),Vector2(minf(3.8,size.z*.65),.70))
+				var info:=TerrainHouses.load_model(world.houses._models[int(house.model)].model)
+				var wall:=Node3D.new();wall.position=(info.foundation_center as Vector3)+Vector3(side*((info.foundation_size as Vector2).x*.5+.012),0,0);wall.rotation.y=side*PI*.5;front.add_child(wall)
+				add_graffiti(wall,Vector3(0,.52,0),Vector2(minf(3.8,(info.foundation_size as Vector2).y*.65),.70))
 			# Local accumulation points, rather than evenly scattering litter at every door.
 			if _rng.randf()<.09:
 				var corner:=(-1.0 if _rng.randf()<.5 else 1.0)*size.x*.40
@@ -73,7 +74,13 @@ func build(w: TerrainWorld) -> void:
 			for side in [-1,1]:
 				var p:=Vector3(side*size.x*.34,0,size.z*.5+.32);var global:=front.to_global(p);p.y=world.get_height(global.x,global.z)-front.position.y
 				if world.get_offroad_amount(global.x,global.z)<.99 or world.is_water(global.x,global.z):continue
-				_box(front,p+Vector3.UP*.22,Vector3(size.x*.25,.44,.50),Color("777b70"))
+				var bottom:=p.y
+				for corner in [Vector3(-1,0,-1),Vector3(-1,0,1),Vector3(1,0,-1),Vector3(1,0,1)]:
+					var sample:=front.to_global(p+corner*Vector3(size.x*.125,0,.25))
+					bottom=minf(bottom,world._sample_height(sample.x,sample.z)-front.position.y)
+				bottom-=.03
+				var top:=p.y+.44
+				_box(front,Vector3(p.x,(top+bottom)*.5,p.z),Vector3(size.x*.25,top-bottom,.50),Color("777b70"))
 				for i in 4:
 					var bush:=SphereMesh.new();bush.radius=.21;bush.height=.45;bush.radial_segments=10;bush.rings=6
 					_mesh(front,bush,p+Vector3((i-1.5)*size.x*.055,.55,0),Color("3b6541"))
