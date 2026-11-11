@@ -16,14 +16,15 @@ extends Node3D
 ## entonces se pierden la partida guardada y sus ahorros (las mototaxis compradas se quedan).
 ## La pantalla final permite reintentar en el mismo mapa. M (o Back del mando) abre el mapa completo (FullMap) y pausa el juego.
 ## Durante la partida, Esc / P / Start abre el menú de pausa (PauseMenu): continuar, guardar,
-## reiniciar el turno o volver al menú principal sin tener que perder.
+## reiniciar la partida, cambiar de mototaxi (Garaje) o volver al menú principal sin perder.
 ##
 ## Guardar partida (CareerSave.save_game) guarda el mundo elegido (semilla o terreno del
 ## editor), el día, el reloj, lo ganado, la vida y dónde está la mototaxi; también se guarda
 ## solo al completar cada día. "Continuar" en el menú principal regenera ese mismo mundo y
 ## sigue desde ahí (el viaje en curso no se guarda: se empieza con un pasajero nuevo).
 ##
-## Hay una sola carrera (sin "Nueva partida"). El escenario (terreno, región, calidad) se cambia
+## Hay una sola carrera: "Nueva partida" en el menú principal (o "Reiniciar partida" en la pausa)
+## la borra y empieza el día 1. El escenario (terreno, región, calidad) se cambia
 ## al terminar el día (el día siguiente empieza ahí, con los ahorros), al perder o al reiniciar
 ## desde la pausa (día 1): se recarga la escena con CareerSave.launch y se genera el mapa nuevo
 ## sin pasar por la portada. Modo libre: explorar el terreno sin pasajeros, reloj ni dinero, con

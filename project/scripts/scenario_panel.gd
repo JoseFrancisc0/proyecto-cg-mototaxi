@@ -2,6 +2,8 @@ class_name ScenarioPanel
 extends PanelContainer
 ## Panel para elegir el escenario dentro de la partida (fin del día, fin de partida, pausa):
 ## un aviso, el ScenarioPicker y "confirmar" / "Volver". Lo usan GameOverScreen y PauseMenu.
+## El picker va en un ScrollContainer: el panel nunca pasa del alto de la pantalla y los
+## botones de abajo siempre se ven.
 
 signal confirmed(choice: Dictionary)
 signal cancelled
@@ -13,6 +15,8 @@ var _title: Label
 var _note: Label
 var _error: Label
 var _confirm: Button
+var _layout: VBoxContainer
+var _scroll: ScrollContainer
 
 
 func _init() -> void:
@@ -27,6 +31,7 @@ func _init() -> void:
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 12)
 	add_child(layout)
+	_layout = layout
 	_title = Label.new()
 	_title.add_theme_font_size_override("font_size", 30)
 	_title.add_theme_color_override("font_color", YELLOW)
@@ -35,8 +40,12 @@ func _init() -> void:
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_note.add_theme_font_size_override("font_size", 17)
 	layout.add_child(_note)
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layout.add_child(_scroll)
 	picker = ScenarioPicker.new()
-	layout.add_child(picker)
+	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(picker)
 	_error = Label.new()
 	_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_error.add_theme_font_size_override("font_size", 16)
@@ -69,10 +78,29 @@ func open(title: String, note: String, confirm_text: String, choice: Dictionary,
 	_confirm.text = confirm_text
 	_error.text = ""
 	picker.set_choice(choice)
-	var v := get_viewport().get_visible_rect().size if is_inside_tree() else Vector2(1280, 720)
-	custom_minimum_size.x = clampf(v.x - 80.0, 320.0, 640.0)
 	visible = true
+	_fit()
+	_fit.call_deferred()  # De nuevo cuando el texto del aviso ya tiene su alto final.
 	_confirm.grab_focus()
+
+
+func _ready() -> void:
+	get_viewport().size_changed.connect(func(): if visible: _fit())
+	picker.minimum_size_changed.connect(func(): if visible: _fit.call_deferred())
+	_note.minimum_size_changed.connect(func(): if visible: _fit.call_deferred())
+
+
+## Ancho para las cuatro tarjetas en fila si cabe; alto del scroll = lo que sobra de la pantalla.
+func _fit() -> void:
+	if not is_inside_tree():
+		return
+	var v := get_viewport().get_visible_rect().size
+	custom_minimum_size.x = clampf(v.x - 80.0, 320.0, 960.0)
+	var others := _layout.get_combined_minimum_size().y - _scroll.custom_minimum_size.y
+	var margins := 40.0 + 4.0  # Contenido del panel (20 arriba y abajo) y borde.
+	var room := v.y - 40.0 - margins - others
+	_scroll.custom_minimum_size.y = clampf(picker.get_combined_minimum_size().y, 120.0, maxf(room, 120.0))
+	reset_size()
 
 
 func confirm() -> void:

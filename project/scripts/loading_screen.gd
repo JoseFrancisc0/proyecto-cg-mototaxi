@@ -15,7 +15,7 @@ var _home: Control
 var _hero: Control
 var _navigation: BoxContainer
 var _continue_game: Button   ## "Continuar · Día N": en lugar de "Jugar" si hay partida guardada.
-var _new_game: Button        ## "Jugar": solo sin partida guardada (hay una sola carrera).
+var _new_game: Button        ## "Jugar", o "Nueva partida" si hay una guardada (la reemplaza).
 var _free_button: Button     ## Modo libre: explorar escenarios sin cuota ni dinero.
 var _garage_button: Button   ## Garaje: comprar y elegir mototaxi, con o sin partida guardada.
 var _vehicle_note: Label     ## En "Jugar" y "Modo libre": qué mototaxi se usará.
@@ -437,17 +437,22 @@ func _open_panel(title: String) -> void:
 	_dialog_close.grab_focus()
 	_responsive()
 
-## Configuración de la carrera (solo sin partida guardada: hay una sola carrera). free: Modo libre.
+## Configuración de la carrera. Con partida guardada es "Nueva partida": avisa que la reemplaza
+## (día 1, sin ahorros; las mototaxis compradas se quedan). free: Modo libre.
 func _open_setup(free := false) -> void:
 	_free_setup = free
 	_picker.free_mode = free
 	_picker.lock_difficulty(false)
-	_open_panel("Modo libre" if free else "Jugar")
+	var replaces := not free and CareerSave.has_game()
+	_open_panel("Modo libre" if free else ("Nueva partida" if replaces else "Jugar"))
 	_notice.hide()
-	_play.text = "Explorar" if free else "Iniciar"
+	_play.text = "Explorar" if free else ("Empezar de cero" if replaces else "Iniciar")
 	_vehicle_note.text = "Mototaxi: %s  ·  cámbiala en el Garaje" % VehicleCatalog.entry(CareerSave.get_active()).name
 	if free:
 		_vehicle_note.text += "\nSin pasajeros, sin reloj ni dinero: recorre el terreno a tu ritmo. No toca tu carrera."
+	elif replaces:
+		var save := CareerSave.load_game()
+		_vehicle_note.text += "\nReemplaza tu partida guardada (día %d) y sus ahorros (S/ %.2f): empiezas en el día 1. Las mototaxis compradas se quedan." % [int(save.get("day", 1)), CareerSave.get_savings()]
 	_menu.show()
 	_play.show()
 	_responsive()
@@ -544,14 +549,13 @@ func show_menu(choice: Dictionary) -> void:
 func _focus_first() -> void:
 	(_continue_game if _continue_game.visible else _new_game).grab_focus()
 
-## Hay una sola carrera: con partida guardada, "Continuar · Día N" reemplaza a "Jugar"
-## (para empezar de cero está "Reiniciar partida" en la pausa).
+## Hay una sola carrera: con partida guardada aparece "Continuar · Día N" y "Jugar" pasa a ser
+## "Nueva partida" (empieza de cero, como "Reiniciar partida" en la pausa).
 func _refresh_continue() -> void:
 	var save := CareerSave.load_game()
 	_continue_game.visible = not save.is_empty()
 	_continue_game.text = "Continuar · Día %d" % int(save.get("day", 1))
-	_new_game.visible = not _continue_game.visible
-	_new_game.text = "Jugar"
+	_new_game.text = "Nueva partida" if _continue_game.visible else "Jugar"
 
 ## Sigue la partida guardada: el mismo mundo (semilla o terreno del editor), con la mototaxi
 ## elegida en el garaje.
@@ -575,11 +579,9 @@ func _on_play() -> void:
 		_notice.text = error
 		_notice.show()
 		return
-	# La carrera es una sola: "Jugar" no borra una partida guardada (se sigue con Continuar).
+	# La carrera es una sola: "Nueva partida" (el panel ya lo avisa) borra la guardada.
 	if not _free_setup and CareerSave.has_game():
-		_notice.text = "Ya tienes una partida en curso: síguela con Continuar."
-		_notice.show()
-		return
+		CareerSave.clear_game()
 	_starting = true
 	_play.disabled = true
 	start_requested.emit(_current_choice())

@@ -782,3 +782,9 @@ para que Godot registre la clase.
   hecha por código que para en paraderos, camioneta y camión de Quaternius (CC0, `assets/traffic/`). Frenan,
   esquivan obstáculos fijos, siguen por otras vías; chocarlos = razón `"vehiculo"`. `--trafico=F`. Prueba
   `tests/test_trafico.gd`, capturas `tests/capture_trafico.gd`.
+- **2026-11-10** — Menús (reportado por el usuario): "Reiniciar partida" de la pausa no dejaba llegar
+  a "Empezar de cero" (el panel del escenario era más alto que la pantalla); ahora `ScenarioPanel`
+  pone el selector en un scroll y los botones siempre se ven (también al terminar el día). El menú
+  principal con partida guardada muestra "Continuar · Día N" y "Nueva partida" (avisa que reemplaza
+  la guardada). La pausa de la carrera tiene "Garaje" como el Modo libre (cambiar no repara la vida).
+  Capturas: `tests/capture_menus.gd` → `output/ui_review/menus_*.png`.

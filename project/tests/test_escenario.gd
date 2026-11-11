@@ -67,8 +67,29 @@ func _run() -> void:
 	_check(is_equal_approx(CareerSave.get_savings(), 5.0), "con los ahorros (S/ %.2f)" % CareerSave.get_savings())
 	_check(int(CareerSave.load_game()["choice"]["region"]) == 2, "la partida guardada recuerda el escenario nuevo")
 
-	print("-- Reiniciar desde la pausa en otro escenario")
+	print("-- Garaje en la pausa de la carrera")
 	main.pause()
+	var before: int = main.moto.vehicle_index
+	var swap: int = (before + 1) % VehicleCatalog.VEHICLES.size()
+	CareerSave.add_savings(100000.0)
+	CareerSave.buy(swap)
+	CareerSave.set_active(before)
+	main.moto.apply_damage(30.0, "test")
+	var hp: float = main.moto.health
+	main.pause_menu.open()
+	_check(main.pause_menu._garage_button.visible, "la pausa de la carrera tiene Garaje")
+	main.pause_menu.open_garage()
+	main.pause_menu.garage.select_vehicle(swap)
+	main.pause_menu.garage._on_use()
+	main.pause_menu._close_scenario()  # "Volver"
+	_check(main.moto.vehicle_index == swap, "al volver maneja la otra mototaxi")
+	_check(is_equal_approx(main.moto.health, hp), "con la misma vida (%.0f): cambiar no repara" % main.moto.health)
+	_check(main.session.day == 2, "y sigue el mismo día")
+	CareerSave.set_active(before)
+	main.pause_menu.open_garage()
+	main.pause_menu._close_scenario()
+
+	print("-- Reiniciar desde la pausa en otro escenario")
 	main.pause_menu.open_scenario()
 	_check(main.pause_menu._scenario.visible, "la pausa muestra el escenario al reiniciar")
 	main.pause_menu._scenario.picker.region.select(1)  # Costa

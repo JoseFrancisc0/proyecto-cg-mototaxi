@@ -5,8 +5,8 @@ extends CanvasLayer
 ## al menú principal sin tener que perder, y volumen general del juego.
 ## "Reiniciar partida" abre el escenario (ScenarioPanel): a mitad del día no se cambia de mapa,
 ## pero al reiniciar se puede empezar de cero en otro; el botón del panel confirma.
-## En Modo libre (free_mode) no hay guardar: "Cambiar escenario", "Garaje" (cambiar de mototaxi
-## al momento) y "Volver al inicio".
+## "Garaje": cambiar de mototaxi al momento (o comprar con los ahorros); la vida no cambia.
+## En Modo libre (free_mode) no hay guardar: "Cambiar escenario" y "Volver al inicio".
 ## Main abre y cierra el menú y pausa el árbol; este nodo sigue activo durante la pausa.
 
 signal resume_requested
@@ -32,6 +32,7 @@ var _box: VBoxContainer
 var _scenario: ScenarioPanel
 var _garage_button: Button
 var _garage_panel: PanelContainer
+var _garage_scroll: ScrollContainer
 var garage: VehicleGarage
 ## Modo libre: sin guardar; se cambia de escenario directamente.
 var free_mode := false
@@ -125,7 +126,6 @@ func open() -> void:
 	_save_status.text = ""
 	_save.visible = not free_mode
 	_respawn.visible = free_mode
-	_garage_button.visible = free_mode
 	_restart.text = "Cambiar escenario" if free_mode else "Reiniciar partida"
 	_continue.grab_focus()
 
@@ -157,13 +157,24 @@ func _close_scenario() -> void:
 		_box.visible = true
 
 
-## Garaje del Modo libre: el mismo del menú principal; al volver se usa la mototaxi elegida.
+## Garaje: el mismo del menú principal; al volver se usa la mototaxi elegida.
 func open_garage() -> void:
 	var v := get_viewport().get_visible_rect().size
-	garage.custom_minimum_size.x = clampf(v.x - 80.0, 320.0, 900.0)
+	garage.custom_minimum_size.x = clampf(v.x - 100.0, 300.0, 900.0)
 	garage.refresh()
 	_box.visible = false
 	_garage_panel.visible = true
+	_fit_garage.call_deferred()
+
+
+## El garaje con scroll si no cabe: "Volver" siempre a la vista.
+func _fit_garage() -> void:
+	if not is_inside_tree() or not _garage_panel.visible:
+		return
+	var v := get_viewport().get_visible_rect().size
+	var room := v.y - 40.0 - 44.0 - 48.0 - 14.0  # Márgenes, borde, "Volver" y separación.
+	_garage_scroll.custom_minimum_size.y = clampf(garage.get_combined_minimum_size().y, 150.0, maxf(room, 150.0))
+	_garage_panel.reset_size()
 
 
 func _build_garage(parent: Control) -> void:
@@ -180,9 +191,14 @@ func _build_garage(parent: Control) -> void:
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 14)
 	_garage_panel.add_child(layout)
+	_garage_scroll = ScrollContainer.new()
+	_garage_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layout.add_child(_garage_scroll)
 	garage = VehicleGarage.new()
 	garage.custom_minimum_size = Vector2(900, 0)
-	layout.add_child(garage)
+	garage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	garage.minimum_size_changed.connect(func(): if _garage_panel.visible: _fit_garage.call_deferred())
+	_garage_scroll.add_child(garage)
 	var back := Button.new()
 	back.text = "Volver"
 	back.custom_minimum_size = Vector2(0, 48)

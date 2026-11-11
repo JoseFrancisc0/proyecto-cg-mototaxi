@@ -68,13 +68,12 @@ func _run() -> void:
 	loading._close_dialog()
 	loading._open_setup()
 	_check(loading._vehicle_note.text.contains(VehicleCatalog.entry(3).name), "la configuración dice qué mototaxi se usa")
-	loading._on_play()
-	_check(loading._notice.visible and loading._notice.text.contains("Continuar") and not loading._starting, "con partida guardada no se empieza otra (una sola carrera)")
+	_check(loading._dialog_title.text == "Nueva partida" and loading._play.text == "Empezar de cero" and loading._vehicle_note.text.contains("Reemplaza tu partida guardada"), "con partida guardada, Nueva partida avisa que la reemplaza")
 	loading._close_dialog()
 
 	print("-- Continuar desde el menú")
 	_check(loading._continue_game.visible and loading._continue_game.text == "Continuar · Día 3", "el menú ofrece \"%s\"" % loading._continue_game.text)
-	_check(not loading._new_game.visible, "sin \"Nueva partida\" ni \"Jugar\"")
+	_check(loading._new_game.visible and loading._new_game.text == "Nueva partida", "y también \"Nueva partida\"")
 	_check(loading._free_button.visible and loading._free_button.text == "Modo libre", "con Modo libre")
 	loading._on_continue()
 	while not main.hud.visible:
